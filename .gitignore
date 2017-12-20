@@ -1,6 +1,9 @@
 # Application
 *.out
 
+# IDEA
+idea
+
 # Prerequisites
 *.d
 
@@ -37,5 +40,6 @@
 # CMake
 cmake-build-debug
 CMakeCache.txt
+CMakeFiles
 *.cmake
 *.cbp
