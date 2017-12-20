@@ -2,7 +2,7 @@
 *.out
 
 # IDEA
-idea
+.idea
 
 # Prerequisites
 *.d
