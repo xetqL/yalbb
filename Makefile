@@ -56,17 +56,6 @@ CMAKE_BINARY_DIR = /home/xetql/Dropbox/projects/cpp/nbody/nbmpi
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target rebuild_cache
-rebuild_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/usr/local/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : rebuild_cache
-
-# Special rule for the target rebuild_cache
-rebuild_cache/fast: rebuild_cache
-
-.PHONY : rebuild_cache/fast
-
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
@@ -77,6 +66,17 @@ edit_cache:
 edit_cache/fast: edit_cache
 
 .PHONY : edit_cache/fast
+
+# Special rule for the target rebuild_cache
+rebuild_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
+	/usr/local/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : rebuild_cache
+
+# Special rule for the target rebuild_cache
+rebuild_cache/fast: rebuild_cache
+
+.PHONY : rebuild_cache/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -137,19 +137,6 @@ build_tests_space_partitioning/fast:
 .PHONY : build_tests_space_partitioning/fast
 
 #=============================================================================
-# Target rules for targets named build
-
-# Build rule for target.
-build: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build
-.PHONY : build
-
-# fast build rule for target.
-build/fast:
-	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
-.PHONY : build/fast
-
-#=============================================================================
 # Target rules for targets named build_tests_utils
 
 # Build rule for target.
@@ -161,6 +148,32 @@ build_tests_utils: cmake_check_build_system
 build_tests_utils/fast:
 	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
 .PHONY : build_tests_utils/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_lb
+
+# Build rule for target.
+build_tests_lb: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_lb
+.PHONY : build_tests_lb
+
+# fast build rule for target.
+build_tests_lb/fast:
+	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/build
+.PHONY : build_tests_lb/fast
+
+#=============================================================================
+# Target rules for targets named build
+
+# Build rule for target.
+build: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build
+.PHONY : build
+
+# fast build rule for target.
+build/fast:
+	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
+.PHONY : build/fast
 
 src/nbmpi.o: src/nbmpi.cpp.o
 
@@ -188,6 +201,33 @@ src/nbmpi.s: src/nbmpi.cpp.s
 src/nbmpi.cpp.s:
 	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/src/nbmpi.cpp.s
 .PHONY : src/nbmpi.cpp.s
+
+tests/test_load_balancer.o: tests/test_load_balancer.cpp.o
+
+.PHONY : tests/test_load_balancer.o
+
+# target to build an object file
+tests/test_load_balancer.cpp.o:
+	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/tests/test_load_balancer.cpp.o
+.PHONY : tests/test_load_balancer.cpp.o
+
+tests/test_load_balancer.i: tests/test_load_balancer.cpp.i
+
+.PHONY : tests/test_load_balancer.i
+
+# target to preprocess a source file
+tests/test_load_balancer.cpp.i:
+	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/tests/test_load_balancer.cpp.i
+.PHONY : tests/test_load_balancer.cpp.i
+
+tests/test_load_balancer.s: tests/test_load_balancer.cpp.s
+
+.PHONY : tests/test_load_balancer.s
+
+# target to generate assembly for a file
+tests/test_load_balancer.cpp.s:
+	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/tests/test_load_balancer.cpp.s
+.PHONY : tests/test_load_balancer.cpp.s
 
 tests/test_spatial_partitioning.o: tests/test_spatial_partitioning.cpp.o
 
@@ -249,15 +289,19 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... rebuild_cache"
-	@echo "... tests"
 	@echo "... edit_cache"
+	@echo "... tests"
 	@echo "... build_tests_space_partitioning"
-	@echo "... build"
 	@echo "... build_tests_utils"
+	@echo "... rebuild_cache"
+	@echo "... build_tests_lb"
+	@echo "... build"
 	@echo "... src/nbmpi.o"
 	@echo "... src/nbmpi.i"
 	@echo "... src/nbmpi.s"
+	@echo "... tests/test_load_balancer.o"
+	@echo "... tests/test_load_balancer.i"
+	@echo "... tests/test_load_balancer.s"
 	@echo "... tests/test_spatial_partitioning.o"
 	@echo "... tests/test_spatial_partitioning.i"
 	@echo "... tests/test_spatial_partitioning.s"

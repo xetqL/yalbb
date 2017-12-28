@@ -24,7 +24,8 @@ int main(int argc, char** argv){
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
                     double x = dist(gen), y = dist(gen);
-                    points.push_back({x,y});
+                    const Element<2> e({x, y}, {0.0, 0.0});
+                    points.push_back(e);
                 }
 
                 //apply bisection

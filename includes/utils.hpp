@@ -8,7 +8,7 @@
 #include <vector>
 #include <stdexcept>
 
-namespace partitioning { namespace utils{
+namespace partitioning { namespace utils {
         template<typename A, typename B>
         const std::vector<std::pair<A, B>> zip(const std::vector<A>& a, const std::vector<B>& b){
             std::vector<std::pair<A,B>> zipAB;
