@@ -3,7 +3,6 @@
 //
 
 #include <cppcheck/cppcheck.hpp>
-#include <iostream>
 #include <mpi.h>
 
 #include "../includes/utils.hpp"
@@ -28,23 +27,30 @@ int main(int argc, char **argv) {
     int elements = 100;
 
     //generate the same 2D points on all processing elements
-    std::vector<Element<2>> points;
-    std::vector<Element<2>> recipient(elements);
+    std::vector<elements::Element<2>> points;
+    std::vector<elements::Element<2>> recipient(elements);
     for (int i = 0; i < elements; ++i) {
         const double x = dist(gen), y = dist(gen);
-        const Element<2> e({x, y}, {0.1, 2.0});
+        const elements::Element<2> e({x, y}, {0.1, 2.0});
         points.push_back(e);
     }
-    SeqSpatialBisection<2> partitioner;
-    load_balancing::GeometricLoadBalancer<2> geometric_lb(partitioner, MPI_COMM_WORLD);
+    std::array<std::pair<double ,double>, 2> domain_boundary = {
+            std::make_pair(0.0, 1.0),
+            std::make_pair(0.0, 1.0),
+    };
     // One is able to send a vector of 2D element to another processing element
-    auto element2d_exchanged_correctly = std::make_shared<UnitTest<std::vector<Element<2>>>>
-            ("Element 2d exchange correctly performed", [&elements, &points, &rank, &geometric_lb] {
-                std::vector<Element<2>> recipient(elements);
+    auto element2d_exchanged_correctly = std::make_shared<UnitTest<std::vector<elements::Element<2>>>>
+            ("elements::Elements 2d exchange correctly performed", [&points, &rank] {
+                SeqSpatialBisection<2> partitioner;
+                load_balancing::geometric::GeometricLoadBalancer<2> load_balancer(partitioner, MPI_COMM_WORLD);
+                std::vector<elements::Element<2>> recipient(points.size());
+
                 if (rank == 1) // send generated points
-                    MPI_Send(&points.front(), elements, geometric_lb.get_element_datatype(), 0, 1, MPI_COMM_WORLD);
-                else // retrieve sent points
-                    MPI_Recv(&recipient.front(), elements, geometric_lb.get_element_datatype(), 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Send(&points.front(), points.size(), load_balancer.get_element_datatype(), 0, 1, MPI_COMM_WORLD);
+                else if (rank == 0) // retrieve sent points
+                    MPI_Recv(&recipient.front(), recipient.size(), load_balancer.get_element_datatype(), 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                load_balancer.stop();
                 return recipient;
             }, [&points, &rank](auto received_data) {
                 bool same = true;
@@ -56,38 +62,94 @@ int main(int argc, char **argv) {
             });
 
     //do the same for 3d points
-    int elements3d = 100;
-    std::vector<Element<3>> points3d;
-    std::vector<Element<3>> recipient3d(elements3d);
+    std::vector<elements::Element<3>> points3d;
+    std::vector<elements::Element<3>> recipient3d(elements);
 
-    for (int i = 0; i < elements3d; ++i) {
+    for (int i = 0; i < elements; ++i) {
         const double x = dist(gen), y = dist(gen), z = dist(gen);
-        const Element<3> e({x, y, z}, {0.1, 2.0, 1.0});
+        const elements::Element<3> e({x, y, z}, {x*x, x-y, x+z*y});
         points3d.push_back(e);
     }
-    SeqSpatialBisection<3> partitioner3d;
-    load_balancing::GeometricLoadBalancer<3> geometric_lb3d(partitioner3d, MPI_COMM_WORLD);
 
-    // One is able to send a vector of 2D element to another processing element
-    auto element3d_exchanged_correctly = std::make_shared<UnitTest<std::vector<Element<3>>>>
-            ("Element 3d exchange correctly performed", [&elements3d, &points3d, &rank, &geometric_lb3d] {
-                std::vector<Element<3>> recipient(elements3d);
+    // One is able to send a vector of 3D element to another processing element
+    auto element3d_exchanged_correctly = std::make_shared<UnitTest<std::vector<elements::Element<3>>>>
+            ("elements::Elements 3d exchange correctly performed", [&points3d, &rank] {
+                SeqSpatialBisection<3> rcb_partitioner;
+                load_balancing::geometric::GeometricLoadBalancer<3> load_balancer(rcb_partitioner, MPI_COMM_WORLD);
+                std::vector<elements::Element<3>> recipient(points3d.size());
                 if (rank == 1) // send generated points
-                    MPI_Send(&points3d.front(), elements3d, geometric_lb3d.get_element_datatype(), 0, 1, MPI_COMM_WORLD);
+                    MPI_Send(&points3d.front(), points3d.size(), load_balancer.get_element_datatype(), 0, 1, MPI_COMM_WORLD);
                 else // retrieve sent points
-                    MPI_Recv(&recipient.front(), elements3d, geometric_lb3d.get_element_datatype(), 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(&recipient.front(), recipient.size(), load_balancer.get_element_datatype(), 1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                load_balancer.stop();
                 return recipient;
             }, [&points3d, &rank](auto received_data) {
                 bool same = true;
-                if(rank == 0) // Check if what has been received is what has been generated earlier
+                if(rank == 0) // Check if what has been received is what has been generated
                     for(size_t i = 0; i < received_data.size(); ++i){
                         same = points3d.at(i) == received_data.at(i) ? same : false;
+
                     }
+                return same;
+            });
+    SeqSpatialBisection<2> partitioner;
+    load_balancing::geometric::GeometricLoadBalancer<2> load_balancer(partitioner, MPI_COMM_WORLD);
+
+    auto load_balancer_exchange_data = std::make_shared<UnitTest<std::vector<elements::Element<2> > > >
+            ("Data are divided among the processing elements", [&load_balancer, &points, &domain_boundary, &rank]{
+                std::vector<elements::Element<2>> recipient(points.begin(), points.end());
+                if(rank != 0) recipient.clear();
+                load_balancer.load_balance(recipient, domain_boundary);
+                return recipient;
+            }, [&points, &load_balancer,&rank](auto recipient) {
+                bool same = true;
+                std::vector<elements::Element<2>> control(points.size());
+                MPI_Gather(&recipient.front(), recipient.size(), load_balancer.get_element_datatype(), &control.front(), recipient.size(), load_balancer.get_element_datatype(), 0, MPI_COMM_WORLD);
+                if(rank == 0) // Check if what has been received is what has been generated
+                    same = std::all_of(control.begin(), control.end(), [&points](auto const& el) {return std::find(points.begin(), points.end(), el) != points.end(); }) ;
+
+                return same;
+            });
+
+    auto after_load_balancing_processing_elements_have_data_to_compute = std::make_shared<UnitTest<std::vector<elements::Element<2> > > >
+            ("All the processing elements have something to compute", [&load_balancer, &points, &domain_boundary, &rank]{
+                std::vector<elements::Element<2>> recipient(points.begin(), points.end());
+                if(rank != 0) recipient.clear();
+                load_balancer.load_balance(recipient, domain_boundary);
+                return recipient;
+            }, [&points, &load_balancer,&rank, &world](auto recipient) {
+                bool same = true;
+                int recipient_not_empty = recipient.size() > 0 ? 1 : 0;
+                std::vector<int> control(world);
+                MPI_Gather(&recipient_not_empty, 1, MPI_INT, &control.front(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+                if(rank == 0){ // Check if what has been received is what has been generated
+                    same = std::accumulate(control.begin(), control.end(), 0) == world ? true : false;
+                }
+                return same;
+            });
+
+    auto processing_elements_have_real_data = std::make_shared<UnitTest<std::vector<elements::Element<2> > > >
+            ("Real data are exchanged between the processing elements", [&load_balancer, &points, &domain_boundary, &rank]{
+                std::vector<elements::Element<2>> recipient(points.begin(), points.end());
+                if(rank != 0) recipient.clear();
+                load_balancer.load_balance(recipient, domain_boundary);
+                return recipient;
+            }, [&points, &load_balancer,&rank,&world](auto recipient) {
+                bool same = true;
+                int recipient_contain_data = std::all_of(recipient.begin(), recipient.end(), [&points](auto const& el) {return std::find(points.begin(), points.end(), el) != points.end(); }) ? 1 : 0;
+                std::vector<int> control(world);
+                MPI_Gather(&recipient_contain_data, 1, MPI_INT, &control.front(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+                if(rank == 0){ // Check if what has been received is what has been generated
+                    same = std::accumulate(control.begin(), control.end(), 0) == world ? true : false;
+                }
                 return same;
             });
 
     runner.add_test(element2d_exchanged_correctly);
     runner.add_test(element3d_exchanged_correctly);
+    runner.add_test(after_load_balancing_processing_elements_have_data_to_compute);
+    runner.add_test(processing_elements_have_real_data);
+    runner.add_test(load_balancer_exchange_data);
 
     runner.run();
 
@@ -95,7 +157,8 @@ int main(int argc, char **argv) {
         runner.summarize();
         passed = runner.are_tests_passed();
     }
-    geometric_lb.stop();
+
+    load_balancer.stop();
     MPI_Finalize();
     return passed;
 }

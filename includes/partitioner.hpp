@@ -9,10 +9,11 @@
 #include <memory>
 
 namespace partitioning {
-    template<typename PartitionsType, typename DataTypeContainer>
+    template<typename PartitionsType, typename DataTypeContainer, typename DomainContainer>
     class Partitioner {
     public:
         virtual std::unique_ptr<PartitionsType> partition_data(DataTypeContainer spatial_data,
+                                                               DomainContainer   &domain_boundary,
                                                                int number_of_partitions) const = 0;
     };
 }

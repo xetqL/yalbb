@@ -13,64 +13,46 @@
 
 #include "utils.hpp"
 #include "partitioner.hpp"
+#include "spatial_elements.hpp"
 
 namespace partitioning { namespace geometric {
-
     using PartitionID=int;
 
     template<int N>
-    struct Element {
-        std::array<double, N> position,  velocity;
-        constexpr Element(std::array<double, N> p, std::array<double, N> v) : position(p), velocity(v){}
-        constexpr Element() {
-            std::fill(velocity.begin(), velocity.end(), 0.0);
-            std::fill(position.begin(), position.end(), 0.0);
-        }
-        static constexpr int size() {
-            return N * 2.0;
-        }
+    using Domain = std::array<std::pair<double, double>, N>;
 
-        /**
-         * Equality of two elements regarding the VALUE of their properties
-         * @param rhs another element
-         * @return true if the position and the velocity of the two elements are equals
-         */
-        bool operator==(const Element &rhs) const {
-            return position == rhs.position && velocity == rhs.velocity;
-        }
+    template<int N>
+    struct PartitionInfo{
+        using Domain=std::array<std::pair<double, double>, N>; //One range per dimension
+        const PartitionID part_id;
+        const std::vector<elements::Element<N>> elements;
+        const Domain domain;
+    };
 
-        bool operator!=(const Element &rhs) const {
-            return !(rhs == *this);
-        }
-
-        friend std::ostream &operator<<(std::ostream &os, const Element &element) {
-            std::string pos = "("+std::to_string(element.position.at(0));
-            for(int i = 1; i < N; i++){
-                pos += "," + std::to_string(element.position.at(i));
-            }
-            pos += ")";
-            std::string vel = "("+std::to_string(element.velocity.at(0));
-            for(int i = 1; i < N; i++){
-                vel += "," + std::to_string(element.velocity.at(i));
-            }
-            vel += ")";
-            os << "position: " << pos << " velocity: " << vel;
-            return os;
-        }
-
+    template<int N>
+    struct PartitionsInfo2 {
+        const std::vector<PartitionInfo<N>> parts;
+        PartitionsInfo2(const std::vector<PartitionInfo<N>> &partitions) : parts(partitions){}
     };
 
     template<int N>
     struct PartitionsInfo {
-        const std::vector<std::pair<PartitionID, Element<N>>> parts;
-        PartitionsInfo(const std::vector<std::pair<PartitionID, Element<N>>> &partitions) : parts(partitions){}
+        using Domain=std::array<std::pair<double, double>, N>; //One range per dimension
+
+        const std::vector<std::pair<PartitionID, elements::Element<N>>> parts;
+        const std::vector<Domain> domains;
+
+        PartitionsInfo(const std::vector<std::pair<PartitionID, elements::Element<N>>> &partitions, const std::vector<Domain> &domain) : parts(partitions), domains(domain){}
+        PartitionsInfo(const std::vector<std::pair<PartitionID, elements::Element<N>>> &partitions) : parts(partitions){}
     };
 
     template<int N>
     struct BisectionInfo{
-        const std::vector<std::pair<Element<N>, int>> left, right;
-        BisectionInfo(const std::vector<std::pair<Element<N>, int>> left, const std::vector<std::pair<Element<N>, int>> right)
-                : left(left), right(right) {}
+        using Domain=std::array<std::pair<double, double>, N>; //One range per dimension
+        const std::vector<std::pair<elements::Element<N>, int>> left, right;
+        const Domain left_domain, right_domain;
+        BisectionInfo(const std::vector<std::pair<elements::Element<N>, int>> &left, const std::vector<std::pair<elements::Element<N>, int>> &right, const Domain &left_domain, const Domain &right_domain)
+                : left(left), right(right), left_domain(left_domain), right_domain(right_domain) {}
     };
 
     /**
@@ -82,13 +64,14 @@ namespace partitioning { namespace geometric {
      * @return The two new partitions and their points
      */
     template<int N>
-    std::unique_ptr<BisectionInfo<N>> bisect(std::vector<Element<N>> points, const std::vector<int>& IDs, int dim){
-        std::vector<std::pair<Element<N>, int>> left, right;
+    std::unique_ptr<BisectionInfo<N>> bisect(std::vector<elements::Element<N>> points, const std::vector<int>& IDs, int dim){
+        std::vector<std::pair<elements::Element<N>, int>> left, right;
+
         auto zipped_points = partitioning::utils::zip(points, IDs); //O(n)
         //get the median by sorting in O(n.lg(n))
         //TODO: Median can be retrieved in O(n) c.f Get median of median etc.
         std::sort(zipped_points.begin(), zipped_points.end(),
-                  [dim](const std::pair<Element<N>, int> & a, const std::pair<Element<N>, int> & b) -> bool{
+                  [dim](const std::pair<elements::Element<N>, int> & a, const std::pair<elements::Element<N>, int> & b) -> bool{
                       return a.first.position.at(dim) < b.first.position.at(dim);
                   });
         unsigned int median_idx = points.size() / 2;
@@ -100,20 +83,61 @@ namespace partitioning { namespace geometric {
         return std::make_unique<BisectionInfo<N>>(left, right);
     }
 
+    /**
+     * Bisect a dataset in a given dimension at the median point in the dataset
+     * Time: Upper bound is O(n.lg(n)) to retrieve the median point
+     * @param points
+     * @param IDs
+     * @param dim
+     * @return The two new partitions and their points
+     */
     template<int N>
-    class SeqSpatialBisection : public Partitioner<PartitionsInfo<N>, std::vector<Element<N>>> {
+    std::unique_ptr<BisectionInfo<N>> bisect(std::tuple<std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>, const std::vector<int>>& region_info, const int dim){
+        auto points = std::get<0>(region_info);
+        auto domain = std::get<1>(region_info);
+        auto IDs    = std::get<2>(region_info);
+
+        std::vector<std::pair<elements::Element<N>, int>> left, right;
+
+        auto zipped_points = partitioning::utils::zip(points, IDs); //O(n)
+        //get the median by sorting in O(n.lg(n))
+        //TODO: Median can be retrieved in O(n) c.f Get median of median etc.
+        std::sort(zipped_points.begin(), zipped_points.end(),
+                  [dim](const std::pair<elements::Element<N>, int> & a, const std::pair<elements::Element<N>, int> & b) -> bool{
+                      return a.first.position.at(dim) < b.first.position.at(dim);
+                  });
+        unsigned int median_idx = points.size() / 2;
+
+        //construct new domain boundaries
+        double boundary_dim = zipped_points.at(median_idx).first.position.at(dim);
+
+        auto left_domain  = domain;
+        left_domain.at(dim).second = boundary_dim;
+        auto right_domain = domain;
+        right_domain.at(dim).first = boundary_dim;
+
+        //bind to partition in O(n)
+        for(unsigned int i = 0; i < zipped_points.size(); ++i){
+            if(i < median_idx) left.push_back(zipped_points.at(i));
+            else right.push_back(zipped_points.at(i));
+        }
+        return std::make_unique<BisectionInfo<N>>(left, right, left_domain, right_domain);
+    }
+
+    template<int N>
+    class SeqSpatialBisection : public partitioning::Partitioner<PartitionsInfo<N>, std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>> {
     public:
 
         virtual std::unique_ptr<PartitionsInfo<N>> partition_data(
-                std::vector<Element<N>> spatial_data,
+                std::vector<elements::Element<N>> spatial_data,
+                const std::array<std::pair<double, double>, N> &domain_boundary,
                 int number_of_partitions) const {
 
-            std::vector<std::pair<std::vector<Element<N>>, std::vector<int>>> domain;
+            std::vector<std::tuple<std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>, const std::vector<int>>> domain;
             std::vector<int> range(spatial_data.size());
 
             std::iota(range.begin(), range.end(), 0); //generate ids of particles from 0 to N-1
-            domain.push_back(std::make_pair(spatial_data, range)); //the particles and their id.
-            std::vector<std::unique_ptr<BisectionInfo<N>>> info;
+            domain.push_back(std::make_tuple(spatial_data, domain_boundary, range)); //the particles and their id.
 
             unsigned int logPE = std::log(number_of_partitions) / std::log(2);
 
@@ -121,27 +145,32 @@ namespace partitioning { namespace geometric {
             for(unsigned int depth = 0; depth < logPE; ++depth) {
                 unsigned int dim = depth % N;
                 std::vector<std::unique_ptr<BisectionInfo<N>>> bisections;
-                for(std::pair<std::vector<Element<N>>, std::vector<int>> const& section : domain) {
-                    bisections.push_back(std::move(bisect<N>(section.first, section.second, dim)));
+                for(std::tuple<std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>, const std::vector<int>>& section : domain) {
+                    bisections.push_back(std::move(bisect<N>(section, dim)));
                 }
                 domain.clear();
                 for(auto const& subsection: bisections){
-                    domain.push_back( partitioning::utils::unzip(subsection->left) );
-                    domain.push_back( partitioning::utils::unzip(subsection->right) );
+                    auto lsubsection = partitioning::utils::unzip(subsection->left);
+                    domain.push_back( std::make_tuple(lsubsection.first, subsection->left_domain, lsubsection.second) );
+                    auto rsubsection = partitioning::utils::unzip(subsection->right);
+                    domain.push_back( std::make_tuple(rsubsection.first, subsection->right_domain, rsubsection.second) );
                 }
             }
 
-            std::vector<std::pair<PartitionID , Element<N>>> partitions(spatial_data.size());
+            std::vector<std::pair<PartitionID , elements::Element<N>>> partitions(spatial_data.size());
+            std::vector<std::array<std::pair<double, double>, N>> domains(domain.size());
+
             PartitionID pID = 0;
             //O(p*n) => O(n) p <<< n
-            for(auto const& partition: domain){
-                auto zipped = partitioning::utils::zip(partition.first, partition.second);
+            for(std::tuple<std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>, const std::vector<int>>& partition: domain){
+                auto zipped = partitioning::utils::zip(std::get<0>(partition), std::get<2>(partition));
                 for(auto const& element : zipped){
                     partitions[element.second] = std::make_pair(pID, element.first);
                 }
+                domains[pID] = std::get<1>(partition);
                 pID++;
             }
-            return std::move(std::make_unique<PartitionsInfo<N>>(partitions));
+            return std::move(std::make_unique<PartitionsInfo<N>>(partitions, domains));
         }
     };
 

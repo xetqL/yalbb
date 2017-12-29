@@ -21,7 +21,7 @@ set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 ## Space Partitioning
 add_executable(build_tests_space_partitioning
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
 
 set_target_properties(build_tests_space_partitioning
         PROPERTIES
@@ -30,7 +30,7 @@ set_target_properties(build_tests_space_partitioning
 ## Utils
 add_executable(build_tests_utils
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_utils.cpp ${INCLUDE_DIRECTORY}/utils.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_utils.cpp ${INCLUDE_DIRECTORY}/utils.hpp includes/spatial_elements.hpp)
 set_target_properties(build_tests_utils
         PROPERTIES
         OUTPUT_NAME "tests_utils")
@@ -38,7 +38,7 @@ set_target_properties(build_tests_utils
 ## Load Balancer
 add_executable(build_tests_lb
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_load_balancer.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_load_balancer.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
 set_target_properties(build_tests_lb
         PROPERTIES
         OUTPUT_NAME "tests_load_balancer")
@@ -49,7 +49,7 @@ set_target_properties(build_tests_lb
 ## Main build
 add_executable(build
         Makefile
-        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/geometric_load_balancer.hpp includes/partitioner.hpp)
+        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/geometric_load_balancer.hpp includes/partitioner.hpp includes/spatial_elements.hpp)
 
 set_target_properties(build 
         PROPERTIES
@@ -61,15 +61,11 @@ target_link_libraries(build
 
 target_link_libraries(build
         PRIVATE
-        /home/xetql/Dropbox/projects/cpp/nbody/liblj/liblj.a)
+        /usr/lib/liblj/liblj.a)
 
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH})
-
-target_include_directories(build
-        PRIVATE
-        ../liblj)
 
 add_custom_target(tests
         COMMAND bin/tests_utils

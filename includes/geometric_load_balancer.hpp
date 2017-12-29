@@ -9,21 +9,15 @@
 #include <mpi.h>
 
 #include "partitioner.hpp"
+#include "spatial_elements.hpp"
 #include "spatial_bisection.hpp"
 
 namespace load_balancing {
     using ProcessingElementID=int;
 
-    template<typename PartitionType, class ContainedDataType>
+    template<typename PartitionType, typename ContainedDataType, typename DomainContainer>
     class LoadBalancer {
-    protected:
-        const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>>* partitioner;
-        const std::map<ProcessingElementID, std::vector<ContainedDataType>> storage_table;
-        int world_size;
-        int caller_rank;
-        MPI_Datatype whole_datatype;
-        MPI_Datatype vec_datatype;
-
+    private:
         void register_datatype(){
             MPI_Datatype oldtype[1];
 
@@ -40,6 +34,14 @@ namespace load_balancing {
             MPI_Type_commit(&whole_datatype);
         }
 
+    protected:
+        const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>, DomainContainer>* partitioner;
+        const std::map<ProcessingElementID, std::vector<ContainedDataType>> storage_table;
+        int world_size;
+        int caller_rank;
+        MPI_Datatype whole_datatype;
+        MPI_Datatype vec_datatype;
+
     public:
 
         const MPI_Datatype get_element_datatype() const {
@@ -47,7 +49,7 @@ namespace load_balancing {
         }
 
         //Assume that the data are all located on PE 0.
-        LoadBalancer(const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>> &partitioner,
+        LoadBalancer(const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>, DomainContainer> &partitioner,
                      MPI_Comm comm) : partitioner(&partitioner){
             MPI_Comm_size(comm, &world_size);
             MPI_Comm_rank(comm, &caller_rank);
@@ -56,15 +58,14 @@ namespace load_balancing {
 
         //Provide a table that specifies where is the data located (on which PE)
         LoadBalancer(const std::map<ProcessingElementID, std::vector<ContainedDataType>> &storage_table,
-                     const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>> &partitioner,
+                     const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>, DomainContainer> &partitioner,
                      MPI_Comm comm) : partitioner(&partitioner), storage_table(storage_table){
             MPI_Comm_size(comm, &world_size);
             MPI_Comm_rank(comm, &caller_rank);
             register_datatype();
         };
 
-        ~LoadBalancer(){
-        }
+        ~LoadBalancer(){}
 
         void stop(){
             MPI_Type_free(&whole_datatype);
@@ -73,21 +74,19 @@ namespace load_balancing {
 
         //TODO: It should somehow retrieves the data from the processing elements, at least makes it possible.
         //TODO: It should map the partitions as function of the PEs' pace
-        virtual void load_balance(std::vector<ContainedDataType>& data){
+        virtual void load_balance(std::vector<ContainedDataType>& data, DomainContainer& domain_boundary){
             std::vector<int> counts(world_size);
             std::vector<int> displs(world_size);
             std::fill(counts.begin(), counts.end(), 0);
 
             //TODO: Have to detect if the algorithm is sequential or parallel
             if (caller_rank == 0){
-
                 //partition the dataset in world_size partitions
-                std::unique_ptr<PartitionType> partitions = partitioner->partition_data(data, world_size);
+                std::unique_ptr<PartitionType> partitions = partitioner->partition_data(data, domain_boundary, world_size);
                 auto partitioned_data = partitions->parts;
                 std::sort(partitioned_data.begin(), partitioned_data.end(), [](const auto & a, const auto & b) -> bool{
                     return a.first < b.first;
                 });
-                //Send data to processing elements
                 //counts the number to send to each processor
                 displs[0] = 0;
                 for(int i=0; i < world_size; ++i)
@@ -98,12 +97,11 @@ namespace load_balancing {
                             displs[i+1] = cpt;
                             break;
                         }
-            }
-            if(caller_rank == 0){
-                for(int i = 0; i < world_size; ++i){ // the send-to-myself could be problematic -> memcpy.
+                for(int i = 0; i < world_size; ++i){
                     MPI_Send(&data[displs[i]], counts[i], this->get_element_datatype(), i, 666, MPI_COMM_WORLD);
                 }
             }
+
             // Check the number of elements sent to us
             MPI_Status status;
             MPI_Probe(0, 666, MPI_COMM_WORLD, &status);
@@ -116,19 +114,22 @@ namespace load_balancing {
         }
 
     };
-    template<int N>
-    class GeometricLoadBalancer : public LoadBalancer<partitioning::geometric::PartitionsInfo<N>, partitioning::geometric::Element<N>> {
-    public:
-        /**
-         * Create a load balancer based on geometric partitioning algorithms
-         * @param partitioner Partitioning algorithm
-         * @param comm Communication group
-         */
-        GeometricLoadBalancer(
-                const partitioning::Partitioner<
-                        partitioning::geometric::PartitionsInfo<N>,
-                        std::vector<partitioning::geometric::Element<N>>> &partitioner, MPI_Comm comm) : LoadBalancer<partitioning::geometric::PartitionsInfo<N>, partitioning::geometric::Element<N>>(partitioner, comm) {}
-    };
+    namespace geometric {
+        template<int N>
+        class GeometricLoadBalancer : public LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>, const std::array<std::pair<double, double>, N>> {
+        public:
+            /**
+             * Create a load balancer based on geometric partitioning algorithms
+             * @param partitioner Partitioning algorithm
+             * @param comm Communication group
+             */
+            GeometricLoadBalancer(
+                    const partitioning::Partitioner<
+                            partitioning::geometric::PartitionsInfo<N>,
+                            std::vector<elements::Element<N>>,
+                            const std::array<std::pair<double, double>, N>> &partitioner, MPI_Comm comm) : LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>, const std::array<std::pair<double, double>, N>>(partitioner, comm) {}
+        };
+    }
 
 }
 

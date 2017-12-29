@@ -3,15 +3,17 @@
 #include <cmath>
 #include <ctime>
 #include <string>
+
 #include <mpi.h>
 
-#include <vector>
+#include <random>
 #include <set>
 
-#include "common.hpp"
-#include "ljsim.hpp"
-#include "nbody_io.hpp"
-#include "neighborhood.hpp"
+#include <liblj/common.hpp>
+#include <liblj/ljsim.hpp>
+#include <liblj/nbody_io.hpp>
+#include <liblj/neighborhood.hpp>
+
 
 static int rank;
 static int nproc;
@@ -100,8 +102,6 @@ void run_box(FILE* fp, /* Output file (at 0) */
 
             apply_reflect(nlocal, &xlocal[0], &vlocal[0], &alocal[0], simsize);
 
-            /* O(N²) communication */
-            //retrieve_all_particles_from_everybody(nlocal, &xlocal[0], &x[0], iparts, counts);
             MPI_Allgatherv(&xlocal[0], nlocal, pairtype, &x[0], counts, iparts, pairtype, MPI_COMM_WORLD);
 
             switch (params->computation_method) {
@@ -113,6 +113,7 @@ void run_box(FILE* fp, /* Output file (at 0) */
                 compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
                 break;
             }
+
             leapfrog2(nlocal, dt, &vlocal[0], &alocal[0]);
         }
         if (fp) {
@@ -123,7 +124,6 @@ void run_box(FILE* fp, /* Output file (at 0) */
             begin = clock();
         }
     }
-
 }
 
 int main(int argc, char** argv) {
