@@ -149,7 +149,7 @@ namespace partitioning { namespace geometric {
                     bisections.push_back(std::move(bisect<N>(section, dim)));
                 }
                 domain.clear();
-                for(auto const& subsection: bisections){
+                for(std::unique_ptr<BisectionInfo<N>> const& subsection: bisections){
                     auto lsubsection = partitioning::utils::unzip(subsection->left);
                     domain.push_back( std::make_tuple(lsubsection.first, subsection->left_domain, lsubsection.second) );
                     auto rsubsection = partitioning::utils::unzip(subsection->right);

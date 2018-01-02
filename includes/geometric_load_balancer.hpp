@@ -18,6 +18,10 @@ namespace load_balancing {
     template<typename PartitionType, typename ContainedDataType, typename DomainContainer>
     class LoadBalancer {
     private:
+        /**
+         * Register a MPI data type for a 2D or 3D particle structure.
+         */
+        //TODO: The structure will integrate an id => add a new field in the data type.
         void register_datatype(){
             MPI_Datatype oldtype[1];
 
@@ -122,7 +126,7 @@ namespace load_balancing {
              * Create a load balancer based on geometric partitioning algorithms
              * @param partitioner Partitioning algorithm
              * @param comm Communication group
-             */
+             */l
             GeometricLoadBalancer(
                     const partitioning::Partitioner<
                             partitioning::geometric::PartitionsInfo<N>,

@@ -136,7 +136,6 @@ int main(int argc, char** argv) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
-    
     MPI_Type_vector(1, 2, 1, MPI_FLOAT, &pairtype);
     MPI_Type_vector(1, 2, 1, MPI_INT, &intpairtype);
 
