@@ -5,15 +5,19 @@
 #ifndef NBMPI_SPATIALBISECTION_HPP
 #define NBMPI_SPATIALBISECTION_HPP
 
-#include <vector>
+
 #include <algorithm>
 #include <memory>
-#include <tuple>
+#include <mpi.h>
 #include <ostream>
+#include <tuple>
+#include <vector>
 
-#include "utils.hpp"
+
 #include "partitioner.hpp"
 #include "spatial_elements.hpp"
+#include "utils.hpp"
+
 
 namespace partitioning { namespace geometric {
     using PartitionID=int;
@@ -125,12 +129,12 @@ namespace partitioning { namespace geometric {
     }
 
     template<int N>
-    class SeqSpatialBisection : public partitioning::Partitioner<PartitionsInfo<N>, std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>> {
+    class SeqSpatialBisection : public partitioning::Partitioner<PartitionsInfo<N>, std::vector<elements::Element<N>>, std::array<std::pair<double, double>, N>> {
     public:
 
         virtual std::unique_ptr<PartitionsInfo<N>> partition_data(
                 std::vector<elements::Element<N>> spatial_data,
-                const std::array<std::pair<double, double>, N> &domain_boundary,
+                std::array<std::pair<double, double>, N> &domain_boundary,
                 int number_of_partitions) const {
 
             std::vector<std::tuple<std::vector<elements::Element<N>>, const std::array<std::pair<double, double>, N>, const std::vector<int>>> domain;
@@ -171,6 +175,38 @@ namespace partitioning { namespace geometric {
                 pID++;
             }
             return std::move(std::make_unique<PartitionsInfo<N>>(partitions, domains));
+        }
+
+        /**
+         * Register a MPI data type for a 2D or 3D particle structure.
+         */
+        //TODO: The structure will integrate an id => add a new field in the data type.
+        virtual partitioning::CommunicationDatatype register_datatype() const {
+            //std::vector<MPI_Datatype> others(2);
+
+            MPI_Datatype element_datatype,
+                         vec_datatype,
+                         range_datatype,
+                         oldtype[1];
+
+            MPI_Aint offset[1] = {0};
+            int blockcount[1];
+
+            // register particle element type
+            int array_size = elements::Element<N>::size() / 2;
+            MPI_Type_contiguous(array_size, MPI_DOUBLE, &vec_datatype);
+            MPI_Type_commit(&vec_datatype);
+            blockcount[0] = 2;
+            oldtype[0] = vec_datatype;
+
+            MPI_Type_struct(1, blockcount, offset, oldtype, &element_datatype);
+            MPI_Type_commit(&element_datatype);
+
+            oldtype[0] = MPI_DOUBLE;
+            MPI_Type_struct(1, blockcount, offset, oldtype, &range_datatype);
+            MPI_Type_commit(&range_datatype);
+
+            return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype);
         }
     };
 

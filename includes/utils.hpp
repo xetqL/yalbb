@@ -31,18 +31,26 @@ namespace partitioning { namespace utils {
             return std::make_pair(left, right);
         }
 
-        template<typename A>
-        const std::vector<A> flatten(const std::vector<std::vector<A>>& to_flatten){
-            int total_size = 0;
-            for(auto const& col: to_flatten) total_size += col.size();
-            std::vector<A> flattened(total_size);
-            typename std::vector<A>::iterator it = flattened.begin();
-            for(auto const& col: to_flatten) {
-                //copy the
-                std::copy(col.begin(), col.end(), it);
-                std::advance(it, col.size());
-            }
-            return std::move(flattened);
+        /**
+         * Copied from https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
+         * @tparam R Return Container class
+         * @tparam Top Top container class from the container
+         * @tparam Sub Sub class deduced from the original container
+         * @param all Container that contains the sub containers
+         * @return flattened container
+         */
+
+        template <template<typename...> class R=std::vector,
+                typename Top,
+                typename Sub = typename Top::value_type>
+        R<typename Sub::value_type> flatten(Top const& all)
+        {
+            using std::begin;
+            using std::end;
+            R<typename Sub::value_type> accum;
+            for(auto& sub : all)
+                std::copy(begin(sub), end(sub), std::inserter(accum, end(accum)));
+            return accum;
         }
 }   }
 

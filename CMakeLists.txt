@@ -80,5 +80,3 @@ add_custom_target(tests
         COMMENT "Running custom test suit for utils, space_partitioning, and load_balancer!")
 
 add_dependencies(tests build_tests_space_partitioning build_tests_utils build_tests_lb)
-
-

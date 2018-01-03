@@ -111,6 +111,32 @@ int main(int argc, char **argv) {
                 return same;
             });
 
+    std::array<std::pair<double, double>, 2> ranges = {
+            std::make_pair(dist(gen), dist(gen)),
+            std::make_pair(dist(gen), dist(gen))
+    };
+
+    auto can_send_range_through_mpi = std::make_shared<UnitTest<std::array<std::pair<double, double>, 2> > >
+            ("Ranges are sent correctly via MPI", [&load_balancer, &ranges, &rank] () {
+                SeqSpatialBisection<2> rcb_partitioner;
+                load_balancing::geometric::GeometricLoadBalancer<2> load_balancer(rcb_partitioner, MPI_COMM_WORLD);
+                std::array<std::pair<double, double>, 2> data;
+
+                if (rank == 1) // send generated points
+                    MPI_Send(&ranges.front(), ranges.size(), load_balancer.get_range_datatype(), 0, 666, MPI_COMM_WORLD);
+                else // retrieve sent points
+                    MPI_Recv(&data.front(), data.size(), load_balancer.get_range_datatype(), 1, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                if (rank == 0) // send generated points
+                    MPI_Send(&data.front(), data.size(), load_balancer.get_range_datatype(), 1, 666, MPI_COMM_WORLD);
+                else // retrieve sent points
+                    MPI_Recv(&data.front(), data.size(), load_balancer.get_range_datatype(), 0, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                return data;
+            }, [&ranges, &load_balancer, &rank](auto recipient) {
+                return std::all_of(recipient.begin(), recipient.end(), [&ranges](auto const& el) {return std::find(ranges.begin(), ranges.end(), el) != ranges.end(); }) ;
+            });
+
     auto after_load_balancing_processing_elements_have_data_to_compute = std::make_shared<UnitTest<std::vector<elements::Element<2> > > >
             ("All the processing elements have something to compute", [&load_balancer, &points, &domain_boundary, &rank]{
                 std::vector<elements::Element<2>> recipient(points.begin(), points.end());
@@ -150,6 +176,7 @@ int main(int argc, char **argv) {
     runner.add_test(after_load_balancing_processing_elements_have_data_to_compute);
     runner.add_test(processing_elements_have_real_data);
     runner.add_test(load_balancer_exchange_data);
+    runner.add_test(can_send_range_through_mpi);
 
     runner.run();
 

@@ -74,6 +74,138 @@ int main(int argc, char** argv){
                 return std::fabs(total_area - area_sum) <= std::numeric_limits<double>::epsilon();
             });
 
+    auto can_convert_raw_buffer_to_elements = std::make_shared<UnitTest<std::vector<elements::Element<2>> > >
+            ("Raw data can be converted to convenient type", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+                std::vector<elements::Element<2>> points(500);
+                //populate points
+                std::array<double, 1000> pos, vel;
+                std::generate(pos.begin(), pos.end(), [=] () mutable {return (dist(gen)+1)*100.0;});
+                std::generate(vel.begin(), vel.end(), [=] () mutable {return (dist(gen)+1)*100.0;});
+
+                points = elements::transform<2>(500, &pos.front(), &vel.front());
+                return points;
+
+            }, [] (std::vector<elements::Element<2>> elements){
+                return std::all_of(elements.begin(), elements.end(), [](auto el) {
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
+                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
+                        return v >= 1.0;
+                    });
+                });
+            });
+
+    auto can_convert_raw_buffer_to_elements_2 = std::make_shared<UnitTest<std::vector<elements::Element<2>> > >
+            ("Raw data can be converted to convenient type in place", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+                std::vector<elements::Element<2>> points(500);
+
+                //populate points
+                std::array<double, 1000> pos, vel;
+
+                std::generate(pos.begin(), pos.end(), [=] () mutable {return (dist(gen)+1)*100.0;});
+                std::generate(vel.begin(), vel.end(), [=] () mutable {return (dist(gen)+1)*100.0;});
+                elements::transform<2>(points, &pos.front(), &vel.front());
+                
+                return points;
+
+            }, [] (std::vector<elements::Element<2>> elements){
+                return std::all_of(elements.begin(), elements.end(), [](auto el) {
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
+                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
+                        return v >= 1.0;
+                    });
+                });
+            });
+
+    auto create_random_elements = std::make_shared<UnitTest<std::vector<elements::Element<2>> > >
+            ("Element are created randomly following probability distribution", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(1.1, 2.1);
+
+                std::vector<elements::Element<2>> points(500);
+
+                std::generate(points.begin(), points.end(), [=] () mutable{return elements::Element<2>::create_random(dist, gen);});
+
+                return points;
+
+            }, [] (std::vector<elements::Element<2>> elements){
+                return std::all_of(elements.begin(), elements.end(), [](auto el) {
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
+                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
+                        return v >= 1.0;
+                    });
+                });
+            });
+
+    auto create_random_elements_generic_vec = std::make_shared<UnitTest<std::vector<elements::Element<2>> > >
+            ("N Elements (vector) are created randomly following probability distribution", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(1.1, 2.1);
+
+                std::vector<elements::Element<2>> points(500);
+
+                elements::Element<2>::create_random_n(points, dist, gen);
+
+                return points;
+
+            }, [] (std::vector<elements::Element<2>> elements){
+                return std::all_of(elements.begin(), elements.end(), [](auto el) {
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
+                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
+                        return v >= 1.0;
+                    });
+                });
+            });
+
+    auto create_random_elements_generic_arr = std::make_shared<UnitTest<std::array<elements::Element<2>, 500> > >
+            ("N Elements (array) are created randomly following probability distribution", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(1.1, 2.1);
+                std::array<elements::Element<2>, 500> points;
+                elements::Element<2>::create_random_n(points, dist, gen);
+                return points;
+            }, [] (std::array<elements::Element<2>, 500> elements){
+                return std::all_of(elements.begin(), elements.end(), [](auto el) {
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
+                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
+                        return v >= 1.0;
+                    });
+                });
+            });
+
+    auto create_random_elements_generic_arr_with_predicate = std::make_shared<UnitTest<std::array<elements::Element<2>, 100> > >
+            ("N Elements (array) are created randomly following probability distribution given a predicate", [] {
+                std::random_device rd; //Will be used to obtain a seed for the random number engine
+                std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+                std::uniform_real_distribution<double> dist(0.0, 1.0);
+                std::array<elements::Element<2>, 100> points;
+                elements::Element<2>::create_random_n(points, dist, gen, [](auto point, auto other){
+                    return elements::distance2<2>(point, other) >= 0.001;
+                });
+                return points;
+
+            }, [] (std::array<elements::Element<2>, 100> elements){
+                for(size_t i = 0; i < elements.size(); ++i){
+                    for (size_t j = i+1; j < elements.size(); ++j) {
+                        if(elements::distance2<2>(elements[i].position, elements[j].position) < 0.001) {
+                            std::cout << elements::distance2<2>(elements[i].position, elements[j].position) << std::endl;
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+
     auto  no_overlapping_region = std::make_shared<UnitTest<std::vector<partitioning::geometric::Domain<2> > > >
             ("Regions does not overlap", [&dist, &gen, &elements=p] {
                 constexpr int DIM=2;
@@ -118,6 +250,12 @@ int main(int argc, char** argv){
     runner.add_test(test_partition_balanced);
     runner.add_test(total_area_is_area_of_initial_domain);
     runner.add_test(no_overlapping_region);
+    runner.add_test(can_convert_raw_buffer_to_elements);
+    runner.add_test(can_convert_raw_buffer_to_elements_2);
+    runner.add_test(create_random_elements);
+    runner.add_test(create_random_elements_generic_vec);
+    runner.add_test(create_random_elements_generic_arr);
+    runner.add_test(create_random_elements_generic_arr_with_predicate);
 
     runner.run();
     runner.summarize();
