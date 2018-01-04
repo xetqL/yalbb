@@ -174,6 +174,7 @@ namespace partitioning { namespace geometric {
                 domains[pID] = std::get<1>(partition);
                 pID++;
             }
+
             return std::move(std::make_unique<PartitionsInfo<N>>(partitions, domains));
         }
 
@@ -182,7 +183,6 @@ namespace partitioning { namespace geometric {
          */
         //TODO: The structure will integrate an id => add a new field in the data type.
         virtual partitioning::CommunicationDatatype register_datatype() const {
-            //std::vector<MPI_Datatype> others(2);
 
             MPI_Datatype element_datatype,
                          vec_datatype,
@@ -193,15 +193,17 @@ namespace partitioning { namespace geometric {
             int blockcount[1];
 
             // register particle element type
-            int array_size = elements::Element<N>::size() / 2;
+            int array_size = N;
             MPI_Type_contiguous(array_size, MPI_DOUBLE, &vec_datatype);
             MPI_Type_commit(&vec_datatype);
-            blockcount[0] = 2;
+
+            blockcount[0] = 3; //position, velocity, acceleration
             oldtype[0] = vec_datatype;
 
             MPI_Type_struct(1, blockcount, offset, oldtype, &element_datatype);
             MPI_Type_commit(&element_datatype);
 
+            blockcount[0] = 2;
             oldtype[0] = MPI_DOUBLE;
             MPI_Type_struct(1, blockcount, offset, oldtype, &range_datatype);
             MPI_Type_commit(&range_datatype);

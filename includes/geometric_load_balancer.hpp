@@ -65,13 +65,14 @@ namespace load_balancing {
                 //partition the dataset in world_size partitions
                 std::unique_ptr<PartitionType> partitions = partitioner->partition_data(data, domain_boundary, world_size);
                 auto partitioned_data = partitions->parts;
-                auto subdomains = partitions->domains;
+                auto subdomains = partitions->domains; //all the sub domains (geometric)
 
                 std::sort(partitioned_data.begin(), partitioned_data.end(), [](const auto & a, const auto & b) -> bool{
-                    return a.first < b.first;
+                    return a.first < b.first; //sort by partition id
                 });
-                //counts the number to send to each processor
+                //counts the number to send to each processor... normally the same number of particles has to be sent
                 displs[0] = 0;
+
                 for(int i=0; i < world_size; ++i)
                     for(size_t cpt=displs[i]; cpt < partitioned_data.size(); ++cpt)
                         if(partitioned_data.at(cpt).first == i)
@@ -82,22 +83,25 @@ namespace load_balancing {
                         }
                 //send elements
                 for(int i = 0; i < world_size; ++i) {
+                    //send the particle attributed to the PE
                     MPI_Send(&data[displs[i]], counts[i], this->get_element_datatype(), i, 666, MPI_COMM_WORLD);
-                    MPI_Send(&subdomains.front(), ContainedDataType::size() / 2, this->get_range_datatype(), i, 666, MPI_COMM_WORLD);
                 }
+                //broadcast the geometric partition of the initial domain
+                MPI_Bcast(&subdomains.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
             }
 
-            // Check the number of elements sent to us
             MPI_Status status;
+            //Probe the data sent
             MPI_Probe(0, 666, MPI_COMM_WORLD, &status);
             int my_data_size;
-            // get the number of elements according to the status.
+            // Get the number of elements according to the status.
             MPI_Get_count(&status, this->get_element_datatype(), &my_data_size);
             // resize the data to fit the number of elements
             data.resize(my_data_size);
             // receive the elements
             MPI_Recv(&data.front(), my_data_size, this->get_element_datatype(), 0 , 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(&domain_boundary.front(), ContainedDataType::size() / 2, this->get_range_datatype(), 0, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            //broadcast the geometric partition of the initial domain
+            MPI_Bcast(&domain_boundary.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
         }
     };
     namespace geometric {

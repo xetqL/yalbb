@@ -3,17 +3,18 @@
 #include <cmath>
 #include <ctime>
 #include <string>
-
 #include <mpi.h>
-
 #include <random>
 #include <set>
 
-#include <liblj/common.hpp>
-#include <liblj/ljsim.hpp>
+
 #include <liblj/nbody_io.hpp>
 #include <liblj/neighborhood.hpp>
 
+#include "../includes/spatial_elements.hpp"
+#include "../includes/geometric_load_balancer.hpp"
+#include "../includes/physics.hpp"
+#include "../includes/ljpotential.hpp"
 
 static int rank;
 static int nproc;
@@ -32,6 +33,7 @@ void partition_problem(std::vector<int>& iparts, std::vector<int>& counts, int n
     int num_each = npart / nproc; /* Each processor has the same number of particle */
     int num_left = npart - num_each*nproc; /* How many particles are not computed by me */
     iparts[0] = 0;
+
     for (int i = 0; i < nproc; ++i) {
         counts[i] = num_each + (i < num_left ? 1 : 0);
         iparts[i + 1] = iparts[i] + counts[i];
@@ -57,7 +59,7 @@ void run_box(FILE* fp, /* Output file (at 0) */
         std::vector<float>& vlocal, /* Local part of velocity */
         int* iparts,
         int* counts,
-        sim_param_t* params) /* Simulation params */ {
+        const sim_param_t* params) /* Simulation params */ {
 
     std::vector<float> alocal(xlocal.size(), 0.0);
 
@@ -147,15 +149,24 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    if(params.world_size != nproc) {
+    if(params.world_size != (size_t) nproc) {
         if(rank == 0) printf("Size of world does not match the expected world size: World=%d, Expected=%d\n", nproc, params.world_size);
         MPI_Finalize();
         return -1;
     }
     
     std::vector<float> x(2 * params.npart, 0);
+    std::vector<float> v(2 * params.npart, 0);
     std::vector<liblj::work_unit_t> w;
     std::vector<float> wser(4 * params.npart, 0);
+    std::vector<elements::Element<2>> elements(params.npart);
+
+    partitioning::geometric::SeqSpatialBisection<2> rcb_partitioner;
+    load_balancing::geometric::GeometricLoadBalancer<2> load_balancer(rcb_partitioner, MPI_COMM_WORLD);
+    std::array<std::pair<double, double>, 2> domain_boundary =
+    {
+        std::make_pair(0.0, params.simsize), std::make_pair(0.0, params.simsize)
+    };
 
     /* Get file handle and initialize everything on P0 */
     if (rank == 0) {
@@ -167,14 +178,15 @@ int main(int argc, char** argv) {
             fprintf(stderr, "Could not generate %d particles; trying %d\n", params.npart, npart);
         }
         npart = npart_wu;
+        x = *liblj::serialize_work_units_position(w);
+        init_particles_random_v(v.size() / 2, v, &params);
+        elements::transform(elements, &x.front(), &v.front());
     }
 
-    MPI_Bcast(&npart, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (rank == 0)
-        x = *liblj::serialize_work_units_position(w);
-
+    MPI_Bcast(&npart,         1,  MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&x.front(), npart, pairtype, 0, MPI_COMM_WORLD);
+
+    load_balancer.load_balance(elements, domain_boundary);
 
     double t1 = MPI_Wtime();
 
@@ -194,8 +206,7 @@ int main(int argc, char** argv) {
 
     init_particles_random_v(nlocal / 2, vlocal, &params);
 
-    run_box(fp, params.npframe, params.nframes,
-            params.dt, x, xlocal, vlocal, &iparts[0], &counts[0], &params);
+    run_box(fp, params.npframe, params.nframes, params.dt, x, xlocal, vlocal, &iparts[0], &counts[0], &params);
 
     double t2 = MPI_Wtime();
 

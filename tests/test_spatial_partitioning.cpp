@@ -69,7 +69,7 @@ int main(int argc, char** argv){
                 for(auto const& subdomain : subdomains){
                     const double width = subdomain.at(0).second - subdomain.at(0).first;
                     const double height= subdomain.at(1).second - subdomain.at(1).first;
-                    area_sum += (double) (width * height);
+                    area_sum += (width * height);
                 }
                 return std::fabs(total_area - area_sum) <= std::numeric_limits<double>::epsilon();
             });
@@ -176,9 +176,8 @@ int main(int argc, char** argv){
                 return points;
             }, [] (std::array<elements::Element<2>, 500> elements){
                 return std::all_of(elements.begin(), elements.end(), [](auto el) {
-                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){
-                        return p >= 1.0;}) && std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){
-                        return v >= 1.0;
+                    return std::all_of(el.position.begin(), el.position.end(), [](auto p){ return p >= 1.0;}) &&
+                           std::all_of(el.velocity.begin(), el.velocity.end(), [](auto v){ return v >= 1.0;
                     });
                 });
             });

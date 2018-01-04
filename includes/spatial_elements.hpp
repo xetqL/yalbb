@@ -12,15 +12,24 @@ namespace elements {
 
     template<int N>
     struct Element {
-        std::array<double, N> position,  velocity;
 
-        constexpr Element(std::array<double, N> p, std::array<double, N> v) : position(p), velocity(v){}
+        static const int number_of_dimensions = N;
+        std::array<double, N> position,  velocity, acceleration;
+
+        constexpr Element(std::array<double, N> p, std::array<double, N> v) : position(p), velocity(v){
+            std::fill(acceleration.begin(), acceleration.end(), 0.0);
+        }
         constexpr Element() {
             std::fill(velocity.begin(), velocity.end(), 0.0);
             std::fill(position.begin(), position.end(), 0.0);
+            std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
+        /**
+         * Total size of the structure
+         * @return The number of element per dimension times the number of characteristics (3)
+         */
         static constexpr int size() {
-            return N * 2;
+            return N * 3;
         }
 
         static Element<N> create(std::array<double, N> &p, std::array<double, N> &v ){
@@ -104,6 +113,7 @@ namespace elements {
         }
 
     };
+
     template<int N>
     double distance2(std::array<double, N> e1, std::array<double, N> e2) {
         double r2 = 0.0;
@@ -113,8 +123,8 @@ namespace elements {
         return r2;
     }
 
-    template<int N>
-    std::vector<Element<N>> transform(const int length, const double* positions, const double* velocities) {
+    template<int N, typename T>
+    std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities) {
         std::vector<Element<N>> elements(length);
         for(int i=0; i < length; ++i){
             Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]});
@@ -123,11 +133,15 @@ namespace elements {
         return elements;
     }
 
-    template<int N>
-    void transform(std::vector<Element<N>>& elements, const double* positions, const double* velocities) {
+#include <string>
+    template<int N, typename T>
+    void transform(std::vector<Element<N>>& elements, const T* positions, const T* velocities) throw() {
+        if(elements.empty()) {
+            throw std::runtime_error("Can not transform data into an empty vector");
+        }
         std::generate(elements.begin(), elements.end(), [i = 0, &positions, &velocities]() mutable {
             Element<N> e({positions[i], positions[i+1]}, {velocities[i], velocities[i+1]});
-            i=i+2;
+            i=i+N;
             return e;
         });
     }
