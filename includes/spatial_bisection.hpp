@@ -187,25 +187,34 @@ namespace partitioning { namespace geometric {
             MPI_Datatype element_datatype,
                          vec_datatype,
                          range_datatype,
-                         oldtype[1];
+                         oldtype_range[1],
+                         oldtype_element[2];
 
-            MPI_Aint offset[1] = {0};
-            int blockcount[1];
+            MPI_Aint offset[2], intex;
+
+            int blockcount_element[2], blockcount_range[1];
 
             // register particle element type
             int array_size = N;
             MPI_Type_contiguous(array_size, MPI_DOUBLE, &vec_datatype);
             MPI_Type_commit(&vec_datatype);
 
-            blockcount[0] = 3; //position, velocity, acceleration
-            oldtype[0] = vec_datatype;
+            blockcount_element[0] = 1;
+            blockcount_element[1] = 3; //position, velocity, acceleration
 
-            MPI_Type_struct(1, blockcount, offset, oldtype, &element_datatype);
+            oldtype_element[0] = MPI_INT;
+            oldtype_element[1] = vec_datatype;
+
+            MPI_Type_extent(MPI_INT, &intex);
+            offset[0] = static_cast<MPI_Aint>(0);
+            offset[1] = intex;
+
+            MPI_Type_struct(2, blockcount_element, offset, oldtype_element, &element_datatype);
             MPI_Type_commit(&element_datatype);
 
-            blockcount[0] = 2;
-            oldtype[0] = MPI_DOUBLE;
-            MPI_Type_struct(1, blockcount, offset, oldtype, &range_datatype);
+            blockcount_range[0] = 2;
+            oldtype_range[0] = MPI_DOUBLE;
+            MPI_Type_struct(1, blockcount_range, offset, oldtype_range, &range_datatype);
             MPI_Type_commit(&range_datatype);
 
             return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype);

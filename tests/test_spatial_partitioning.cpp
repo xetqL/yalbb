@@ -24,9 +24,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    double x = dist(gen), y = dist(gen);
-                    const elements::Element<2> e({x, y}, {0.0, 0.0});
-                    points.push_back(e);
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
                 }
 
                 //apply bisection
@@ -50,9 +48,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    double x = dist(gen), y = dist(gen);
-                    const elements::Element<2> e({x, y}, {0.0, 0.0});
-                    points.push_back(e);
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
                 }
                 //apply bisection
                 SeqSpatialBisection<DIM> partitioner;
@@ -132,8 +128,8 @@ int main(int argc, char** argv){
 
                 std::vector<elements::Element<2>> points(500);
 
-                std::generate(points.begin(), points.end(), [=] () mutable{return elements::Element<2>::create_random(dist, gen);});
-
+                //std::generate(points.begin(), points.end(), [=] () mutable{return elements::Element<2>::create_random(dist, gen);});
+                elements::Element<2>::create_random_n(points, dist, gen);
                 return points;
 
             }, [] (std::vector<elements::Element<2>> elements){
@@ -205,15 +201,13 @@ int main(int argc, char** argv){
                 return true;
             });
 
-    auto  no_overlapping_region = std::make_shared<UnitTest<std::vector<partitioning::geometric::Domain<2> > > >
+    auto no_overlapping_region = std::make_shared<UnitTest<std::vector<partitioning::geometric::Domain<2> > > >
             ("Regions does not overlap", [&dist, &gen, &elements=p] {
                 constexpr int DIM=2;
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    double x = dist(gen), y = dist(gen);
-                    const elements::Element<2> e({x, y}, {0.0, 0.0});
-                    points.push_back(e);
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
                 }
                 //apply bisection
                 SeqSpatialBisection<DIM> partitioner;
@@ -246,6 +240,32 @@ int main(int argc, char** argv){
                 return true;
             });
 
+    auto data_belongs_to_regions = std::make_shared<UnitTest<std::shared_ptr<PartitionsInfo<2>> > >
+            ("Partition I is associated to domain at index I", [&dist, &gen, &elements=p] {
+                constexpr int DIM=2;
+                std::vector<elements::Element<DIM>> points;
+                //populate points
+                for (unsigned int i = 0; i < elements; ++i) {
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                }
+                //apply bisection
+                SeqSpatialBisection<DIM> partitioner;
+                std::array<std::pair<double ,double>, DIM> domain_boundary = {
+                        std::make_pair(0.0, 1.0),
+                        std::make_pair(0.0, 1.0)
+                };
+                auto partitions = partitioner.partition_data(points, domain_boundary, 16);
+                std::shared_ptr<PartitionsInfo<2>> shared_partitions(partitions.release());
+                return shared_partitions;
+            }, [](auto const& partitions) {
+                auto p = partitions->parts;
+                auto d = partitions->domains;
+                for(auto const& el : p){
+                    if(!elements::is_inside<2>(el.second, d.at(el.first))) return false;
+                }
+                return true;
+            });
+
     runner.add_test(test_partition_balanced);
     runner.add_test(total_area_is_area_of_initial_domain);
     runner.add_test(no_overlapping_region);
@@ -255,6 +275,7 @@ int main(int argc, char** argv){
     runner.add_test(create_random_elements_generic_vec);
     runner.add_test(create_random_elements_generic_arr);
     runner.add_test(create_random_elements_generic_arr_with_predicate);
+    runner.add_test(data_belongs_to_regions);
 
     runner.run();
     runner.summarize();

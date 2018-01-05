@@ -30,9 +30,7 @@ int main(int argc, char **argv) {
     std::vector<elements::Element<2>> points;
     std::vector<elements::Element<2>> recipient(elements);
     for (int i = 0; i < elements; ++i) {
-        const double x = dist(gen), y = dist(gen);
-        const elements::Element<2> e({x, y}, {0.1, 2.0});
-        points.push_back(e);
+        points.push_back(elements::Element<2>::create_random(dist, gen, i));
     }
     std::array<std::pair<double ,double>, 2> domain_boundary = {
             std::make_pair(0.0, 1.0),
@@ -54,10 +52,11 @@ int main(int argc, char **argv) {
                 return recipient;
             }, [&points, &rank](auto received_data) {
                 bool same = true;
-                if(rank == 0) // Check if what has been received is what has been generated earlier
+                if(rank == 0){ // Check if what has been received is what has been generated earlier
                     for(size_t i = 0; i < received_data.size(); ++i){
                         same = points.at(i) == received_data.at(i) ? same : false;
                     }
+                }
                 return same;
             });
 
@@ -66,9 +65,8 @@ int main(int argc, char **argv) {
     std::vector<elements::Element<3>> recipient3d(elements);
 
     for (int i = 0; i < elements; ++i) {
-        const double x = dist(gen), y = dist(gen), z = dist(gen);
-        const elements::Element<3> e({x, y, z}, {x*x, x-y, x+z*y});
-        points3d.push_back(e);
+
+        points3d.push_back(elements::Element<3>::create_random(dist, gen, i));
     }
 
     // One is able to send a vector of 3D element to another processing element

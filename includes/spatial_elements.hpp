@@ -12,18 +12,20 @@ namespace elements {
 
     template<int N>
     struct Element {
-
-        static const int number_of_dimensions = N;
+        int identifier;
         std::array<double, N> position,  velocity, acceleration;
 
-        constexpr Element(std::array<double, N> p, std::array<double, N> v) : position(p), velocity(v){
+        static const int number_of_dimensions = N;
+        constexpr Element(std::array<double, N> p, std::array<double, N> v, const int id) : identifier(id), position(p), velocity(v){
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
-        constexpr Element() {
+        constexpr Element() : identifier(0){
             std::fill(velocity.begin(), velocity.end(), 0.0);
             std::fill(position.begin(), position.end(), 0.0);
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
+
         }
+
         /**
          * Total size of the structure
          * @return The number of element per dimension times the number of characteristics (3)
@@ -32,44 +34,46 @@ namespace elements {
             return N * 3;
         }
 
-        static Element<N> create(std::array<double, N> &p, std::array<double, N> &v ){
-            Element<N> e(p, v);
+        static Element<N> create(std::array<double, N> &p, std::array<double, N> &v, int id){
+            Element<N> e(p, v, id);
             return e;
         }
 
         template<class Distribution, class Generator>
-        static Element<N> create_random( Distribution& dist, Generator &gen ){
+        static Element<N> create_random( Distribution& dist, Generator &gen, int id){
             std::array<double, N> p, v;
             std::generate(p.begin(), p.end(), [&dist, &gen](){return dist(gen);});
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
-            return Element::create(p, v);
+            return Element::create(p, v, id);
         }
 
         template<class Distribution, class Generator, class RejectionPredicate>
-        static Element<N> create_random( Distribution& dist, Generator &gen, RejectionPredicate pred){
+        static Element<N> create_random( Distribution& dist, Generator &gen, int id, RejectionPredicate pred){
             std::array<double, N> p, v;
-            do{
-                //generate a single point in N dimension
+            //generate point in N dimension
+            do {
                 std::generate(p.begin(), p.end(), [&dist, &gen](){return dist(gen);});
             } while(!pred(p));
-            //generate a single velocity in N dimension
+            //generate velocity in N dimension
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
-            return Element::create(p, v);
+            return Element::create(p, v, id);
         }
 
         template<class Distribution, class Generator, int Cnt>
         static std::array<Element<N>, Cnt> create_random_n( Distribution& dist, Generator &gen ){
             std::array<Element<N>, Cnt> elements;
-            std::generate(elements.begin(), elements.end(), [=]()mutable {
-                return Element<N>::create_random(dist, gen);
+            int id = 0;
+            std::generate(elements.begin(), elements.end(), [&]()mutable {
+                return Element<N>::create_random(dist, gen, id++);
             });
             return elements;
         }
 
         template<class Container, class Distribution, class Generator>
         static void create_random_n(Container &elements, Distribution& dist, Generator &gen ) {
-            std::generate(elements.begin(), elements.end(), [=]()mutable {
-                return Element<N>::create_random(dist, gen);
+            int id = 0;
+            std::generate(elements.begin(), elements.end(), [&]()mutable {
+                return Element<N>::create_random(dist, gen, id++);
             });
         }
 
@@ -77,8 +81,9 @@ namespace elements {
         static void create_random_n(Container &elements, Distribution& dist, Generator &gen, RejectionPredicate pred ) {
             //apply rejection sampling using the predicate given in parameter
             //construct a new function that does the work
+            int id = 0;
             std::generate(elements.begin(), elements.end(), [&]() mutable {
-                return Element<N>::create_random(dist, gen, [&elements, pred](auto const el){
+                return Element<N>::create_random(dist, gen, id++, [&elements, pred](auto const el){
                        return std::all_of(elements.begin(), elements.end(), [&](auto p){return pred(p.position, el);});
                 });
             });
@@ -90,7 +95,7 @@ namespace elements {
          * @return true if the position and the velocity of the two elements are equals
          */
         bool operator==(const Element &rhs) const {
-            return position == rhs.position && velocity == rhs.velocity;
+            return position == rhs.position && velocity == rhs.velocity && identifier == rhs.identifier;
         }
 
         bool operator!=(const Element &rhs) const {
@@ -108,7 +113,7 @@ namespace elements {
                 vel += "," + std::to_string(element.velocity.at(i));
             }
             vel += ")";
-            os << "position: " << pos << " velocity: " << vel;
+            os << "position: " << pos << " velocity: " << vel << " id: " << element.identifier;
             return os;
         }
 
@@ -127,23 +132,40 @@ namespace elements {
     std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities) {
         std::vector<Element<N>> elements(length);
         for(int i=0; i < length; ++i){
-            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]});
+            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, i);
             elements[i] = e;
         }
         return elements;
     }
 
-#include <string>
     template<int N, typename T>
     void transform(std::vector<Element<N>>& elements, const T* positions, const T* velocities) throw() {
         if(elements.empty()) {
             throw std::runtime_error("Can not transform data into an empty vector");
         }
-        std::generate(elements.begin(), elements.end(), [i = 0, &positions, &velocities]() mutable {
-            Element<N> e({positions[i], positions[i+1]}, {velocities[i], velocities[i+1]});
+        std::generate(elements.begin(), elements.end(), [i = 0, id=0, &positions, &velocities]() mutable {
+            Element<N> e({positions[i], positions[i+1]}, {velocities[i], velocities[i+1]}, id);
             i=i+N;
+            id++;
             return e;
         });
+    }
+    template<int N>
+    void serialize_positions(const std::vector<Element<N>>& elements, double* positions){
+        size_t element_id = 0;
+        for (auto const& el : elements){
+            for(size_t dim = 0; dim < N; ++dim)
+                positions[element_id * N + dim] = el.position.at(dim);
+            element_id++;
+        }
+    }
+    template<int N>
+    bool is_inside(const Element<N> &element, const std::array<std::pair<double, double>, N> domain){
+        auto element_position = element.position;
+        for(size_t dim = 0; dim < N; ++dim){
+            if(element_position.at(dim) < domain.at(dim).first || domain.at(dim).second < element_position.at(dim)) return false;
+        }
+        return true;
     }
 }
 

@@ -128,6 +128,81 @@ void run_box(FILE* fp, /* Output file (at 0) */
     }
 }
 
+/*
+template<int N>
+void run_box(FILE* fp, // Output file (at 0)
+             const int npframe, // Steps per frame
+             const int nframes, // Frames
+             const double dt, // Time step
+             std::vector<elements::Element<2>> &elements,
+             const load_balancing::LoadBalancer &load_balancer,
+             const sim_param_t* params) // Simulation params
+             {
+
+    // r_m = 3.2 * sig
+    double rm = 3.2 * std::sqrt(params->sig_lj);
+
+    // number of cell in a row
+    int M = (int) (params->simsize / rm);
+    std::unordered_map<int, int> plklist;
+    plklist.reserve(elements.size());
+    std::vector<int> head(M * M);//, plklist(params->npart);
+    std::vector<float> global_elements_position(params->npart * N);
+    double simsize = params->simsize;
+    double lsub;
+    double lcell = simsize;
+
+    // size of cell
+    lsub = lcell / ((float) M);
+
+    if (fp) {
+        write_header(fp, params->npart, simsize);
+        write_frame_data(fp, params->npart, &global_elements_position[0]);
+    }
+
+    switch (params->computation_method) {
+        case 1: //brute force
+            //compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+            break;
+        case 2: // cell linked list method
+            //create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
+            //compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
+            break;
+    }
+
+    clock_t begin = clock();
+
+    for (int frame = 1; frame < nframes; ++frame) {
+        for (int i = 0; i < npframe; ++i) {
+
+            //leapfrog1(nlocal, dt, &xlocal[0], &vlocal[0], &alocal[0]);
+
+            //apply_reflect(nlocal, &xlocal[0], &vlocal[0], &alocal[0], simsize);
+
+            //MPI_Allgatherv(&xlocal[0], nlocal, pairtype, &x[0], counts, iparts, pairtype, MPI_COMM_WORLD);
+
+            switch (params->computation_method) {
+                case 1:
+                    //compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+                    break;
+                case 2:
+                    //create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
+                    //compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
+                    break;
+            }
+
+            //leapfrog2(nlocal, dt, &vlocal[0], &alocal[0]);
+        }
+        if (fp) {
+            clock_t end = clock();
+            double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+            write_frame_data(fp, params->npart, &global_elements_position[0]);
+            printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
+            begin = clock();
+        }
+    }
+}
+*/
 int main(int argc, char** argv) {
     sim_param_t params;
     FILE* fp = NULL;

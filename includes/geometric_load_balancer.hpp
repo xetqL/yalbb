@@ -23,9 +23,7 @@ namespace load_balancing {
         int world_size;
         int caller_rank;
         partitioning::CommunicationDatatype communication_datatypes;
-
     public:
-
         const MPI_Datatype get_element_datatype() const {
             return communication_datatypes.elements_datatype;
         }
@@ -82,6 +80,7 @@ namespace load_balancing {
                             break;
                         }
                 //send elements
+                for(size_t i = 0; i < partitioned_data.size(); ++i) data[i] = partitioned_data.at(i).second;
                 for(int i = 0; i < world_size; ++i) {
                     //send the particle attributed to the PE
                     MPI_Send(&data[displs[i]], counts[i], this->get_element_datatype(), i, 666, MPI_COMM_WORLD);
@@ -89,7 +88,6 @@ namespace load_balancing {
                 //broadcast the geometric partition of the initial domain
                 MPI_Bcast(&subdomains.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
             }
-
             MPI_Status status;
             //Probe the data sent
             MPI_Probe(0, 666, MPI_COMM_WORLD, &status);
@@ -117,7 +115,9 @@ namespace load_balancing {
                     const partitioning::Partitioner<
                             partitioning::geometric::PartitionsInfo<N>,
                             std::vector<elements::Element<N>>,
-                            std::array<std::pair<double, double>, N>> &partitioner, MPI_Comm comm) : LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>, std::array<std::pair<double, double>, N>>(partitioner, comm) {}
+                            std::array<std::pair<double, double>, N>> &partitioner, MPI_Comm comm) :
+                    LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>,
+                    std::array<std::pair<double, double>, N>>(partitioner, comm) {}
         };
     }
 
