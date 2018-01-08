@@ -35,15 +35,18 @@ void create_cell_linkedlist(
         const double lsub, /* width of subdomain */
         const std::vector<elements::Element<N>> &particles, /* particle location */
         std::unordered_map<int, int> &particleslklist, /* particle linked list */
-        int* head) throw() /* head of particle linked list */{
+        std::vector<int> &head) throw() /* head of particle linked list */ {
     int cell_of_particle;
     for (int icell = 0; icell < nsub * nsub; icell++) head[icell] = -1;
     for (auto const &particle : particles) {
         cell_of_particle = (int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
-        if (cell_of_particle >= (nsub * nsub)) throw std::runtime_error("Particle "+std::to_string(cell_of_particle) + " is out of domain");
+        if (cell_of_particle >= (nsub * nsub) || cell_of_particle < 0)
+            throw std::runtime_error("Particle "+std::to_string(cell_of_particle) + " is out of domain");
         particleslklist[particle.identifier] = head[cell_of_particle];
+
         head[cell_of_particle] = particle.identifier;
     }
+
 }
 
 template<typename RealType>
@@ -180,8 +183,8 @@ void compute_forces(
                 double dx = force_source.position.at(0) - force_recepter.position.at(0);
                 double dy = force_source.position.at(1) - force_recepter.position.at(1);
                 double C_LJ = compute_LJ_scalar(dx*dx + dy*dy, eps, sig2);
-                force_recepter.acceleraton[0] += (C_LJ * dx);
-                force_recepter.acceleraton[1] += (C_LJ * dy);
+                force_recepter.acceleration[0] += (C_LJ * dx);
+                force_recepter.acceleration[1] += (C_LJ * dy);
             }
         }
     }

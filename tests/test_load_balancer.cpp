@@ -169,6 +169,8 @@ int main(int argc, char **argv) {
                 return same;
             });
 
+
+
     runner.add_test(element2d_exchanged_correctly);
     runner.add_test(element3d_exchanged_correctly);
     runner.add_test(after_load_balancing_processing_elements_have_data_to_compute);

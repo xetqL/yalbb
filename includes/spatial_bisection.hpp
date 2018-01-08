@@ -24,7 +24,41 @@ namespace partitioning { namespace geometric {
 
     template<int N>
     using Domain = std::array<std::pair<double, double>, N>;
-
+        template<size_t N>
+        bool are_domain_neighbors(const Domain<N> &A, const Domain<N> &B){
+            bool share_dim = false;
+            size_t shared_dim = -1;
+            for(size_t dim = 0; dim < N; ++dim){
+                if(A.at(dim).first == B.at(dim).first || A.at(dim).first == B.at(dim).second ||
+                   A.at(dim).second == B.at(dim).first || A.at(dim).second == B.at(dim).second) {
+                    shared_dim = dim;
+                    share_dim  = true;
+                    break;
+                }
+            }
+            if(!share_dim) return false;
+            int dim_cpt = 1;
+            for(size_t dim = 0; dim < N; ++dim){
+                if (dim == shared_dim) continue;
+                if(B.at(dim).first <= A.at(dim).first && A.at(dim).first <= B.at(dim).second) {
+                    dim_cpt++;
+                    continue;
+                }
+                if(B.at(dim).first <= A.at(dim).second && A.at(dim).second <= B.at(dim).second) {
+                    dim_cpt++;
+                    continue;
+                }
+                if(A.at(dim).first <= B.at(dim).first && B.at(dim).first <= A.at(dim).second) {
+                    dim_cpt++;
+                    continue;
+                }
+                if(A.at(dim).first <= B.at(dim).second && B.at(dim).second <= A.at(dim).second) {
+                    dim_cpt++;
+                    continue;
+                }
+            }
+            return dim_cpt == N;
+        }
     template<int N>
     struct PartitionInfo{
         using Domain=std::array<std::pair<double, double>, N>; //One range per dimension

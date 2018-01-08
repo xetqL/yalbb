@@ -43,6 +43,14 @@ set_target_properties(build_tests_lb
         PROPERTIES
         OUTPUT_NAME "tests_load_balancer")
 
+## Lennard-Jones and Physics
+add_executable(build_tests_lj
+        Makefile
+        ${TEST_SOURCE_DIRECTORY}/test_lj_physics.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
+set_target_properties(build_tests_lj
+        PROPERTIES
+        OUTPUT_NAME "tests_lj_physics")
+
 ########################################################################################################################
 # Executable
 
@@ -71,6 +79,7 @@ add_custom_target(tests
         COMMAND bin/tests_utils
         COMMAND bin/tests_space_partitioning
         COMMAND mpirun -np 2 bin/tests_load_balancer
+        COMMAND bin/tests_lj_physics
         COMMAND ${CMAKE_COMMAND} -E echo ""
         COMMAND ${CMAKE_COMMAND} -E echo "========================"
         COMMAND ${CMAKE_COMMAND} -E echo "  Test suit completed!"
@@ -79,4 +88,4 @@ add_custom_target(tests
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "Running custom test suit for utils, space_partitioning, and load_balancer!")
 
-add_dependencies(tests build_tests_space_partitioning build_tests_utils build_tests_lb)
+add_dependencies(tests build_tests_space_partitioning build_tests_utils build_tests_lb build_tests_lj)

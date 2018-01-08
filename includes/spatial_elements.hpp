@@ -7,6 +7,7 @@
 
 #include <array>
 #include <iostream>
+#include <algorithm>
 
 namespace elements {
 
@@ -35,6 +36,11 @@ namespace elements {
         }
 
         static Element<N> create(std::array<double, N> &p, std::array<double, N> &v, int id){
+            Element<N> e(p, v, id);
+            return e;
+        }
+
+        static Element<N> createc(std::array<double, N> p, std::array<double, N> v, int id){
             Element<N> e(p, v, id);
             return e;
         }

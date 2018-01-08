@@ -193,7 +193,6 @@ int main(int argc, char** argv){
                 for(size_t i = 0; i < elements.size(); ++i){
                     for (size_t j = i+1; j < elements.size(); ++j) {
                         if(elements::distance2<2>(elements[i].position, elements[j].position) < 0.001) {
-                            std::cout << elements::distance2<2>(elements[i].position, elements[j].position) << std::endl;
                             return false;
                         }
                     }
@@ -266,6 +265,15 @@ int main(int argc, char** argv){
                 return true;
             });
 
+    auto are_domain_neighbors = std::make_shared<UnitTest< std::vector<bool> > >
+            ("Domain neighboring detection", [] {
+                std::vector<bool> neighbors = {false, false, false};
+                return neighbors;
+            }, [](auto const& partitions) {
+                return false;
+            });
+
+
     runner.add_test(test_partition_balanced);
     runner.add_test(total_area_is_area_of_initial_domain);
     runner.add_test(no_overlapping_region);
@@ -276,6 +284,7 @@ int main(int argc, char** argv){
     runner.add_test(create_random_elements_generic_arr);
     runner.add_test(create_random_elements_generic_arr_with_predicate);
     runner.add_test(data_belongs_to_regions);
+    runner.add_test(are_domain_neighbors);
 
     runner.run();
     runner.summarize();

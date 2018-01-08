@@ -14,6 +14,8 @@
 
 namespace load_balancing {
     using ProcessingElementID=int;
+    template<int N>
+    using Domain = std::array<std::pair<double, double>, N>;
 
     template<typename PartitionType, typename ContainedDataType, typename DomainContainer>
     class LoadBalancer {
@@ -100,6 +102,38 @@ namespace load_balancing {
             MPI_Recv(&data.front(), my_data_size, this->get_element_datatype(), 0 , 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             //broadcast the geometric partition of the initial domain
             MPI_Bcast(&domain_boundary.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
+        }
+        /**
+         * Acquire data from neighboring PEs and store the data in the buffer.
+         * @param data
+         * @param domains
+         */
+        void ask_data_from_neighbors(std::vector<ContainedDataType>& data, const DomainContainer& domains){
+            // check each domain to know if you are neighbor with
+            // to do so you need at least D-1 dimension to have the exact same boundary
+            // and the other must be within the bounds of the other.
+            // Example 2D
+            // Here, no dimension have the same boundary (i.e lower_bound A =/= upper bound B or the other way around).
+            // ----------
+            // |    x   |
+            // |        |
+            // |   A   y|   ----------
+            // |        |   |        |
+            // |        |   |    B   |
+            // ----------   |        |
+            //              |        |
+            //              ----------
+            // ----------
+            // |        |    Here, the squares are neighbors because they share a boundary and the other dimension is
+            // |        |    within the lower bound / upper bound of the other square
+            // |        |---------
+            // |        |        |
+            // |        |        |
+            // ----------        |
+            //          |        |
+            //          ----------
+
+
         }
     };
     namespace geometric {

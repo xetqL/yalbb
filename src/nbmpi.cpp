@@ -144,21 +144,29 @@ void run_box(FILE* fp, // Output file (at 0)
 
     // number of cell in a row
     int M = (int) (params->simsize / rm);
+
     std::unordered_map<int, int> plklist;
     plklist.reserve(elements.size());
+
     std::vector<int> head(M * M);//, plklist(params->npart);
-    std::vector<float> global_elements_position(params->npart * N);
+
+    std::vector<double> global_elements_position(params->npart * N);
+
     double simsize = params->simsize;
     double lsub;
     double lcell = simsize;
 
     // size of cell
-    lsub = lcell / ((float) M);
+    lsub = lcell / ((double) M);
 
     if (fp) {
         write_header(fp, params->npart, simsize);
         write_frame_data(fp, params->npart, &global_elements_position[0]);
     }
+
+     std::vector<elements::Element<N>> all_elements_to_check(elements.size() + neighbor_elements.size());
+     std::copy(distant_elements.begin(), distant_elements.end(), std::front_inserter(all_elements_to_check));
+     std::copy(  local_elements.begin(),   local_elements.end(), std::front_inserter(all_elements_to_check));
 
     switch (params->computation_method) {
         case 1: //brute force
@@ -175,18 +183,18 @@ void run_box(FILE* fp, // Output file (at 0)
     for (int frame = 1; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
 
-            //leapfrog1(nlocal, dt, &xlocal[0], &vlocal[0], &alocal[0]);
+            leapfrog1(dt, elements);
 
-            //apply_reflect(nlocal, &xlocal[0], &vlocal[0], &alocal[0], simsize);
+            apply_reflect(elements, simsize);
 
             //MPI_Allgatherv(&xlocal[0], nlocal, pairtype, &x[0], counts, iparts, pairtype, MPI_COMM_WORLD);
 
             switch (params->computation_method) {
                 case 1:
-                    //compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+                    compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
                     break;
                 case 2:
-                    //create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
+                    create_cell_linkedlist(M, lsub, elements, plklist, head);
                     //compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
                     break;
             }
