@@ -55,18 +55,24 @@ void create_cell_linkedlist(
         const double lsub, /* width of subdomain */
         const std::vector<elements::Element<N>> &local_elements, /* particle location */
         const std::vector<elements::Element<N>> &remote_elements, /* particle location */
-        std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist) throw() {
+        std::map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist) throw() {
     int cell_of_particle;
+    //for (int icell = 0; icell < nsub * nsub; icell++) { plist[icell]->clear(); }
     plist.clear();
-    for (int icell = 0; icell < nsub * nsub; icell++) plist[icell] = std::make_unique<std::vector<elements::Element<N>>>();
     size_t local_size = local_elements.size(),
             remote_size = remote_elements.size();
     for (size_t cpt = 0; cpt < local_size + remote_size; ++cpt) {
         auto const& particle = cpt >= local_size ? remote_elements[cpt-local_size] : local_elements[cpt];
         cell_of_particle = (int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
+
         if (cell_of_particle >= (nsub * nsub) || cell_of_particle < 0)
             throw std::runtime_error("Particle "+std::to_string(cell_of_particle) + " is out of domain");
-        plist[cell_of_particle]->push_back(particle);
+        if(plist.find(cell_of_particle) != plist.end())
+            plist[cell_of_particle]->push_back(particle);
+        else{
+            plist[cell_of_particle]= std::make_unique<std::vector<elements::Element<N>>>();
+            plist[cell_of_particle]->push_back(particle);
+        }
     }
 }
 
@@ -76,7 +82,7 @@ void compute_forces(
         const float lsub, /* length of a cell */
         std::vector<elements::Element<N>> &local_elements,
         const std::vector<elements::Element<N>> &remote_elements,
-        const std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
+        const std::map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
         const sim_param_t* params) /* Simulation parameters */ {
 
     double g    = (double) params->G;
@@ -112,20 +118,21 @@ void compute_forces(
                 if (ycellidx + neighbory < 0 || ycellidx + neighbory >= M) continue;
 
                 nlinearcellidx = (xcellidx + neighborx) + M * (ycellidx + neighbory);
+                if(plist.find(nlinearcellidx) != plist.end()){
+                    auto el_list = plist.at(nlinearcellidx).get();
+                    size_t cell_el_size = el_list->size();
+                    for(size_t el_idx = 0; el_idx < cell_el_size; ++el_idx){
+                        auto const& force_source = el_list->at(el_idx);
+                        if (force_recepter.identifier != force_source.identifier) {
 
-                auto el_list = plist.at(nlinearcellidx).get();
-                size_t cell_el_size = el_list->size();
-                for(size_t el_idx = 0; el_idx < cell_el_size; ++el_idx){
-                    auto const& force_source = el_list->at(el_idx);
-                    if (force_recepter.identifier != force_source.identifier) {
+                            double dx = force_source.position.at(0) - force_recepter.position.at(0);
+                            double dy = force_source.position.at(1) - force_recepter.position.at(1);
 
-                        double dx = force_source.position.at(0) - force_recepter.position.at(0);
-                        double dy = force_source.position.at(1) - force_recepter.position.at(1);
+                            double C_LJ = compute_LJ_scalar(dx * dx + dy * dy, eps, sig2);
 
-                        double C_LJ = compute_LJ_scalar(dx * dx + dy * dy, eps, sig2);
-                        //if(C_LJ > 10000) std::cout << C_LJ<< " " << force_recepter << " <- " << force_source << std::endl;
-                        force_recepter.acceleration[0] += (C_LJ * dx);
-                        force_recepter.acceleration[1] += (C_LJ * dy);
+                            force_recepter.acceleration[0] += (C_LJ * dx);
+                            force_recepter.acceleration[1] += (C_LJ * dy);
+                        }
                     }
                 }
             }

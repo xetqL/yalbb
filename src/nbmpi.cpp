@@ -163,7 +163,7 @@ void run_box(FILE* fp, // Output file (at 0)
     /* number of cell in a row*/
     int M = (int) (params->simsize / rm);
     //std::vector<int> head(M * M);//, plklist(params->npart);
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> plklist;
+    std::map<int, std::unique_ptr<std::vector<elements::Element<N>>>> plklist;
     int n = params->npart;
     int nlocal = local_elements.size();
 
@@ -173,6 +173,9 @@ void run_box(FILE* fp, // Output file (at 0)
 
     /* size of cell */
     lsub = lcell / ((float) M);
+
+    //for (int icell = 0; icell < M * M; icell++) plklist.emplace(icell, std::make_unique<std::vector<elements::Element<N>>>());
+
     std::vector<elements::Element<2>> recv_buf(params->npart);
     std::vector<int> counts(nproc,0), displs(nproc, 0);
 
@@ -247,7 +250,6 @@ int main(int argc, char** argv) {
     sim_param_t params;
     FILE* fp = NULL;
     int npart, npart_wu;
-    int nlocal;
 
     MPI_Init(&argc, &argv);
 
@@ -268,8 +270,6 @@ int main(int argc, char** argv) {
         if(rank == 0) printf("Size of world does not match the expected world size: World=%d, Expected=%d\n", nproc, params.world_size);
         MPI_Finalize();
         return -1;
-    }else {
-        std::cout << "go" << std::endl;
     }
     
     std::vector<float> x(2 * params.npart, 0);
@@ -303,34 +303,20 @@ int main(int argc, char** argv) {
     MPI_Bcast(&npart,         1,  MPI_INT, 0, MPI_COMM_WORLD);
     //MPI_Bcast(&x.front(), npart, pairtype, 0, MPI_COMM_WORLD);
 
-
-
     load_balancer.load_balance(elements, domain_boundaries);
 
     double t1 = MPI_Wtime();
 
     params.npart = npart;
 
-    std::vector<int> iparts(nproc), counts(nproc);
+    //std::vector<int> iparts(nproc), counts(nproc);
 
-    partition_problem(iparts, counts, x.size() / 2);
+    //partition_problem(iparts, counts, x.size() / 2);
 
-    std::vector<float> xlocal(x.begin(), x.end());//(&x[2 * iparts[rank]], &x[2 * iparts[rank] + 2 * counts[rank]]);
+    //std::vector<float> xlocal(x.begin(), x.end());//(&x[2 * iparts[rank]], &x[2 * iparts[rank] + 2 * counts[rank]]);
 
-    std::vector<float> vlocal(v.begin(), v.end());//;(xlocal.size(), 0.0);
+    //std::vector<float> vlocal(v.begin(), v.end());//;(xlocal.size(), 0.0);
 
-    //elements::transform(elements, &xlocal.front(), &vlocal.front());
-
-    //nlocal = xlocal.size();
-
-    //init_particles_random_v(nlocal / 2, vlocal, &params);
-
-    /*
-    std::vector<elements::Element<2>> &local_elements,
-    const std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
-    load_balancing::geometric::GeometricLoadBalancer<N> &load_balancer,
-    const sim_param_t* params) // Simulation params
-    {*/
     run_box<2>(fp, params.npframe, params.nframes, params.dt, elements, domain_boundaries, load_balancer, &params);
 
     //run_box(fp, params.npframe, params.nframes, params.dt, x, xlocal, vlocal, &iparts[0], &counts[0], &params);
