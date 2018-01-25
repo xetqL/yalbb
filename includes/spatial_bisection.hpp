@@ -18,47 +18,109 @@
 #include "spatial_elements.hpp"
 #include "utils.hpp"
 
-
+std::string to_string(const std::array<std::pair<double, double>, 2> &element) {
+    std::string x = "("+std::to_string(element.at(0).first)+", "+std::to_string(element.at(0).second) + ")";
+    std::string y = "("+std::to_string(element.at(1).first)+", "+std::to_string(element.at(1).second) + ")";
+    std::string retval = "X: "+x+" Y:"+y;
+    return retval;
+}
 namespace partitioning { namespace geometric {
     using PartitionID=int;
 
     template<int N>
     using Domain = std::array<std::pair<double, double>, N>;
-        template<size_t N>
-        bool are_domain_neighbors(const Domain<N> &A, const Domain<N> &B){
-            bool share_dim = false;
-            size_t shared_dim = -1;
-            for(size_t dim = 0; dim < N; ++dim){
-                if(A.at(dim).first == B.at(dim).first || A.at(dim).first == B.at(dim).second ||
-                   A.at(dim).second == B.at(dim).first || A.at(dim).second == B.at(dim).second) {
-                    shared_dim = dim;
-                    share_dim  = true;
-                    break;
-                }
+
+
+    double dist2(const std::pair<double, double> p1, const std::pair<double,double> p2){
+        return std::pow(p1.first - p2.first, 2) + std::pow(p1.second - p2.second, 2);
+    }
+
+    template<size_t N>
+    const bool are_domain_neighbors_strict(const Domain<N> &A, const Domain<N> &B){
+
+        std::vector<size_t> shared_dims = {};
+        for(size_t dim = 0; dim < N; ++dim){
+            if(A.at(dim).first == B.at(dim).first || A.at(dim).first == B.at(dim).second ||
+               A.at(dim).second == B.at(dim).first || A.at(dim).second == B.at(dim).second) {
+                shared_dims.push_back(dim);
             }
-            if(!share_dim) return false;
-            int dim_cpt = 1;
-            for(size_t dim = 0; dim < N; ++dim){
-                if (dim == shared_dim) continue;
-                if(B.at(dim).first <= A.at(dim).first && A.at(dim).first <= B.at(dim).second) {
-                    dim_cpt++;
-                    continue;
-                }
-                if(B.at(dim).first <= A.at(dim).second && A.at(dim).second <= B.at(dim).second) {
-                    dim_cpt++;
-                    continue;
-                }
-                if(A.at(dim).first <= B.at(dim).first && B.at(dim).first <= A.at(dim).second) {
-                    dim_cpt++;
-                    continue;
-                }
-                if(A.at(dim).first <= B.at(dim).second && B.at(dim).second <= A.at(dim).second) {
-                    dim_cpt++;
-                    continue;
-                }
-            }
-            return dim_cpt == N;
         }
+
+        if(shared_dims.size() == 0)
+            return false;
+        if(shared_dims.size() == N)
+            return true;
+        int dim_cpt = shared_dims.size();
+
+        for(size_t dim = 0; dim < N; ++dim){
+            //check if we already share that dimension
+            if (std::find(shared_dims.begin(), shared_dims.end(), dim) != shared_dims.end()) continue;
+
+            if(B.at(dim).first <= A.at(dim).first && A.at(dim).first <= B.at(dim).second) {
+                dim_cpt++;
+                continue;
+            }
+
+            if(B.at(dim).first <= A.at(dim).second && A.at(dim).second <= B.at(dim).second) {
+                dim_cpt++;
+                continue;
+            }
+
+            if(A.at(dim).first <= B.at(dim).first && B.at(dim).first <= A.at(dim).second) {
+                dim_cpt++;
+                continue;
+            }
+
+            if(A.at(dim).first <= B.at(dim).second && B.at(dim).second <= A.at(dim).second) {
+                dim_cpt++;
+                continue;
+            }
+        }
+        return dim_cpt == N;
+    }
+
+    template<size_t N=2>
+    const bool are_domain_neighbors(const Domain<N> &A, const Domain<N> &B, const double min_d2){
+
+        bool left   = B.at(0).second < A.at(0).first;
+        bool right  = A.at(0).second < B.at(0).first;
+        bool bottom = B.at(1).second < A.at(1).first;
+        bool top    = A.at(1).second < B.at(1).first;
+        double d2;
+
+        if (top && left)
+            d2 = dist2(std::make_pair(A.at(0).first, A.at(1).second), std::make_pair(B.at(0).second, B.at(1).first) );
+        else if (left && bottom)
+            d2 = dist2(std::make_pair(A.at(0).first, A.at(1).first), std::make_pair(B.at(0).second, B.at(1).second) );
+        else if (bottom && right)
+            d2 = dist2(std::make_pair(A.at(0).second, A.at(1).first), std::make_pair(B.at(0).first, B.at(1).second) );
+        else if (right && top)
+            d2 = dist2(std::make_pair(A.at(0).second, A.at(1).second), std::make_pair(B.at(0).first, B.at(1).first) );
+        else if (left)
+            d2 = A.at(0).first - B.at(0).second;
+        else if (right)
+            d2 = B.at(0).first - A.at(0).second;
+        else if (bottom)
+            d2 = A.at(1).first - B.at(1).second;
+        else if (top)
+            d2 = B.at(1).first - A.at(1).second;
+
+
+        return d2 <= min_d2;
+    }
+
+    template<size_t N>
+    const std::vector<std::pair<size_t, Domain<N> > > get_neighboring_domains(const size_t my_domain_idx, const std::vector<Domain<N>> &domain_list, const double min_d2 = 0){
+        std::vector<std::pair<size_t, Domain<N>>> retval;
+        for(size_t domain_idx = 0; domain_idx < domain_list.size(); ++domain_idx){
+            if(domain_idx != my_domain_idx) {
+                if(are_domain_neighbors(domain_list.at(my_domain_idx), domain_list.at(domain_idx), min_d2))
+                    retval.push_back(std::make_pair(domain_idx, domain_list.at(domain_idx)));
+            }
+        }
+        return retval;
+    }
+
     template<int N>
     struct PartitionInfo{
         using Domain=std::array<std::pair<double, double>, N>; //One range per dimension
@@ -221,6 +283,7 @@ namespace partitioning { namespace geometric {
             MPI_Datatype element_datatype,
                          vec_datatype,
                          range_datatype,
+                         domain_datatype,
                          oldtype_range[1],
                          oldtype_element[2];
 
@@ -246,12 +309,15 @@ namespace partitioning { namespace geometric {
             MPI_Type_struct(2, blockcount_element, offset, oldtype_element, &element_datatype);
             MPI_Type_commit(&element_datatype);
 
-            blockcount_range[0] = 2;
+            blockcount_range[0] = N;
             oldtype_range[0] = MPI_DOUBLE;
             MPI_Type_struct(1, blockcount_range, offset, oldtype_range, &range_datatype);
             MPI_Type_commit(&range_datatype);
 
-            return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype);
+            MPI_Type_contiguous(N, range_datatype, &domain_datatype);
+            MPI_Type_commit(&domain_datatype);
+
+            return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype, domain_datatype);
         }
     };
 

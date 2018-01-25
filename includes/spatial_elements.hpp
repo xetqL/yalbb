@@ -20,6 +20,9 @@ namespace elements {
         constexpr Element(std::array<double, N> p, std::array<double, N> v, const int id) : identifier(id), position(p), velocity(v){
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
+        constexpr Element(std::array<double, N> p, std::array<double, N> v, std::array<double,N> a, const int id) : identifier(id), position(p), velocity(v), acceleration(a){
+            std::fill(acceleration.begin(), acceleration.end(), 0.0);
+        }
         constexpr Element() : identifier(0){
             std::fill(velocity.begin(), velocity.end(), 0.0);
             std::fill(position.begin(), position.end(), 0.0);
@@ -119,7 +122,12 @@ namespace elements {
                 vel += "," + std::to_string(element.velocity.at(i));
             }
             vel += ")";
-            os << "position: " << pos << " velocity: " << vel << " id: " << element.identifier;
+            std::string acc = "("+std::to_string(element.acceleration.at(0));
+            for(int i = 1; i < N; i++){
+                acc += "," + std::to_string(element.acceleration.at(i));
+            }
+            acc += ")";
+            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " id: " << element.identifier;
             return os;
         }
 
@@ -145,6 +153,16 @@ namespace elements {
     }
 
     template<int N, typename T>
+    std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities, const T* acceleration) {
+        std::vector<Element<N>> elements(length);
+        for(int i=0; i < length; ++i){
+            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, {acceleration[2*i], acceleration[2*i+1]}, i);
+            elements[i] = e;
+        }
+        return elements;
+    }
+
+    template<int N, typename T>
     void transform(std::vector<Element<N>>& elements, const T* positions, const T* velocities) throw() {
         if(elements.empty()) {
             throw std::runtime_error("Can not transform data into an empty vector");
@@ -156,6 +174,7 @@ namespace elements {
             return e;
         });
     }
+
     template<int N>
     void serialize_positions(const std::vector<Element<N>>& elements, double* positions){
         size_t element_id = 0;
@@ -165,14 +184,31 @@ namespace elements {
             element_id++;
         }
     }
+
+    template<int N, typename T>
+    void serialize(const std::vector<Element<N>>& elements, T* positions, T* velocities, T* acceleration){
+        size_t element_id = 0;
+        for (auto const& el : elements){
+            for(size_t dim = 0; dim < N; ++dim){
+                positions[element_id * N + dim] = (double) el.position.at(dim);  positions[element_id * N + dim] = (double) el.position.at(dim);
+                velocities[element_id * N + dim] = (double) el.velocity.at(dim); velocities[element_id * N + dim] = (double) el.velocity.at(dim);
+                acceleration[element_id * N + dim] = (double) el.acceleration.at(dim);  acceleration[element_id * N + dim] = (double) el.acceleration.at(dim);
+            }
+            element_id++;
+        }
+    }
+
     template<int N>
     bool is_inside(const Element<N> &element, const std::array<std::pair<double, double>, N> domain){
         auto element_position = element.position;
+
         for(size_t dim = 0; dim < N; ++dim){
             if(element_position.at(dim) < domain.at(dim).first || domain.at(dim).second < element_position.at(dim)) return false;
         }
+
         return true;
     }
+
 }
 
 #endif //NBMPI_GEOMETRIC_ELEMENT_HPP

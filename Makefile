@@ -56,17 +56,6 @@ CMAKE_BINARY_DIR = /home/xetql/Dropbox/projects/cpp/nbody/nbmpi
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target rebuild_cache
-rebuild_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/usr/local/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : rebuild_cache
-
-# Special rule for the target rebuild_cache
-rebuild_cache/fast: rebuild_cache
-
-.PHONY : rebuild_cache/fast
-
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
@@ -77,6 +66,17 @@ edit_cache:
 edit_cache/fast: edit_cache
 
 .PHONY : edit_cache/fast
+
+# Special rule for the target rebuild_cache
+rebuild_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
+	/usr/local/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : rebuild_cache
+
+# Special rule for the target rebuild_cache
+rebuild_cache/fast: rebuild_cache
+
+.PHONY : rebuild_cache/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -111,17 +111,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named build_tests_space_partitioning
+# Target rules for targets named tests
 
 # Build rule for target.
-build_tests_space_partitioning: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
-.PHONY : build_tests_space_partitioning
+tests: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 tests
+.PHONY : tests
 
 # fast build rule for target.
-build_tests_space_partitioning/fast:
-	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
-.PHONY : build_tests_space_partitioning/fast
+tests/fast:
+	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
+.PHONY : tests/fast
 
 #=============================================================================
 # Target rules for targets named build
@@ -135,6 +135,32 @@ build: cmake_check_build_system
 build/fast:
 	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
 .PHONY : build/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_space_partitioning
+
+# Build rule for target.
+build_tests_space_partitioning: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
+.PHONY : build_tests_space_partitioning
+
+# fast build rule for target.
+build_tests_space_partitioning/fast:
+	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
+.PHONY : build_tests_space_partitioning/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_utils
+
+# Build rule for target.
+build_tests_utils: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
+.PHONY : build_tests_utils
+
+# fast build rule for target.
+build_tests_utils/fast:
+	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
+.PHONY : build_tests_utils/fast
 
 #=============================================================================
 # Target rules for targets named build_tests_lb
@@ -161,32 +187,6 @@ build_tests_lj: cmake_check_build_system
 build_tests_lj/fast:
 	$(MAKE) -f CMakeFiles/build_tests_lj.dir/build.make CMakeFiles/build_tests_lj.dir/build
 .PHONY : build_tests_lj/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_utils
-
-# Build rule for target.
-build_tests_utils: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
-.PHONY : build_tests_utils
-
-# fast build rule for target.
-build_tests_utils/fast:
-	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
-.PHONY : build_tests_utils/fast
-
-#=============================================================================
-# Target rules for targets named tests
-
-# Build rule for target.
-tests: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 tests
-.PHONY : tests
-
-# fast build rule for target.
-tests/fast:
-	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
-.PHONY : tests/fast
 
 src/nbmpi.o: src/nbmpi.cpp.o
 
@@ -329,14 +329,14 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... build_tests_space_partitioning"
+	@echo "... tests"
 	@echo "... build"
+	@echo "... build_tests_space_partitioning"
+	@echo "... build_tests_utils"
+	@echo "... rebuild_cache"
 	@echo "... build_tests_lb"
 	@echo "... build_tests_lj"
-	@echo "... build_tests_utils"
-	@echo "... tests"
 	@echo "... src/nbmpi.o"
 	@echo "... src/nbmpi.i"
 	@echo "... src/nbmpi.s"

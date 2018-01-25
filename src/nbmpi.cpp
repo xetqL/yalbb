@@ -10,12 +10,13 @@
 
 #include <liblj/nbody_io.hpp>
 #include <liblj/neighborhood.hpp>
+#include <chrono>
 
 #include "../includes/spatial_elements.hpp"
 #include "../includes/geometric_load_balancer.hpp"
 #include "../includes/physics.hpp"
 #include "../includes/ljpotential.hpp"
-
+using namespace lennard_jones;
 static int rank;
 static int nproc;
 static MPI_Datatype pairtype;
@@ -51,15 +52,15 @@ void init_particles_random_v(int n, std::vector<float>& v, sim_param_t* params) 
 }
 
 void run_box(FILE* fp, /* Output file (at 0) */
-        int npframe, /* Steps per frame */
-        int nframes, /* Frames */
-        float dt, /* Time step */
-        std::vector<float>& x, /* Global position vec */
-        std::vector<float>& xlocal, /* Local part of position */
-        std::vector<float>& vlocal, /* Local part of velocity */
-        int* iparts,
-        int* counts,
-        const sim_param_t* params) /* Simulation params */ {
+             int npframe, /* Steps per frame */
+             int nframes, /* Frames */
+             float dt, /* Time step */
+             std::vector<float>& x, /* Global position vec */
+             std::vector<float>& xlocal, /* Local part of position */
+             std::vector<float>& vlocal, /* Local part of velocity */
+             int* iparts,
+             int* counts,
+             const sim_param_t* params) /* Simulation params */ {
 
     std::vector<float> alocal(xlocal.size(), 0.0);
 
@@ -86,13 +87,13 @@ void run_box(FILE* fp, /* Output file (at 0) */
     }
 
     switch (params->computation_method) {
-    case 1: //brute force
-        compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
-        break;
-    case 2: // cell linked list method
-        create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
-        compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
-        break;
+        case 1: //brute force
+            compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+            break;
+        case 2: // cell linked list method
+            create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
+            compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
+            break;
     }
 
     clock_t begin = clock();
@@ -107,13 +108,13 @@ void run_box(FILE* fp, /* Output file (at 0) */
             MPI_Allgatherv(&xlocal[0], nlocal, pairtype, &x[0], counts, iparts, pairtype, MPI_COMM_WORLD);
 
             switch (params->computation_method) {
-            case 1:
-                compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
-                break;
-            case 2:
-                create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
-                compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
-                break;
+                case 1:
+                    compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+                    break;
+                case 2:
+                    create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
+                    compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
+                    break;
             }
 
             leapfrog2(nlocal, dt, &vlocal[0], &alocal[0]);
@@ -127,90 +128,121 @@ void run_box(FILE* fp, /* Output file (at 0) */
         }
     }
 }
+#include <chrono>
+#define TIME_IT(a){\
+ auto start = std::chrono::steady_clock::now();\
+ a;\
+ auto end = std::chrono::steady_clock::now();\
+ auto diff = end-start;\
+ std::cout << std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;\
+};\
 
-/*
 template<int N>
 void run_box(FILE* fp, // Output file (at 0)
              const int npframe, // Steps per frame
              const int nframes, // Frames
              const double dt, // Time step
-             std::vector<elements::Element<2>> &elements,
-             const load_balancing::LoadBalancer &load_balancer,
+             std::vector<elements::Element<2>> local_elements,
+             const std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
+             load_balancing::geometric::GeometricLoadBalancer<N> load_balancer,
              const sim_param_t* params) // Simulation params
-             {
+{
 
-    // r_m = 3.2 * sig
+
+    std::vector<float> alocal(local_elements.size() * N, 0.0);
+    std::vector<float> xlocal(local_elements.size() * N, 0.0);
+    std::vector<float> vlocal(local_elements.size() * N, 0.0);
+
+    std::vector<float> a(params->npart * N, 0.0);
+    std::vector<float> x(params->npart * N, 0.0);
+    std::vector<float> v(params->npart * N, 0.0);
+
+    /* r_m = 3.2 * sig */
     double rm = 3.2 * std::sqrt(params->sig_lj);
 
-    // number of cell in a row
+    /* number of cell in a row*/
     int M = (int) (params->simsize / rm);
+    //std::vector<int> head(M * M);//, plklist(params->npart);
+    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> plklist;
+    int n = params->npart;
+    int nlocal = local_elements.size();
 
-    std::unordered_map<int, int> plklist;
-    plklist.reserve(elements.size());
+    float simsize = params->simsize;
+    float lsub;
+    float lcell = simsize;
 
-    std::vector<int> head(M * M);//, plklist(params->npart);
+    /* size of cell */
+    lsub = lcell / ((float) M);
+    std::vector<elements::Element<2>> recv_buf(params->npart);
+    std::vector<int> counts(nproc,0), displs(nproc, 0);
 
-    std::vector<double> global_elements_position(params->npart * N);
-
-    double simsize = params->simsize;
-    double lsub;
-    double lcell = simsize;
-
-    // size of cell
-    lsub = lcell / ((double) M);
+    MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
+    MPI_Gatherv(&local_elements.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
+                &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, MPI_COMM_WORLD);
+    elements::serialize(recv_buf,  &x[0],   &v[0],  &a[0]);
 
     if (fp) {
-        write_header(fp, params->npart, simsize);
-        write_frame_data(fp, params->npart, &global_elements_position[0]);
+        write_header(fp, n, simsize);
+        write_frame_data(fp, n, &x[0]);
     }
 
-     std::vector<elements::Element<N>> all_elements_to_check(elements.size() + neighbor_elements.size());
-     std::copy(distant_elements.begin(), distant_elements.end(), std::front_inserter(all_elements_to_check));
-     std::copy(  local_elements.begin(),   local_elements.end(), std::front_inserter(all_elements_to_check));
+    auto local_el = local_elements;
 
+    std::vector<elements::Element<2>> remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
     switch (params->computation_method) {
-        case 1: //brute force
-            //compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
-            break;
-        case 2: // cell linked list method
-            //create_cell_linkedlist(M, lsub, n, &x[0], &plklist[0], &head[0]);
-            //compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
-            break;
+    case 1: //brute force
+        compute_forces(local_el, remote_el, params);
+        break;
+    case 2: // cell linked list method
+    case 3: // TODO: FME method...
+        create_cell_linkedlist(M, lsub, local_el, remote_el, plklist);
+        compute_forces(M, lsub, local_el, remote_el, plklist, params);
+        break;
     }
 
     clock_t begin = clock();
-
     for (int frame = 1; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
 
-            leapfrog1(dt, elements);
+            leapfrog1(dt, local_el);
+            apply_reflect(local_el, simsize);
 
-            apply_reflect(elements, simsize);
+            load_balancer.migrate_particles(local_el, domain_boundaries);
 
-            //MPI_Allgatherv(&xlocal[0], nlocal, pairtype, &x[0], counts, iparts, pairtype, MPI_COMM_WORLD);
-
+            remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
             switch (params->computation_method) {
                 case 1:
-                    compute_forces(n, x, iparts[rank], iparts[rank + 1], xlocal, alocal, params);
+                    compute_forces(local_el, remote_el, params);
                     break;
                 case 2:
-                    create_cell_linkedlist(M, lsub, elements, plklist, head);
-                    //compute_forces(n, M, lsub, x, iparts[rank], iparts[rank + 1], xlocal, alocal, head, plklist, params);
+                case 3:
+                    create_cell_linkedlist(M, lsub, local_el, remote_el, plklist);
+                    compute_forces(M, lsub, local_el, remote_el, plklist, params);
                     break;
             }
+            leapfrog2(dt, local_el);
+        }
+        nlocal = local_el.size();
 
-            //leapfrog2(nlocal, dt, &vlocal[0], &alocal[0]);
-        }
+        MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+        for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
+        MPI_Gatherv(&local_el.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
+                    &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, MPI_COMM_WORLD);
+        elements::serialize(recv_buf,  &x[0],   &v[0],  &a[0]);
+
         if (fp) {
-            clock_t end = clock();
-            double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-            write_frame_data(fp, params->npart, &global_elements_position[0]);
-            printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
-            begin = clock();
+             clock_t end = clock();
+             double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+             write_frame_data(fp, n, &x[0]);
+             printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
+             begin = clock();
         }
+
     }
+    load_balancer.stop();
 }
-*/
+
 int main(int argc, char** argv) {
     sim_param_t params;
     FILE* fp = NULL;
@@ -236,6 +268,8 @@ int main(int argc, char** argv) {
         if(rank == 0) printf("Size of world does not match the expected world size: World=%d, Expected=%d\n", nproc, params.world_size);
         MPI_Finalize();
         return -1;
+    }else {
+        std::cout << "go" << std::endl;
     }
     
     std::vector<float> x(2 * params.npart, 0);
@@ -246,11 +280,11 @@ int main(int argc, char** argv) {
 
     partitioning::geometric::SeqSpatialBisection<2> rcb_partitioner;
     load_balancing::geometric::GeometricLoadBalancer<2> load_balancer(rcb_partitioner, MPI_COMM_WORLD);
-    std::array<std::pair<double, double>, 2> domain_boundary =
-    {
-        std::make_pair(0.0, params.simsize), std::make_pair(0.0, params.simsize)
+    partitioning::geometric::Domain<2> _domain_boundary = {
+            std::make_pair(0.0, params.simsize),
+            std::make_pair(0.0, params.simsize),
     };
-
+    std::vector<partitioning::geometric::Domain<2>> domain_boundaries = {_domain_boundary};
     /* Get file handle and initialize everything on P0 */
     if (rank == 0) {
         fp = fopen(params.fname, "w");
@@ -267,9 +301,11 @@ int main(int argc, char** argv) {
     }
 
     MPI_Bcast(&npart,         1,  MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&x.front(), npart, pairtype, 0, MPI_COMM_WORLD);
+    //MPI_Bcast(&x.front(), npart, pairtype, 0, MPI_COMM_WORLD);
 
-    load_balancer.load_balance(elements, domain_boundary);
+
+
+    load_balancer.load_balance(elements, domain_boundaries);
 
     double t1 = MPI_Wtime();
 
@@ -279,17 +315,25 @@ int main(int argc, char** argv) {
 
     partition_problem(iparts, counts, x.size() / 2);
 
-    std::vector<float> xlocal(&x[2 * iparts[rank]], &x[2 * iparts[rank] + 2 * counts[rank]]);
+    std::vector<float> xlocal(x.begin(), x.end());//(&x[2 * iparts[rank]], &x[2 * iparts[rank] + 2 * counts[rank]]);
 
-    xlocal.shrink_to_fit();
+    std::vector<float> vlocal(v.begin(), v.end());//;(xlocal.size(), 0.0);
 
-    std::vector<float> vlocal(xlocal.size(), 0.0);
+    //elements::transform(elements, &xlocal.front(), &vlocal.front());
 
-    nlocal = xlocal.size();
+    //nlocal = xlocal.size();
 
-    init_particles_random_v(nlocal / 2, vlocal, &params);
+    //init_particles_random_v(nlocal / 2, vlocal, &params);
 
-    run_box(fp, params.npframe, params.nframes, params.dt, x, xlocal, vlocal, &iparts[0], &counts[0], &params);
+    /*
+    std::vector<elements::Element<2>> &local_elements,
+    const std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
+    load_balancing::geometric::GeometricLoadBalancer<N> &load_balancer,
+    const sim_param_t* params) // Simulation params
+    {*/
+    run_box<2>(fp, params.npframe, params.nframes, params.dt, elements, domain_boundaries, load_balancer, &params);
+
+    //run_box(fp, params.npframe, params.nframes, params.dt, x, xlocal, vlocal, &iparts[0], &counts[0], &params);
 
     double t2 = MPI_Wtime();
 

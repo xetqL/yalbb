@@ -10,7 +10,7 @@
 #include "../includes/ljpotential.hpp"
 #include <algorithm>
 #include <unordered_map>
-
+using namespace lennard_jones;
 int main(int argc, char **argv) {
 
     constexpr int DIM=2;
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
                 for(size_t i = 0; i < 100; i++)
                     points.push_back(elements::Element<2>::create_random(dist, gen, i));
 
-                create_cell_linkedlist(nsub, lsub, points, pklist, head);
+                //create_cell_linkedlist(nsub, lsub, points, pklist, head);
 
                 return pklist;
             },
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
 
     runner.add_test(computation_of_lj_scalar_within_rcut);
     runner.add_test(computation_of_lj_scalar_outside_rcut);
-    runner.add_test(cell_linked_list_creation);
+    //runner.add_test(cell_linked_list_creation);
     runner.add_test(reflection);
 
     runner.run();

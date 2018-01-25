@@ -14,8 +14,6 @@
 
 namespace load_balancing {
     using ProcessingElementID=int;
-    template<int N>
-    using Domain = std::array<std::pair<double, double>, N>;
 
     template<typename PartitionType, typename ContainedDataType, typename DomainContainer>
     class LoadBalancer {
@@ -29,9 +27,11 @@ namespace load_balancing {
         const MPI_Datatype get_element_datatype() const {
             return communication_datatypes.elements_datatype;
         }
-
         const MPI_Datatype get_range_datatype() const {
             return communication_datatypes.range_datatype;
+        }
+        const MPI_Datatype get_domain_datatype() const {
+            return communication_datatypes.domain_datatype;
         }
 
         //Assume that the data are all located on PE 0.
@@ -55,18 +55,19 @@ namespace load_balancing {
 
         //TODO: It should somehow retrieves the data from the processing elements, at least makes it possible.
         //TODO: It should map the partitions as function of the PEs' pace
-        virtual void load_balance(std::vector<ContainedDataType>& data, DomainContainer& domain_boundary){
+        virtual void load_balance(std::vector<ContainedDataType>& data, std::vector<DomainContainer>& domain_boundary){
             std::vector<int> counts(world_size);
             std::vector<int> displs(world_size);
             std::fill(counts.begin(), counts.end(), 0);
-
+            std::vector<partitioning::geometric::Domain<ContainedDataType::number_of_dimensions>> subdomains;
             //TODO: Have to detect if the algorithm is sequential or parallel
             if (caller_rank == 0){
                 //partition the dataset in world_size partitions
-                std::unique_ptr<PartitionType> partitions = partitioner->partition_data(data, domain_boundary, world_size);
+                std::unique_ptr<PartitionType> partitions = partitioner->partition_data(data, domain_boundary.at(0), world_size);
                 auto partitioned_data = partitions->parts;
-                auto subdomains = partitions->domains; //all the sub domains (geometric)
+                subdomains = partitions->domains; //all the sub domains (geometric)
 
+                //std::for_each(subdomains.begin(), subdomains.end(), [](auto const& el){std::cout << to_string(el) << std::endl;});
                 std::sort(partitioned_data.begin(), partitioned_data.end(), [](const auto & a, const auto & b) -> bool{
                     return a.first < b.first; //sort by partition id
                 });
@@ -88,7 +89,7 @@ namespace load_balancing {
                     MPI_Send(&data[displs[i]], counts[i], this->get_element_datatype(), i, 666, MPI_COMM_WORLD);
                 }
                 //broadcast the geometric partition of the initial domain
-                MPI_Bcast(&subdomains.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
+                MPI_Bcast(&subdomains.front(), subdomains.size(), this->get_domain_datatype(), 0, MPI_COMM_WORLD);
             }
             MPI_Status status;
             //Probe the data sent
@@ -101,44 +102,76 @@ namespace load_balancing {
             // receive the elements
             MPI_Recv(&data.front(), my_data_size, this->get_element_datatype(), 0 , 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             //broadcast the geometric partition of the initial domain
-            MPI_Bcast(&domain_boundary.front(), ContainedDataType::number_of_dimensions, this->get_range_datatype(), 0, MPI_COMM_WORLD);
+            domain_boundary.clear();
+            if(caller_rank!=0){
+                domain_boundary.resize(world_size);
+                MPI_Bcast(&domain_boundary.front(), world_size, this->get_domain_datatype(), 0, MPI_COMM_WORLD);
+            }else{
+                std::move(subdomains.begin(), subdomains.end(), std::back_inserter(domain_boundary));
+            }
         }
+
         /**
          * Acquire data from neighboring PEs and store the data in the buffer.
          * @param data
          * @param domains
          */
-        void ask_data_from_neighbors(std::vector<ContainedDataType>& data, const DomainContainer& domains){
-            // check each domain to know if you are neighbor with
-            // to do so you need at least D-1 dimension to have the exact same boundary
-            // and the other must be within the bounds of the other.
-            // Example 2D
-            // Here, no dimension have the same boundary (i.e lower_bound A =/= upper bound B or the other way around).
-            // ----------
-            // |    x   |
-            // |        |
-            // |   A   y|   ----------
-            // |        |   |        |
-            // |        |   |    B   |
-            // ----------   |        |
-            //              |        |
-            //              ----------
-            // ----------
-            // |        |    Here, the squares are neighbors because they share a boundary and the other dimension is
-            // |        |    within the lower bound / upper bound of the other square
-            // |        |---------
-            // |        |        |
-            // |        |        |
-            // ----------        |
-            //          |        |
-            //          ----------
+        const std::vector<ContainedDataType> exchange_data(const std::vector<ContainedDataType>& data, const std::vector<DomainContainer>& domains) throw() {
+            // Get the neighbors
+            auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.0007)).first;
+            std::sort(neighbors.begin(), neighbors.end());
+            //std::cout << to_string(domains.at(caller_rank)) << " " << neighbors.size() << std::endl;
+            //std::cout << to_string(domains.at(caller_rank)) << " "<< neighbors.size() << std::endl;
+            std::vector<ContainedDataType> buffer;
+            std::vector<ContainedDataType> remote_data_gathered;
+            for(const size_t neighbor_idx : neighbors){
+                if(neighbor_idx == (size_t) caller_rank) continue;
+                int send_size = data.size(), recv_size;
+                //exchange the size between two processes
+                MPI_Sendrecv(&send_size, 1, MPI_INT, neighbor_idx, 666, &recv_size, 1, MPI_INT, neighbor_idx, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                buffer.resize(recv_size);
+                MPI_Sendrecv(&data.front(), send_size, this->get_element_datatype(), neighbor_idx, 666, &buffer.front(), recv_size, this->get_element_datatype(), neighbor_idx, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+                std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            return remote_data_gathered;
+        }
 
-
+        virtual void migrate_particles(std::vector<ContainedDataType>& data, const std::vector<DomainContainer>& domains) {
+            std::vector<ContainedDataType> buffer;
+            std::vector<ContainedDataType> data_to_migrate;
+            size_t wsize = (size_t) world_size;
+            for(size_t PE = 0; PE < wsize; ++PE){
+                if (PE == (size_t) caller_rank) continue; //do not check with myself
+                //check within the remaining elements which belong to the current PE
+                size_t data_id = 0;
+                while(data_id < data.size()){
+                    if(elements::is_inside<2>(data.at(data_id), domains.at(PE))) {
+                        //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+                        //swap iterator values in constant time
+                        std::iter_swap(data.begin() + data_id, data.end()-1);
+                        //get the value and push it in the "to migrate" vector
+                        data_to_migrate.push_back(*(data.end()-1));
+                        //pop the head of the list in constant time
+                        data.pop_back();
+                    } else data_id++; //if the element must stay with me then check the next one
+                }
+                int send_size = data_to_migrate.size(), recv_size;
+                //exchange the size between two processes
+                MPI_Sendrecv(&send_size, 1, MPI_INT, PE, 666, &recv_size, 1, MPI_INT, PE, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                if (send_size != 0 || recv_size != 0){ //something has to be exchanged
+                    buffer.resize(recv_size);
+                    MPI_Sendrecv(&data_to_migrate.front(), send_size, this->get_element_datatype(), PE, 666, &buffer.front(), recv_size, this->get_element_datatype(), PE, 666, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+                    std::move(buffer.begin(), buffer.end(), std::back_inserter(data)); //not optimal because data are checked twice
+                    data_to_migrate.clear();
+                }
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
         }
     };
     namespace geometric {
         template<int N>
-        class GeometricLoadBalancer : public LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>, std::array<std::pair<double, double>, N>> {
+        class GeometricLoadBalancer : public LoadBalancer<partitioning::geometric::PartitionsInfo<N>, elements::Element<N>, partitioning::geometric::Domain<N>> {
         public:
             /**
              * Create a load balancer based on geometric partitioning algorithms
