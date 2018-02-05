@@ -88,7 +88,9 @@ static void reflect(RealType wall, RealType* x, RealType* v, RealType* a) {
  */
 template<typename RealType>
 void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealType simsize) {
-    unsigned int i = 0;
+    unsigned int i = 0, repeat=0;
+    const unsigned int MAX_REPEAT = 4;
+
     while(i < n) {
 
         if (x[0] < 0.0) reflect((RealType) 0.0, x + 0, v + 0, a + 0);
@@ -99,22 +101,35 @@ void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealTy
 
         if (x[1] >= simsize) reflect(simsize-std::numeric_limits<RealType>::epsilon(), x + 1, v + 1, a + 1);
 
-        if(x[0] < 0.0 || x[1] < 0.0 || x[0] >= simsize || x[1] >= simsize) continue;
-
+        /*if(x[0] < 0.0 || x[1] < 0.0 || x[0] >= simsize || x[1] >= simsize)
+            if(repeat < MAX_REPEAT) {
+                repeat ++;
+                continue;
+            }
+        repeat = 0;*/
         i++; x+=2; v+=2; a+=2;
     }
 }
 
 template<int N>
 void apply_reflect(std::vector<elements::Element<N>> &elements, const double simsize) {
+    //unsigned int i = 0, repeat=0;
+    //const unsigned int MAX_REPEAT = 4;
     for(auto &element: elements){
         size_t dim = 0;
+        //repeat = 0;
         while(dim < N){
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
             if(element.position.at(dim) >= simsize)
                 reflect(simsize-std::numeric_limits<double>::epsilon(), &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
-            if(element.position.at(dim) < 0.0 || element.position.at(dim) >= simsize) continue;
+            /*if(element.position.at(dim) < 0.0 || element.position.at(dim) >= simsize) {
+                if(repeat < MAX_REPEAT) {
+                    repeat++;
+                    continue;
+                }
+            }
+            repeat=0;*/
             dim++;
         }
     }

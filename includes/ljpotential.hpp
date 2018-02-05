@@ -9,6 +9,7 @@
 #include <liblj/params.hpp>
 #include <vector>
 #include <unordered_map>
+#include <map>
 
 #include "physics.hpp"
 namespace lennard_jones {

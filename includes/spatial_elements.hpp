@@ -60,8 +60,11 @@ namespace elements {
         static Element<N> create_random( Distribution& dist, Generator &gen, int id, RejectionPredicate pred){
             std::array<double, N> p, v;
             //generate point in N dimension
+            int trial = 0;
             do {
+                if(trial >= 1000) throw std::runtime_error("Could not generate particle that satisfies the predicate. Try another distribution.");
                 std::generate(p.begin(), p.end(), [&dist, &gen](){return dist(gen);});
+                trial++;
             } while(!pred(p));
             //generate velocity in N dimension
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
