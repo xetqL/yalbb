@@ -57,7 +57,7 @@ set_target_properties(build_tests_lj
 ## Main build
 add_executable(build
         Makefile
-        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/geometric_load_balancer.hpp includes/partitioner.hpp includes/spatial_elements.hpp includes/ljpotential.hpp includes/physics.hpp)
+        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/geometric_load_balancer.hpp includes/partitioner.hpp includes/spatial_elements.hpp includes/ljpotential.hpp includes/physics.hpp includes/nbody_io.hpp)
 
 set_target_properties(build 
         PROPERTIES

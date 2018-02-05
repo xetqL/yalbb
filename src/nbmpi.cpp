@@ -6,10 +6,6 @@
 #include <mpi.h>
 #include <random>
 #include <set>
-
-
-#include <liblj/nbody_io.hpp>
-#include <liblj/neighborhood.hpp>
 #include <chrono>
 #include <iterator>
 #include <sstream>
@@ -20,6 +16,8 @@
 #include "../includes/geometric_load_balancer.hpp"
 #include "../includes/physics.hpp"
 #include "../includes/ljpotential.hpp"
+#include "../includes/nbody_io.hpp"
+
 using namespace lennard_jones;
 static int _rank;
 static int _nproc;
@@ -304,7 +302,6 @@ int main(int argc, char** argv) {
     
     std::vector<float> x(2 * params.npart, 0);
     std::vector<float> v(2 * params.npart, 0);
-    std::vector<liblj::work_unit_t> w;
     std::vector<float> wser(4 * params.npart, 0);
     std::vector<elements::Element<2>> elements(params.npart);
 
