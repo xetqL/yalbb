@@ -67,10 +67,6 @@ target_link_libraries(build
         PRIVATE
         ${MPI_C_LIBRARIES})
 
-target_link_libraries(build
-        PRIVATE
-        /usr/lib/liblj/liblj.a)
-
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH})
