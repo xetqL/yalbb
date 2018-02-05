@@ -12,6 +12,8 @@
 #include <fstream>
 #include <iomanip>
 
+
+#include "../includes/params.hpp"
 #include "../includes/spatial_elements.hpp"
 #include "../includes/geometric_load_balancer.hpp"
 #include "../includes/physics.hpp"

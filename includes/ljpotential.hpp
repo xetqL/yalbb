@@ -6,7 +6,6 @@
 #define NBMPI_LJPOTENTIAL_HPP
 
 #include <cmath>
-#include <liblj/params.hpp>
 #include <vector>
 #include <unordered_map>
 #include <map>
