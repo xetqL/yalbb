@@ -24,7 +24,6 @@ using namespace lennard_jones;
 static int _rank;
 static int _nproc;
 static MPI_Datatype pairtype;
-static MPI_Datatype intpairtype;
 
 /**
  * \subsection{Problem partitioning}
@@ -232,6 +231,7 @@ void run_box(FILE* fp, // Output file (at 0)
     apply_reflect(local_el, simsize);
     for (int frame = 1; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
+            MPI_Barrier(comm);
             auto start = std::chrono::steady_clock::now();
             load_balancer.migrate_particles(local_el, domain_boundaries);
             remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
@@ -251,8 +251,7 @@ void run_box(FILE* fp, // Output file (at 0)
             auto end = std::chrono::steady_clock::now();
             auto diff = std::chrono::duration <double, std::milli> ((end-start)).count();
             std::vector<double> times(nproc);
-
-            MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
             if(rank == 0) {
                 lb_file << std::to_string(i+(frame-1)*npframe) << ";";
                 std::move(times.begin(), times.end(), std::ostream_iterator<double>(lb_file, ";"));
@@ -284,7 +283,7 @@ void run_box(FILE* fp, // Output file (at 0)
 int main(int argc, char** argv) {
     sim_param_t params;
     FILE* fp = NULL;
-    int npart, npart_wu;
+    int npart;
     int rank, nproc;
     MPI_Init(&argc, &argv);
 

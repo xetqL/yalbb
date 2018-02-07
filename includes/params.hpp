@@ -29,6 +29,7 @@ typedef struct sim_param_t {
     float T0;      /* Initial temperature (1)    */
     float simsize; /* Borders of the simulation  */
     bool  record;  /* record the simulation in a binary file */
+    int   seed;    /* seed used in the RNG */
     short computation_method; /* which computation method to use 1 is brute-force, 2 is cell linked list, 3 Fast Multipole Expansion (todo) */
     unsigned int world_size;
 } sim_param_t;
@@ -78,6 +79,7 @@ static void default_params(sim_param_t* params) {
     params->record = false;
     params->computation_method = (short) 2;
     params->world_size = (unsigned int) 1;
+    params->seed = (int) 0;
 }
 
 /*@T
@@ -90,7 +92,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rho:n:F:f:t:e:s:g:T:d:m:p:";
+    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:d:m:p:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -120,6 +122,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_flt_arg('d', simsize);
             get_int_arg('m', computation_method);
             get_int_arg('p', world_size);
+            get_int_arg('S', seed);
             default:
                 fprintf(stderr, "Unknown option\n");
                 print_usage();

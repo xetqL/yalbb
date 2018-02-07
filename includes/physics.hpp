@@ -88,8 +88,7 @@ static void reflect(RealType wall, RealType* x, RealType* v, RealType* a) {
  */
 template<typename RealType>
 void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealType simsize) {
-    unsigned int i = 0, repeat=0;
-    const unsigned int MAX_REPEAT = 4;
+    unsigned int i = 0;
 
     while(i < n) {
 
@@ -101,12 +100,6 @@ void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealTy
 
         if (x[1] >= simsize) reflect(simsize-std::numeric_limits<RealType>::epsilon(), x + 1, v + 1, a + 1);
 
-        /*if(x[0] < 0.0 || x[1] < 0.0 || x[0] >= simsize || x[1] >= simsize)
-            if(repeat < MAX_REPEAT) {
-                repeat ++;
-                continue;
-            }
-        repeat = 0;*/
         i++; x+=2; v+=2; a+=2;
     }
 }
