@@ -54,12 +54,15 @@ void init_particles_random_v(int n, std::vector<float>& v, sim_param_t* params) 
     }
 }
 template <int N>
-void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params) {
+void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params, int seed = 0) {
     float T0 = params->T0;
     int n = elements.size();
+    //std::random_device rd; //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> udist(0.0, 1.0);
     for (int i = 0; i < n; ++i) {
-        double R = T0 * std::sqrt(-2 * std::log(drand48()));
-        double T = 2 * M_PI * drand48();
+        double R = T0 * std::sqrt(-2 * std::log(udist(gen)));
+        double T = 2 * M_PI * udist(gen);
         elements[i].velocity[0] = (double) (R * std::cos(T));
         elements[i].velocity[1] = (double) (R * std::sin(T));
     }
@@ -318,8 +321,8 @@ int main(int argc, char** argv) {
     if (rank == 0) {
         fp = fopen(params.fname, "w");
         double min_r2 = 1e-2*1e-2;
-        std::random_device rd; //Will be used to obtain a seed for the random number engine
-        std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+        //std::random_device rd; //Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(0); //Standard mersenne_twister_engine seeded with rd()
         std::normal_distribution<double> ndist(params.simsize / 2, params.simsize / 10);
         std::uniform_real_distribution<double> udist(0.0, params.simsize);
 
