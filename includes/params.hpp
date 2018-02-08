@@ -8,7 +8,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include "../includes/params.hpp"
 
 /*@T
  * \section{System parameters}

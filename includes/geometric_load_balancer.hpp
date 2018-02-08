@@ -167,23 +167,26 @@ namespace load_balancing {
                         } else data_id++; //if the element must stay with me then check the next one
                     }
                 }
-                MPI_Request unused;
+                std::vector<MPI_Request> reqs(neighbors.size());
+                std::vector<MPI_Status> statuses(neighbors.size());
+                int cpt = 0, nb_neighbors = neighbors.size();
                 for(const size_t &PE : neighbors){
                     int send_size = data_to_migrate.at(PE).size();
-                    MPI_Isend(&data_to_migrate.at(PE).front(), send_size, this->get_element_datatype(), PE, 300, this->LB_COMM, &unused);
+                    MPI_Isend(&data_to_migrate.at(PE).front(), send_size, this->get_element_datatype(), PE, 300, this->LB_COMM, &reqs[cpt]);
+                    cpt++;
                 }
-                int cpt = 0, nb_neighbors = neighbors.size();
+                cpt=0;
                 while(cpt < nb_neighbors) {// receive the data in any order
-                    MPI_Status status;
                     int source_rank, size;
-                    MPI_Probe(MPI_ANY_SOURCE, 300, this->LB_COMM, &status);
-                    source_rank = status.MPI_SOURCE;
-                    MPI_Get_count(&status, this->get_element_datatype(), &size);
+                    MPI_Probe(MPI_ANY_SOURCE, 300, this->LB_COMM, &statuses[cpt]);
+                    source_rank = statuses[cpt].MPI_SOURCE;
+                    MPI_Get_count(&statuses[cpt], this->get_element_datatype(), &size);
                     buffer.resize(size);
-                    MPI_Recv(&buffer.front(), size, this->get_element_datatype(), source_rank, 300, this->LB_COMM, &status);
+                    MPI_Recv(&buffer.front(), size, this->get_element_datatype(), source_rank, 300, this->LB_COMM, &statuses[cpt]);
                     std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
                     cpt++;
                 }
+                MPI_Waitall(cpt, &reqs.front(), &statuses.front());
             }
 
             const std::vector<elements::Element<N>> exchange_data(const std::vector<elements::Element<N>> &data,
@@ -192,29 +195,46 @@ namespace load_balancing {
                 std::vector<elements::Element<N>> buffer;
                 std::vector<elements::Element<N>> remote_data_gathered;
                 // Get the neighbors
+                const size_t wsize = (size_t) this->world_size;
+                std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
                 auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(this->caller_rank, domains, 0.0007)).first;
-                std::sort(neighbors.begin(), neighbors.end());
-                MPI_Request unused;
+
+                for(const size_t &PE : neighbors){//size_t PE = 0; PE < wsize; ++PE) {
+                    if (PE == (size_t) this->caller_rank) continue; //do not check with myself
+                    //check within the remaining elements which belong to the current PE
+                    size_t data_id = 0;
+                    while (data_id < data.size()) {
+                        if (elements::distance2<N>(domains.at(PE), data.at(data_id)) < 0.0007) {
+                            //get the value and push it in the "to migrate" vector
+                            data_to_migrate.at(PE).push_back(data.at(data_id));
+                        }
+                        data_id++; //if the element must stay with me then check the next one
+                    }
+
+                }
+                std::vector<MPI_Request> reqs(neighbors.size());
+                std::vector<MPI_Status> statuses(neighbors.size());
                 int cpt = 0, nb_neighbors = neighbors.size();
-                int send_size = data.size();
-                for(const size_t &neighbor_idx : neighbors)   //give all my data to neighbors
-                    MPI_Isend(&data.front(), send_size, this->get_element_datatype(), neighbor_idx, 200, this->LB_COMM, &unused);
+                for(const size_t &neighbor_idx : neighbors){   //give all my data to neighbors
+                    int send_size = data_to_migrate.at(neighbor_idx).size();
+                    MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, this->get_element_datatype(), neighbor_idx, 200, this->LB_COMM, &reqs[cpt]);
+                    cpt++;
+                }
+                cpt=0;
                 while(cpt < nb_neighbors) {// receive the data in any order
-                    MPI_Status status;
                     int source_rank, size;
-                    MPI_Probe(MPI_ANY_SOURCE, 200, this->LB_COMM, &status);
-                    source_rank = status.MPI_SOURCE;
-                    MPI_Get_count(&status, this->get_element_datatype(), &size);
+                    MPI_Probe(MPI_ANY_SOURCE, 200, this->LB_COMM, &statuses[cpt]);
+                    source_rank = statuses[cpt].MPI_SOURCE;
+                    MPI_Get_count(&statuses[cpt], this->get_element_datatype(), &size);
                     buffer.resize(size);
-                    MPI_Recv(&buffer.front(), size, this->get_element_datatype(), source_rank, 200, this->LB_COMM, &status);
+                    MPI_Recv(&buffer.front(), size, this->get_element_datatype(), source_rank, 200, this->LB_COMM, &statuses[cpt]);
                     std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
                     cpt++;
                 }
+                MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front());
 
                 return remote_data_gathered;
             }
-
-
         };
     }
 

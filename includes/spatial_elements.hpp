@@ -145,6 +145,23 @@ namespace elements {
         return r2;
     }
 
+    template<int N>
+    double distance2(const std::pair<std::pair<double, double>, std::pair<double, double>> &l, const Element<N> &el){
+        return std::pow((l.second.second - l.first.second)*el.position.at(0) - (l.second.first - l.first.first)*el.position.at(1) + l.second.first*l.first.second - l.second.second*l.first.first, 2)/
+               (std::pow((l.second.second - l.first.second),2) + std::pow((l.second.first - l.first.first),2));
+    }
+
+    template<int N>
+    double distance2(const std::array<std::pair<double, double>, N> &domain, const Element<N> &e1){
+        double width = std::abs(domain.at(0).second - domain.at(0).first);
+        double height= std::abs(domain.at(1).second - domain.at(1).first);
+        double x = (domain.at(0).second + domain.at(0).first)/2.0;
+        double y = (domain.at(1).second + domain.at(1).first)/2.0;
+        double dx = std::max(std::abs(e1.position.at(0) - x) - width / 2, 0.0);
+        double dy = std::max(std::abs(e1.position.at(1) - y) - height / 2, 0.0);
+        return dx * dx + dy * dy;
+    }
+
     template<int N, typename T>
     std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities) {
         std::vector<Element<N>> elements(length);

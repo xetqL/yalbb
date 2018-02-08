@@ -9,7 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
-
+#include "params.hpp"
 #include "physics.hpp"
 namespace lennard_jones {
 template<typename RealType>
