@@ -71,7 +71,7 @@ void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_pa
 void write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0){
     if(caller_rank == worker_id){
         stream << params->world_size << ";" << params->npart << ";" << params->nframes*params->npframe << ";"
-               << params->simsize << ";" << params->G << ";";
+               << params->simsize << ";" << params->G << ";" << params->seed ;
         stream << std::endl;
     }
 }
@@ -207,7 +207,7 @@ void run_box(FILE* fp, // Output file (at 0)
     float lsub;
     float lcell = simsize;
     std::ofstream lb_file;
-    write_report_header(lb_file, params, rank);
+
     /* size of cell */
     lsub = lcell / ((float) M);
 
@@ -226,6 +226,7 @@ void run_box(FILE* fp, // Output file (at 0)
         oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
         auto str = oss.str();
         lb_file.open("load_imbalance_report-"+str+".data", std::ofstream::out | std::ofstream::trunc );
+        write_report_header(lb_file, params, rank);
         write_header(fp, n, simsize);
         write_frame_data(fp, n, &recv_buf[0]);
     }
@@ -269,7 +270,6 @@ void run_box(FILE* fp, // Output file (at 0)
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
             write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
-
         }
         nlocal = local_el.size();
 
