@@ -210,7 +210,6 @@ namespace load_balancing {
                         }
                         data_id++; //if the element must stay with me then check the next one
                     }
-
                 }
                 std::vector<MPI_Request> reqs(neighbors.size());
                 std::vector<MPI_Status> statuses(neighbors.size());
@@ -231,7 +230,7 @@ namespace load_balancing {
                     std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
                     cpt++;
                 }
-                MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front());
+                MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front()); //less strict than mpi_barrier
 
                 return remote_data_gathered;
             }

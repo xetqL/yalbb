@@ -68,6 +68,21 @@ void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_pa
     }
 }
 
+void write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0){
+    if(caller_rank == worker_id){
+        stream << params->world_size << ";" << params->npart << ";" << params->nframes*params->npframe << ";"
+               << params->simsize << ";" << params->G << ";";
+        stream << std::endl;
+    }
+}
+void write_report_data(std::ofstream &stream, const int ts_idx, const std::vector<double> &timings, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
+    if(caller_rank == worker_id) {
+        stream << std::to_string(ts_idx) << ";";
+        std::copy(timings.begin(), timings.end(), std::ostream_iterator<double>(stream, delimiter));
+        stream << std::endl;
+    }
+}
+
 void run_box(FILE* fp, /* Output file (at 0) */
              int npframe, /* Steps per frame */
              int nframes, /* Frames */
@@ -192,6 +207,7 @@ void run_box(FILE* fp, // Output file (at 0)
     float lsub;
     float lcell = simsize;
     std::ofstream lb_file;
+    write_report_header(lb_file, params, rank);
     /* size of cell */
     lsub = lcell / ((float) M);
 
@@ -255,11 +271,12 @@ void run_box(FILE* fp, // Output file (at 0)
             auto diff = std::chrono::duration <double, std::milli> ((end-start)).count();
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
-            if(rank == 0) {
+            write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
+            /*if(rank == 0) {
                 lb_file << std::to_string(i+(frame-1)*npframe) << ";";
                 std::move(times.begin(), times.end(), std::ostream_iterator<double>(lb_file, ";"));
                 lb_file << std::endl;
-            }
+            }*/
 
         }
         nlocal = local_el.size();
@@ -322,7 +339,7 @@ int main(int argc, char** argv) {
         fp = fopen(params.fname, "w");
         double min_r2 = 1e-2*1e-2;
         //std::random_device rd; //Will be used to obtain a seed for the random number engine
-        std::mt19937 gen(0); //Standard mersenne_twister_engine seeded with rd()
+        std::mt19937 gen(params.seed); //Standard mersenne_twister_engine seeded with rd()
         std::normal_distribution<double> ndist(params.simsize / 2, params.simsize / 10);
         std::uniform_real_distribution<double> udist(0.0, params.simsize);
 

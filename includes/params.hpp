@@ -65,6 +65,7 @@ static void print_usage() {
 }
 
 static void default_params(sim_param_t* params) {
+    std::random_device rd;
     params->fname = (char*) "run.out";
     params->npart = 500;
     params->nframes = 400;
@@ -78,7 +79,7 @@ static void default_params(sim_param_t* params) {
     params->record = false;
     params->computation_method = (short) 2;
     params->world_size = (unsigned int) 1;
-    params->seed = (int) 0;
+    params->seed = rd(); //by default a random number
 }
 
 /*@T
