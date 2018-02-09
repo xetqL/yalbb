@@ -211,7 +211,6 @@ void run_box(FILE* fp, // Output file (at 0)
     /* size of cell */
     lsub = lcell / ((float) M);
 
-    //for (int icell = 0; icell < M * M; icell++) plklist.emplace(icell, std::make_unique<std::vector<elements::Element<N>>>());
 
     std::vector<elements::Element<2>> recv_buf(params->npart);
     std::vector<int> counts(nproc,0), displs(nproc, 0);
@@ -220,8 +219,6 @@ void run_box(FILE* fp, // Output file (at 0)
     for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
     MPI_Gatherv(&local_elements.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
                 &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, comm);
-    elements::serialize(recv_buf,  &x[0],   &v[0],  &a[0]);
-
     if (fp) {
         auto t = std::time(nullptr);
         auto tm = *std::localtime(&t);
@@ -230,7 +227,7 @@ void run_box(FILE* fp, // Output file (at 0)
         auto str = oss.str();
         lb_file.open("load_imbalance_report-"+str+".data", std::ofstream::out | std::ofstream::trunc );
         write_header(fp, n, simsize);
-        write_frame_data(fp, n, &x[0]);
+        write_frame_data(fp, n, &recv_buf[0]);
     }
     auto local_el = local_elements;
 
@@ -272,11 +269,6 @@ void run_box(FILE* fp, // Output file (at 0)
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
             write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
-            /*if(rank == 0) {
-                lb_file << std::to_string(i+(frame-1)*npframe) << ";";
-                std::move(times.begin(), times.end(), std::ostream_iterator<double>(lb_file, ";"));
-                lb_file << std::endl;
-            }*/
 
         }
         nlocal = local_el.size();
@@ -285,12 +277,11 @@ void run_box(FILE* fp, // Output file (at 0)
         for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
         MPI_Gatherv(&local_el.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
                     &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, comm);
-        elements::serialize(recv_buf,  &x[0],   &v[0],  &a[0]);
 
         if (fp) {
              clock_t end = clock();
              double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-             write_frame_data(fp, n, &x[0]);
+             write_frame_data(fp, n, &recv_buf[0]);
              printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
              begin = clock();
         }

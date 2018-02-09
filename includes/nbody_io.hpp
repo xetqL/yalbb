@@ -107,20 +107,13 @@ void write_frame_data(FILE* fp, const int n, float* x)
     for (int i = 0; i < n; ++i) {
         uint32_t xi = htonf(x++);
         uint32_t yi = htonf(x++);
+
         fwrite(&xi, sizeof(xi), 1, fp);
         fwrite(&yi, sizeof(yi), 1, fp);
     }
 }
 
-void write_frame_data(FILE* fp, const int n, std::vector<float> &x)
-{
-    for (int i = 0; i < n; ++i) {
-        uint32_t xi = htonf(&x[i]);
-        uint32_t yi = htonf(&x[i+1]);
-        fwrite(&xi, sizeof(xi), 1, fp);
-        fwrite(&yi, sizeof(yi), 1, fp);
-    }
-}void write_frame_data(FILE* fp, const int n, double* x)
+void write_frame_data(FILE* fp, const int n, double* x)
 {
     for (int i = 0; i < n; ++i) {
         uint32_t xi = htonf(x++);
@@ -138,6 +131,33 @@ void write_frame_data(FILE* fp, const int n, std::vector<double> &x)
         fwrite(&xi, sizeof(xi), 1, fp);
         fwrite(&yi, sizeof(yi), 1, fp);
     }
+}
+template<typename RealType>
+void _write_frame_data(FILE* fp, const int n, std::vector<RealType> &x)
+{
+    for (int i = 0; i < n; ++i) {
+        uint32_t xi = htonf(&x[i]);
+        uint32_t yi = htonf(&x[i+1]);
+        fwrite(&xi, sizeof(xi), 1, fp);
+        fwrite(&yi, sizeof(yi), 1, fp);
+    }
+}
+/**
+ * Please accept it as it is and do not ask any question.
+ * I gave up. Remember.
+ * @param fp
+ * @param n
+ * @param els
+ */
+void write_frame_data(FILE* fp, int n, elements::Element<2> *els)
+{
+    float* dont_know_why = new float[n];
+    for(size_t i = 0; i < n; ++i){
+        dont_know_why[2*i]   = els[i].position[0];
+        dont_know_why[2*i+1] = els[i].position[1];
+    }
+    write_frame_data(fp, n, dont_know_why);
+    delete[] dont_know_why;
 }
 
 #endif //NBMPI_NBODY_IO_HPP
