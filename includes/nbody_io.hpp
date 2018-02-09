@@ -151,7 +151,7 @@ void _write_frame_data(FILE* fp, const int n, std::vector<RealType> &x)
  */
 void write_frame_data(FILE* fp, int n, elements::Element<2> *els)
 {
-    float* dont_know_why = new float[n];
+    float* dont_know_why = new float[2 * n]; //x & y for each particle
     for(size_t i = 0; i < n; ++i){
         dont_know_why[2*i]   = els[i].position[0];
         dont_know_why[2*i+1] = els[i].position[1];
