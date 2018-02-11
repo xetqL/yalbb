@@ -68,16 +68,20 @@ void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_pa
     }
 }
 
-void write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0){
+int write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
     if(caller_rank == worker_id){
-        stream << params->world_size << ";" << params->npart << ";" << params->nframes*params->npframe << ";"
-               << params->simsize << ";" << params->G << ";" << params->seed ;
+        stream << params->world_size << delimiter
+               << params->npart << delimiter
+               << params->nframes*params->npframe << delimiter
+               << params->simsize << delimiter
+               << params->G << delimiter
+               << params->seed;
         stream << std::endl;
     }
 }
 void write_report_data(std::ofstream &stream, const int ts_idx, const std::vector<double> &timings, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
     if(caller_rank == worker_id) {
-        stream << std::to_string(ts_idx) << ";";
+        stream << std::to_string(ts_idx) << delimiter;
         std::copy(timings.begin(), timings.end(), std::ostream_iterator<double>(stream, delimiter));
         stream << std::endl;
     }
@@ -184,7 +188,7 @@ void run_box(FILE* fp, // Output file (at 0)
     int nproc,rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
-
+/*
     std::vector<float> alocal(local_elements.size() * N, 0.0);
     std::vector<float> xlocal(local_elements.size() * N, 0.0);
     std::vector<float> vlocal(local_elements.size() * N, 0.0);
@@ -194,12 +198,14 @@ void run_box(FILE* fp, // Output file (at 0)
     std::vector<float> v(params->npart * N, 0.0);
 
     /* r_m = 3.2 * sig */
+    auto start_sim = std::chrono::steady_clock::now();
     double rm = 3.2 * std::sqrt(params->sig_lj);
 
     /* number of cell in a row*/
     int M = (int) (params->simsize / rm);
     //std::vector<int> head(M * M);//, plklist(params->npart);
     std::map<int, std::unique_ptr<std::vector<elements::Element<N>>>> plklist;
+
     int n = params->npart;
     int nlocal = local_elements.size();
 
@@ -210,7 +216,6 @@ void run_box(FILE* fp, // Output file (at 0)
 
     /* size of cell */
     lsub = lcell / ((float) M);
-
 
     std::vector<elements::Element<2>> recv_buf(params->npart);
     std::vector<int> counts(nproc,0), displs(nproc, 0);
@@ -287,8 +292,14 @@ void run_box(FILE* fp, // Output file (at 0)
         }
 
     }
+
     load_balancer.stop();
-    if(rank==0)lb_file.close();
+    auto end_sim = std::chrono::steady_clock::now();
+    if(rank==0){
+        auto diff = std::chrono::duration <double, std::milli> ((end_sim-start_sim)).count();
+        lb_file << diff << std::endl;
+        lb_file.close();
+    }
 }
 
 int main(int argc, char** argv) {
@@ -333,7 +344,6 @@ int main(int argc, char** argv) {
         std::mt19937 gen(params.seed); //Standard mersenne_twister_engine seeded with rd()
         std::normal_distribution<double> ndist(params.simsize / 2, params.simsize / 10);
         std::uniform_real_distribution<double> udist(0.0, params.simsize);
-
 
         elements::Element<2>::create_random_n(elements, udist, gen, [min_r2](auto point, auto other){
             return elements::distance2<2>(point, other) >= min_r2;

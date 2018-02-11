@@ -113,38 +113,9 @@ void write_frame_data(FILE* fp, const int n, float* x)
     }
 }
 
-void write_frame_data(FILE* fp, const int n, double* x)
-{
-    for (int i = 0; i < n; ++i) {
-        uint32_t xi = htonf(x++);
-        uint32_t yi = htonf(x++);
-        fwrite(&xi, sizeof(xi), 1, fp);
-        fwrite(&yi, sizeof(yi), 1, fp);
-    }
-}
-
-void write_frame_data(FILE* fp, const int n, std::vector<double> &x)
-{
-    for (int i = 0; i < n; ++i) {
-        uint32_t xi = htonf(&x[i]);
-        uint32_t yi = htonf(&x[i+1]);
-        fwrite(&xi, sizeof(xi), 1, fp);
-        fwrite(&yi, sizeof(yi), 1, fp);
-    }
-}
-template<typename RealType>
-void _write_frame_data(FILE* fp, const int n, std::vector<RealType> &x)
-{
-    for (int i = 0; i < n; ++i) {
-        uint32_t xi = htonf(&x[i]);
-        uint32_t yi = htonf(&x[i+1]);
-        fwrite(&xi, sizeof(xi), 1, fp);
-        fwrite(&yi, sizeof(yi), 1, fp);
-    }
-}
 /**
- * Please accept it as it is and do not ask any question.
- * I gave up. Remember.
+ * Please accept this silly solution as it is and do not ask any question.
+ * I gave up..
  * @param fp
  * @param n
  * @param els
@@ -152,7 +123,7 @@ void _write_frame_data(FILE* fp, const int n, std::vector<RealType> &x)
 void write_frame_data(FILE* fp, int n, elements::Element<2> *els)
 {
     float* dont_know_why = new float[2 * n]; //x & y for each particle
-    for(int i = 0; i < n; ++i){
+    for(int i = 0; i < n; ++i) {
         dont_know_why[2*i]   = els[i].position[0];
         dont_know_why[2*i+1] = els[i].position[1];
     }
