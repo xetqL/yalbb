@@ -15,17 +15,15 @@
 namespace load_balancing {
 
     template<int N>
-    inline void gather_elements_on( const int nb_elements,
+    inline void gather_elements_on( const int world_size,
+                                    const int my_rank,
+                                    const int nb_elements,
                                     const std::vector<elements::Element<N>> &local_el,
                                     const int dest_rank,
                                     std::vector<elements::Element<N>> &dest_el,
                                     const MPI_Datatype& sendtype,
                                     const MPI_Comm& comm){
         int nlocal = local_el.size();
-        int world_size, my_rank;
-        MPI_Comm_size(comm, &world_size);
-        MPI_Comm_rank(comm, &my_rank);
-
         std::vector<int> counts(world_size,0), displs(world_size, 0);
         MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, dest_rank, comm);
         for(int cpt = 0; cpt < world_size; ++cpt) displs[cpt] = cpt == 0 ? 0: displs[cpt-1]+counts[cpt-1];
