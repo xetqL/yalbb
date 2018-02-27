@@ -236,7 +236,6 @@ void run_box(FILE* fp, // Output file (at 0)
             MPI_Barrier(comm);
             double start = MPI_Wtime();
             if (params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
-                if(rank == 0) std::cout << "Call to load balancer: "<< (i+(frame-1)*npframe) << std::endl;
                 load_balancing::gather_elements_on(params->npart, local_el, 0, local_el, load_balancer.get_element_datatype(), comm);
                 //re-balance dat shit now bru'
                 partitioning::geometric::Domain<N> _domain_boundary = {
@@ -245,7 +244,6 @@ void run_box(FILE* fp, // Output file (at 0)
                 domain_boundaries = { _domain_boundary };
                 load_balancer.load_balance(local_el, domain_boundaries);
             } else { // otherwise simply migrate particles
-                if(rank == 0) std::cout << "Data migration: " << (i+(frame-1)*npframe) << std::endl;
                 load_balancer.migrate_particles(local_el, domain_boundaries);
             }
             remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
