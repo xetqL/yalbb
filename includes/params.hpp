@@ -31,6 +31,7 @@ typedef struct sim_param_t {
     int   seed;    /* seed used in the RNG */
     short computation_method; /* which computation method to use 1 is brute-force, 2 is cell linked list, 3 Fast Multipole Expansion (todo) */
     unsigned int world_size;
+    unsigned int lb_interval;
 } sim_param_t;
 
 
@@ -56,8 +57,10 @@ static void print_usage() {
                     "\t-t: time step (1e-4)\n"
                     "\t-e: epsilon parameter in LJ potential (1)\n"
                     "\t-s: distance parameter in LJ potential (1e-2)\n"
+                    "\t-S: RNG seed\n"
                     "\t-g: gravitational field strength (1)\n"
                     "\t-T: initial temperature (1)\n"
+                    "\t-I: Load balancing call interval (0, never) \n"
                     "\t-d: simulation dimension (0-1;0-1)\n"
                     "\t-r: record the live simulation\n"
                     "\t-m: computation method(1 (BF), 2 (CLL), 3 (FME))\n"
@@ -69,7 +72,7 @@ static void default_params(sim_param_t* params) {
     params->fname = (char*) "run.out";
     params->npart = 500;
     params->nframes = 400;
-    params->npframe = 50;
+    params->npframe = 100;
     params->dt = 1e-4;
     params->eps_lj = 1;
     params->sig_lj = 1e-2;
@@ -80,6 +83,7 @@ static void default_params(sim_param_t* params) {
     params->computation_method = (short) 2;
     params->world_size = (unsigned int) 1;
     params->seed = rd(); //by default a random number
+    params->lb_interval = 0;
 }
 
 /*@T
@@ -92,7 +96,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:d:m:p:";
+    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:I:d:m:p:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -119,6 +123,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_flt_arg('s', sig_lj);
             get_flt_arg('g', G);
             get_flt_arg('T', T0);
+            get_flt_arg('I', lb_interval);
             get_flt_arg('d', simsize);
             get_int_arg('m', computation_method);
             get_int_arg('p', world_size);

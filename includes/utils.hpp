@@ -5,8 +5,18 @@
 #ifndef NBMPI_UTILS_HPP
 #define NBMPI_UTILS_HPP
 
+#include <ctime>
 #include <vector>
 #include <stdexcept>
+
+inline std::string get_date_as_string() {
+    auto t = std::time(nullptr);
+    auto tm = *std::localtime(&t);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
+    std::string date = oss.str();
+    return date;
+}
 
 namespace partitioning { namespace utils {
         template<typename A, typename B>

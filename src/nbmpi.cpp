@@ -19,6 +19,7 @@
 #include "../includes/physics.hpp"
 #include "../includes/ljpotential.hpp"
 #include "../includes/nbody_io.hpp"
+#include "../includes/utils.hpp"
 
 using namespace lennard_jones;
 static int _rank;
@@ -53,6 +54,7 @@ void init_particles_random_v(int n, std::vector<float>& v, sim_param_t* params) 
         v[2 * i + 1] = (float) (R * std::sin(T));
     }
 }
+
 template <int N>
 void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params, int seed = 0) {
     float T0 = params->T0;
@@ -68,21 +70,25 @@ void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_pa
     }
 }
 
-int write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
+inline void write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
     if(caller_rank == worker_id){
         stream << params->world_size << delimiter
                << params->npart << delimiter
                << params->nframes*params->npframe << delimiter
+               << params->lb_interval << delimiter
                << params->simsize << delimiter
                << params->G << delimiter
                << params->seed;
+
         stream << std::endl;
     }
 }
-void write_report_data(std::ofstream &stream, const int ts_idx, const std::vector<double> &timings, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
+
+template<typename RealType>
+inline void write_report_data(std::ofstream &stream, const int ts_idx, const std::vector<RealType> &timings, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
     if(caller_rank == worker_id) {
         stream << std::to_string(ts_idx) << delimiter;
-        std::copy(timings.begin(), timings.end(), std::ostream_iterator<double>(stream, delimiter));
+        std::copy(timings.begin(), timings.end(), std::ostream_iterator<RealType>(stream, delimiter));
         stream << std::endl;
     }
 }
@@ -166,12 +172,13 @@ void run_box(FILE* fp, /* Output file (at 0) */
 }
 
 #define TIME_IT(a){\
- auto start = std::chrono::steady_clock::now();\
+ double start = MPI_Wtime();\
  a;\
- auto end = std::chrono::steady_clock::now();\
- auto diff = end-start;\
- std::cout << std::chrono::duration <double, std::milli> (diff).count() << " ms" << std::endl;\
+ double end = MPI_Wtime();\
+ auto diff = (end - start) / MPI_Wtick();\
+ std::cout << std::scientific << diff << std::endl;\
 };\
+
 
 template<int N>
 void run_box(FILE* fp, // Output file (at 0)
@@ -179,65 +186,36 @@ void run_box(FILE* fp, // Output file (at 0)
              const int nframes, // Frames
              const double dt, // Time step
              std::vector<elements::Element<2>> local_elements,
-             const std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
+             std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
              load_balancing::geometric::GeometricLoadBalancer<N> load_balancer,
              const sim_param_t* params,
              MPI_Comm comm = MPI_COMM_WORLD) // Simulation params
 {
+    std::ofstream lb_file;
 
     int nproc,rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
-/*
-    std::vector<float> alocal(local_elements.size() * N, 0.0);
-    std::vector<float> xlocal(local_elements.size() * N, 0.0);
-    std::vector<float> vlocal(local_elements.size() * N, 0.0);
+    double start_sim = MPI_Wtime();
 
-    std::vector<float> a(params->npart * N, 0.0);
-    std::vector<float> x(params->npart * N, 0.0);
-    std::vector<float> v(params->npart * N, 0.0);
+    std::map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
-    /* r_m = 3.2 * sig */
-    auto start_sim = std::chrono::steady_clock::now();
-    double rm = 3.2 * std::sqrt(params->sig_lj);
-
-    /* number of cell in a row*/
-    int M = (int) (params->simsize / rm);
-    //std::vector<int> head(M * M);//, plklist(params->npart);
-    std::map<int, std::unique_ptr<std::vector<elements::Element<N>>>> plklist;
-
-    int n = params->npart;
-    int nlocal = local_elements.size();
-
-    float simsize = params->simsize;
-    float lsub;
-    float lcell = simsize;
-    std::ofstream lb_file;
-
-    /* size of cell */
-    lsub = lcell / ((float) M);
-
+    double rm = 3.2 * std::sqrt(params->sig_lj); // r_m = 3.2 * sig
+    int M = (int) (params->simsize / rm); //number of cell in a row
+    float lsub = params->simsize / ((float) M); //cell size
     std::vector<elements::Element<2>> recv_buf(params->npart);
-    std::vector<int> counts(nproc,0), displs(nproc, 0);
 
-    MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, 0, comm);
-    for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
-    MPI_Gatherv(&local_elements.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
-                &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, comm);
+    load_balancing::gather_elements_on(params->npart, local_elements, 0, recv_buf, load_balancer.get_element_datatype(), comm);
     if (fp) {
-        auto t = std::time(nullptr);
-        auto tm = *std::localtime(&t);
-        std::ostringstream oss;
-        oss << std::put_time(&tm, "%d-%m-%Y-%H-%M-%S");
-        auto str = oss.str();
-        lb_file.open("load_imbalance_report-"+str+".data", std::ofstream::out | std::ofstream::trunc );
+        auto date = get_date_as_string();
+        lb_file.open("load_imbalance_report-"+date+".data", std::ofstream::out | std::ofstream::trunc );
         write_report_header(lb_file, params, rank);
-        write_header(fp, n, simsize);
-        write_frame_data(fp, n, &recv_buf[0]);
+        write_header(fp, params->npart, params->simsize);
+        write_frame_data(fp, params->npart, &recv_buf[0]);
     }
-    auto local_el = local_elements;
 
-    clock_t begin = clock();
+    auto local_el = local_elements;
+    double begin = MPI_Wtime();
     std::vector<elements::Element<2>> remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
     switch (params->computation_method) {
     case 1: //brute force
@@ -250,12 +228,26 @@ void run_box(FILE* fp, // Output file (at 0)
         break;
     }
     leapfrog1(dt, local_el);
-    apply_reflect(local_el, simsize);
+    apply_reflect(local_el, params->simsize);
+
+
     for (int frame = 1; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
-            auto start = std::chrono::steady_clock::now();
-            load_balancer.migrate_particles(local_el, domain_boundaries);
+            double start = MPI_Wtime();
+            if (params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
+                if(rank == 0) std::cout << "Call to load balancer: "<< (i+(frame-1)*npframe) << std::endl;
+                load_balancing::gather_elements_on(params->npart, local_el, 0, local_el, load_balancer.get_element_datatype(), comm);
+                //re-balance dat shit now bru'
+                partitioning::geometric::Domain<N> _domain_boundary = {
+                        std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize),
+                };
+                domain_boundaries = { _domain_boundary };
+                load_balancer.load_balance(local_el, domain_boundaries);
+            } else { // otherwise simply migrate particles
+                if(rank == 0) std::cout << "Data migration: " << (i+(frame-1)*npframe) << std::endl;
+                load_balancer.migrate_particles(local_el, domain_boundaries);
+            }
             remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
             switch (params->computation_method) {
                 case 1:
@@ -267,36 +259,29 @@ void run_box(FILE* fp, // Output file (at 0)
                     compute_forces(M, lsub, local_el, remote_el, plklist, params);
                     break;
             }
+
             leapfrog2(dt, local_el);
             leapfrog1(dt, local_el);
-            apply_reflect(local_el, simsize);
-            auto end = std::chrono::steady_clock::now();
-            auto diff = std::chrono::duration <double, std::milli> ((end-start)).count();
+            apply_reflect(local_el, params->simsize);
+            double diff = (MPI_Wtime() - start); //divide time by tick resolution
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
             write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
+
         }
-        nlocal = local_el.size();
-
-        MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, 0, comm);
-        for(int cpt = 0; cpt < nproc; ++cpt) displs[cpt] = cpt == 0? 0: displs[cpt-1]+counts[cpt-1];
-        MPI_Gatherv(&local_el.front(), nlocal, load_balancer.get_element_datatype(), &recv_buf.front(),
-                    &counts.front(), &displs.front(), load_balancer.get_element_datatype(), 0, comm);
-
+        load_balancing::gather_elements_on(params->npart, local_el, 0, recv_buf, load_balancer.get_element_datatype(), comm);
         if (fp) {
-             clock_t end = clock();
-             double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
-             write_frame_data(fp, n, &recv_buf[0]);
+             double end = MPI_Wtime();
+             double time_spent = (end - begin);
+             write_frame_data(fp, params->npart, &recv_buf[0]);
              printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
-             begin = clock();
+             begin = MPI_Wtime();
         }
 
     }
-
     load_balancer.stop();
-    auto end_sim = std::chrono::steady_clock::now();
     if(rank==0){
-        auto diff = std::chrono::duration <double, std::milli> ((end_sim-start_sim)).count();
+        double diff =(MPI_Wtime() - start_sim);
         lb_file << diff << std::endl;
         lb_file.close();
     }

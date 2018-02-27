@@ -13,6 +13,27 @@
 #include "spatial_bisection.hpp"
 
 namespace load_balancing {
+
+    template<int N>
+    inline void gather_elements_on( const int nb_elements,
+                                    const std::vector<elements::Element<N>> &local_el,
+                                    const int dest_rank,
+                                    std::vector<elements::Element<N>> &dest_el,
+                                    const MPI_Datatype& sendtype,
+                                    const MPI_Comm& comm){
+        int nlocal = local_el.size();
+        int world_size, my_rank;
+        MPI_Comm_size(comm, &world_size);
+        MPI_Comm_rank(comm, &my_rank);
+
+        std::vector<int> counts(world_size,0), displs(world_size, 0);
+        MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, dest_rank, comm);
+        for(int cpt = 0; cpt < world_size; ++cpt) displs[cpt] = cpt == 0 ? 0: displs[cpt-1]+counts[cpt-1];
+        if(my_rank == dest_rank) dest_el.resize(nb_elements);
+        MPI_Gatherv(&local_el.front(), nlocal, sendtype,
+                    &dest_el.front(), &counts.front(), &displs.front(), sendtype, dest_rank, comm);
+    }
+
     using ProcessingElementID=int;
 
     template<typename PartitionType, typename ContainedDataType, typename DomainContainer>
@@ -39,8 +60,8 @@ namespace load_balancing {
         }
 
         //Assume that the data are all located on PE 0.
-        LoadBalancer(const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>, DomainContainer> &partitioner2,
-                     MPI_Comm comm) : partitioner(&partitioner2), communication_datatypes(partitioner2.register_datatype()), LB_COMM(comm){
+        LoadBalancer(const partitioning::Partitioner<PartitionType, std::vector<ContainedDataType>, DomainContainer> &partitioner,
+                     MPI_Comm comm) : partitioner(&partitioner), communication_datatypes(partitioner.register_datatype()), LB_COMM(comm){
             MPI_Comm_size(comm, &world_size);
             MPI_Comm_rank(comm, &caller_rank);
         };
@@ -54,6 +75,7 @@ namespace load_balancing {
         };
 
         void stop(){
+            MPI_Barrier(this->LB_COMM);
             communication_datatypes.free_datatypes();
         }
 

@@ -37,6 +37,7 @@
 *.out
 *.app
 bin/
+*.data
 
 # CMake
 cmake-build-debug
