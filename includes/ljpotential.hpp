@@ -9,9 +9,27 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <memory>
 #include "params.hpp"
 #include "physics.hpp"
+
 namespace lennard_jones {
+
+template <int N>
+void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params, int seed = 0) {
+    float T0 = params->T0;
+    int n = elements.size();
+    //std::random_device rd; //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> udist(0.0, 1.0);
+    for (int i = 0; i < n; ++i) {
+        double R = T0 * std::sqrt(-2 * std::log(udist(gen)));
+        double T = 2 * M_PI * udist(gen);
+        elements[i].velocity[0] = (double) (R * std::cos(T));
+        elements[i].velocity[1] = (double) (R * std::sin(T));
+    }
+}
+
 template<typename RealType>
 void create_cell_linkedlist(
         const int nsub, /* number of subdomain per row*/
@@ -30,26 +48,6 @@ void create_cell_linkedlist(
     }
 }
 
-/*
-template<int N>
-void create_cell_linkedlist(
-        const int nsub, // number of subdomain per row
-        const double lsub, // width of subdomain
-        const std::vector<elements::Element<N>> &particles, // particle location
-        std::unordered_map<int, int> &particleslklist, // particle linked list
-        std::vector<int> &head) throw() // head of particle linked list  {
-    int cell_of_particle;
-    for (int icell = 0; icell < nsub * nsub; icell++) head[icell] = -1;
-    for (auto const &particle : particles) {
-        cell_of_particle = (int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
-        if (cell_of_particle >= (nsub * nsub) || cell_of_particle < 0)
-            throw std::runtime_error("Particle "+std::to_string(cell_of_particle) + " is out of domain");
-        particleslklist[particle.identifier] = head[cell_of_particle];
-
-        head[cell_of_particle] = particle.identifier;
-    }
-}
-*/
 template <int N>
 void create_cell_linkedlist(
         const int nsub, /* number of subdomain per row*/

@@ -9,6 +9,14 @@
 #include <vector>
 #include <stdexcept>
 
+#define TIME_IT(a){\
+ double start = MPI_Wtime();\
+ a;\
+ double end = MPI_Wtime();\
+ auto diff = (end - start) / MPI_Wtick();\
+ std::cout << std::scientific << diff << std::endl;\
+};\
+
 inline std::string get_date_as_string() {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);

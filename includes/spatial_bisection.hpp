@@ -30,6 +30,24 @@ namespace partitioning { namespace geometric {
     template<int N>
     using Domain = std::array<std::pair<double, double>, N>;
 
+    template <int N>
+    Domain<N> borders_to_domain(const double xmin, const double ymin, const double zmin, const double xmax, const double ymax, const double zmax, const double simsize){
+        Domain<N> res;
+    /*  p-Min
+        -----> o------o
+              /      /|
+             o------o |
+             |      | o
+             |      |/   p-Max
+             o------o <------- */
+        res.at(0).first = xmin > 0? xmin : 0; res.at(0).second = xmax < simsize ? xmax : simsize;
+        res.at(1).first = ymin> 0? ymin : 0; res.at(1).second = ymax < simsize ? ymax : simsize;
+        if(N == 3) {
+            res.at(2).first = zmin > 0? zmin : 0;
+            res.at(2).second = zmax< simsize ? zmax : simsize;
+        }
+        return res;
+    }
 
     double dist2(const std::pair<double, double> p1, const std::pair<double,double> p2){
         return std::pow(p1.first - p2.first, 2) + std::pow(p1.second - p2.second, 2);
@@ -104,7 +122,6 @@ namespace partitioning { namespace geometric {
             d2 = std::pow(A.at(1).first - B.at(1).second,2);
         else if (top)
             d2 = std::pow(B.at(1).first - A.at(1).second,2);
-
 
         return d2 <= min_d2;
     }

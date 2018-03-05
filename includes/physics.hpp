@@ -114,36 +114,12 @@ void apply_reflect(std::vector<elements::Element<N>> &elements, const double sim
         while(dim < N){
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
+
             if(element.position.at(dim) >= simsize)
                 reflect(simsize-std::numeric_limits<double>::epsilon(), &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
-            /*if(element.position.at(dim) < 0.0 || element.position.at(dim) >= simsize) {
-                if(repeat < MAX_REPEAT) {
-                    repeat++;
-                    continue;
-                }
-            }
-            repeat=0;*/
+
             dim++;
         }
     }
 }
-
-
-/**
- * Reflection at the boundary
- * @param wall
- * @param x
- * @param v
- * @param a
-
-template<class ContainerType, typename RealType, int N>
-static void reflect(RealType wall, ContainerType &elements) {
-    using Elements = typename std::enable_if<std::is_same<ContainerType::value_type, elements::Element<N>>::value>::type
-
-    *x = 2 * wall - (*x);
-    *v = -(*v);
-    *a = -(*a);
-}
-*/
-
 #endif //NBMPI_PHYSICS_HPP

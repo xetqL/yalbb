@@ -15,6 +15,9 @@ set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
+include_directories(/home/xetql/boost_1_66_0)
+link_directories(/home/xetql/boost_1_66_0/stage/lib)
+
 ########################################################################################################################
 # Tests
 
@@ -57,7 +60,18 @@ set_target_properties(build_tests_lj
 ## Main build
 add_executable(build
         Makefile
-        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/geometric_load_balancer.hpp includes/partitioner.hpp includes/spatial_elements.hpp includes/ljpotential.hpp includes/physics.hpp includes/nbody_io.hpp includes/params.hpp)
+        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/box_runner.hpp
+        includes/report.hpp)
 
 set_target_properties(build 
         PROPERTIES
@@ -65,7 +79,7 @@ set_target_properties(build
 
 target_link_libraries(build
         PRIVATE
-        ${MPI_C_LIBRARIES})
+        ${MPI_C_LIBRARIES} zoltan)
 
 target_include_directories(build
         PRIVATE

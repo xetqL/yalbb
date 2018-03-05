@@ -8,6 +8,8 @@
 #include <array>
 #include <iostream>
 #include <algorithm>
+#include <mpi.h>
+#include "partitioner.hpp"
 
 namespace elements {
 
@@ -27,7 +29,6 @@ namespace elements {
             std::fill(velocity.begin(), velocity.end(), 0.0);
             std::fill(position.begin(), position.end(), 0.0);
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
-
         }
 
         /**
@@ -36,6 +37,39 @@ namespace elements {
          */
         static constexpr int size() {
             return N * 3;
+        }
+
+        static constexpr int byte_size() {
+            return N * 3 * sizeof(double) + sizeof(int);
+        }
+
+        std::string to_communication_buffer(){
+            std::ostringstream comm_buf;
+            for(int i = 0; i < N-1; ++i)
+                comm_buf << std::to_string(position[i]) << " ";
+            comm_buf << std::to_string(position[N-1]);
+
+            comm_buf << ";";
+
+            for(int i = 0; i < N-1; ++i)
+                comm_buf << std::to_string(velocity[i]) << " ";
+            comm_buf << std::to_string(velocity[N-1]);
+
+            comm_buf << ";";
+
+            for(int i = 0; i < N-1; ++i)
+                comm_buf << std::to_string(acceleration[i]) << " ";
+            comm_buf << std::to_string(acceleration[N-1]);
+
+            comm_buf << ";";
+
+            comm_buf << std::to_string(identifier);
+
+            comm_buf << "!";
+
+
+            return comm_buf.str();
+
         }
 
         static Element<N> create(std::array<double, N> &p, std::array<double, N> &v, int id){
@@ -229,6 +263,63 @@ namespace elements {
         return true;
     }
 
+    template <int N, typename RealType>
+    void init_particles_random_v(std::vector<elements::Element<N>> &elements, RealType T0, int seed = 0) {
+
+        int n = elements.size();
+        //std::random_device rd; //Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
+        std::uniform_real_distribution<double> udist(0.0, 1.0);
+        for (int i = 0; i < n; ++i) {
+            double R = T0 * std::sqrt(-2 * std::log(udist(gen)));
+            double T = 2 * M_PI * udist(gen);
+            elements[i].velocity[0] = (double) (R * std::cos(T));
+            elements[i].velocity[1] = (double) (R * std::sin(T));
+        }
+    }
+
+    template<int N>
+    partitioning::CommunicationDatatype register_datatype() {
+
+        MPI_Datatype element_datatype,
+                vec_datatype,
+                range_datatype,
+                domain_datatype,
+                oldtype_range[1],
+                oldtype_element[2];
+
+        MPI_Aint offset[2], intex;
+
+        int blockcount_element[2], blockcount_range[1];
+
+        // register particle element type
+        int array_size = N;
+        MPI_Type_contiguous(array_size, MPI_DOUBLE, &vec_datatype);
+        MPI_Type_commit(&vec_datatype);
+
+        blockcount_element[0] = 1;
+        blockcount_element[1] = 3; //position, velocity, acceleration
+
+        oldtype_element[0] = MPI_INT;
+        oldtype_element[1] = vec_datatype;
+
+        MPI_Type_extent(MPI_INT, &intex);
+        offset[0] = static_cast<MPI_Aint>(0);
+        offset[1] = intex;
+
+        MPI_Type_struct(2, blockcount_element, offset, oldtype_element, &element_datatype);
+        MPI_Type_commit(&element_datatype);
+
+        blockcount_range[0] = N;
+        oldtype_range[0] = MPI_DOUBLE;
+        MPI_Type_struct(1, blockcount_range, offset, oldtype_range, &range_datatype);
+        MPI_Type_commit(&range_datatype);
+
+        MPI_Type_contiguous(N, range_datatype, &domain_datatype);
+        MPI_Type_commit(&domain_datatype);
+
+        return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype, domain_datatype);
+    }
 }
 
 #endif //NBMPI_GEOMETRIC_ELEMENT_HPP
