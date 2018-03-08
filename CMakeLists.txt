@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.5)
 project(nbmpi)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 find_package(MPI REQUIRED)
 
 set(CMAKE_CXX_COMPILER mpic++)
@@ -20,11 +20,14 @@ link_directories(/home/xetql/boost_1_66_0/stage/lib)
 
 ########################################################################################################################
 # Tests
-
+########################################################################################################################
 ## Space Partitioning
 add_executable(build_tests_space_partitioning
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/spatial_elements.hpp)
 
 set_target_properties(build_tests_space_partitioning
         PROPERTIES
@@ -33,7 +36,9 @@ set_target_properties(build_tests_space_partitioning
 ## Utils
 add_executable(build_tests_utils
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_utils.cpp ${INCLUDE_DIRECTORY}/utils.hpp includes/spatial_elements.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_utils.cpp
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        includes/spatial_elements.hpp)
 set_target_properties(build_tests_utils
         PROPERTIES
         OUTPUT_NAME "tests_utils")
@@ -41,7 +46,11 @@ set_target_properties(build_tests_utils
 ## Load Balancer
 add_executable(build_tests_lb
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_load_balancer.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_load_balancer.cpp
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/spatial_elements.hpp)
 set_target_properties(build_tests_lb
         PROPERTIES
         OUTPUT_NAME "tests_load_balancer")
@@ -49,14 +58,18 @@ set_target_properties(build_tests_lb
 ## Lennard-Jones and Physics
 add_executable(build_tests_lj
         Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_lj_physics.cpp ${INCLUDE_DIRECTORY}/utils.hpp ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp ${INCLUDE_DIRECTORY}/spatial_bisection.hpp includes/spatial_elements.hpp)
+        ${TEST_SOURCE_DIRECTORY}/test_lj_physics.cpp
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/geometric_load_balancer.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/spatial_elements.hpp)
 set_target_properties(build_tests_lj
         PROPERTIES
         OUTPUT_NAME "tests_lj_physics")
 
 ########################################################################################################################
 # Executable
-
+########################################################################################################################
 ## Main build
 add_executable(build
         Makefile
@@ -77,13 +90,19 @@ set_target_properties(build
         PROPERTIES
         OUTPUT_NAME "nbmpi")
 
+set(ZOLTAN_LIBRARY_PATH zoltan CACHE String "zoltan library path (zoltan.a)")
 target_link_libraries(build
         PRIVATE
-        ${MPI_C_LIBRARIES} zoltan)
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH})
 
+set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
+set(LIBRL_INCLUDE_DIRECTORY  "" CACHE String "librl include directory")
 target_include_directories(build
         PRIVATE
-        ${MPI_C_INCLUDE_PATH})
+        ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${LIBRL_INCLUDE_DIRECTORY})
 
 add_custom_target(tests
         COMMAND bin/tests_utils
@@ -96,6 +115,8 @@ add_custom_target(tests
         COMMAND ${CMAKE_COMMAND} -E echo "========================"
         COMMAND ${CMAKE_COMMAND} -E echo ""
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        COMMENT "Running custom test suit for utils, space_partitioning, and load_balancer!")
+        COMMENT "Running custom test suit for utils, space_partitioning, and load_balancer.")
 
 add_dependencies(tests build_tests_space_partitioning build_tests_utils build_tests_lb build_tests_lj)
+
+########################################################################################################################

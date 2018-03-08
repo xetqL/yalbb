@@ -35,7 +35,7 @@ void run_box(FILE* fp, // Output file (at 0)
 {
     std::ofstream lb_file;
 
-    int nproc,rank;
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     double start_sim = MPI_Wtime();
