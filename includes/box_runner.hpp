@@ -123,6 +123,7 @@ void run_box(FILE* fp, // Output file (at 0)
         lb_file.close();
     }
 }
+
 template<int N=2>
 void zoltan_run_box(FILE* fp,          // Output file (at 0)
                     MESH_DATA* mesh_data,
@@ -176,6 +177,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
             double start = MPI_Wtime();
+            // If repartition required
             if (params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
                 zoltan_fn_init(load_balancer, mesh_data);
                 rc = Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */

@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     }
 
     if(params.world_size != (size_t) nproc) {
-        std::cout << "World size does not match the expected world size: World=" <<nproc<<" Expected="<< params.world_size << std::endl;
+        std::cout << "World size does not match the expected world size: World=" << nproc << " Expected=" << params.world_size << std::endl;
         MPI_Finalize();
         exit(0);
     }

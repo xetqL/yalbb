@@ -101,12 +101,15 @@ target_link_libraries(build
 set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
 set(LIBRL_INCLUDE_DIRECTORY  "" CACHE String "librl include directory")
 set(ARMADILLO_INCLUDE_DIRECTORY "" CACHE String "armadillo include directory")
+set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE String "zoltan include directory")
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
         ${MLPACK_INCLUDE_DIRECTORY}
         ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY})
+        ${ARMADILLO_INCLUDE_DIRECTORY}
+        ${ZOLTAN_INCLUDE_DIRECTORY}
+)
 
 add_custom_target(tests
         COMMAND bin/tests_utils
@@ -124,3 +127,4 @@ add_custom_target(tests
 add_dependencies(tests build_tests_space_partitioning build_tests_utils build_tests_lb build_tests_lj)
 
 ########################################################################################################################
+
