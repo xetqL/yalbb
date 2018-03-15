@@ -34,7 +34,7 @@ void run_box(FILE* fp, // Output file (at 0)
              MPI_Comm comm = MPI_COMM_WORLD) // Simulation params
 {
     std::ofstream lb_file;
-
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<2>();
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -82,9 +82,10 @@ void run_box(FILE* fp, // Output file (at 0)
                         std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)};
                 domain_boundaries = { _domain_boundary };
                 load_balancer.load_balance(local_el, domain_boundaries);
-            } else load_balancer.migrate_particles(local_el, domain_boundaries);
+            } else load_balancing::geometric::migrate_particles<2>(local_el, domain_boundaries,datatype , comm);
 
-            remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
+            remote_el =load_balancing::geometric::exchange_data<2>(local_el, domain_boundaries,datatype , comm);
+            //remote_el = load_balancer.exchange_data(local_el, domain_boundaries);
             switch (params->computation_method) {
                 case 1:
                     lennard_jones::compute_forces(local_el, remote_el, params);
@@ -116,6 +117,7 @@ void run_box(FILE* fp, // Output file (at 0)
             begin = MPI_Wtime();
         }
     }
+
     load_balancer.stop();
     if(rank==0){
         double diff =(MPI_Wtime() - start_sim);
@@ -178,6 +180,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             MPI_Barrier(comm);
             double start = MPI_Wtime();
             // If repartition required
+            load_balancing::geometric::migrate_particles<2>(mesh_data->els, domain_boundaries, datatype, comm);
+
             if (params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
                 zoltan_fn_init(load_balancer, mesh_data);
                 rc = Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
@@ -194,19 +198,20 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                                          &exportLocalGids,   /* Local IDs of the vertices I must send */
                                          &exportProcs,       /* Process to which I send each of the vertices */
                                          &exportToPart);     /* Partition to which each vertex will belong */
-
-                if(changes) for(int part = 0; part < nproc; ++part){
-                    Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-                    auto domain = partitioning::geometric::borders_to_domain<2>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
-                    domain_boundaries[part] = domain;
+                if(changes) {
+                    for(int part = 0; part < nproc; ++part){
+                        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+                        auto domain = partitioning::geometric::borders_to_domain<2>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+                        domain_boundaries[part] = domain;
+                    }
                 }
+                load_balancing::geometric::migrate_zoltan<2>(mesh_data->els ,numImport, numExport, exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
                 Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
                                     &importProcs, &importToPart);
                 Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
                                     &exportProcs, &exportToPart);
             }
-            load_balancing::geometric::migrate_particles<2>(mesh_data->els, domain_boundaries, datatype, comm);
 
             remote_el = load_balancing::geometric::exchange_data<2>(mesh_data->els, domain_boundaries, datatype, comm);
             switch (params->computation_method) {

@@ -40,10 +40,10 @@ namespace partitioning { namespace geometric {
              |      | o
              |      |/   p-Max
              o------o <------- */
-        res.at(0).first = xmin > 0? xmin : 0; res.at(0).second = xmax < simsize ? xmax : simsize;
-        res.at(1).first = ymin> 0? ymin : 0; res.at(1).second = ymax < simsize ? ymax : simsize;
+        res.at(0).first = xmin > 0 ? xmin : 0; res.at(0).second = xmax < simsize ? xmax : simsize;
+        res.at(1).first = ymin > 0 ? ymin : 0; res.at(1).second = ymax < simsize ? ymax : simsize;
         if(N == 3) {
-            res.at(2).first = zmin > 0? zmin : 0;
+            res.at(2).first = zmin > 0 ? zmin : 0;
             res.at(2).second = zmax< simsize ? zmax : simsize;
         }
         return res;

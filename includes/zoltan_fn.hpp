@@ -17,13 +17,12 @@
 
 template<int N>
 struct _MESH_DATA {
-    int numMyPoints;
     std::vector<elements::Element<2>> els;
 };
 
 using MESH_DATA = _MESH_DATA<2>;
 
-void init_mesh_data(int rank, int nprocs, MESH_DATA* mesh_data, sim_param_t* params) {
+void init_mesh_data(int rank, int nprocs, MESH_DATA& mesh_data, sim_param_t* params) {
 
     if (rank == 0) {
         double min_r2 = 1e-2*1e-2;
@@ -39,17 +38,14 @@ void init_mesh_data(int rank, int nprocs, MESH_DATA* mesh_data, sim_param_t* par
         });
 
         elements::init_particles_random_v(elements, params->T0);
-        mesh_data->els = elements;
-        mesh_data->numMyPoints = params->npart;
-    } else {
-        mesh_data->numMyPoints = 0;
-    }
+        mesh_data.els = elements;
+    } else {}
 }
 
 int get_number_of_objects(void *data, int *ierr) {
     MESH_DATA *mesh= (MESH_DATA *)data;
     *ierr = ZOLTAN_OK;
-    return mesh->numMyPoints;
+    return mesh->els.size();
 }
 
 void get_object_list(void *data, int sizeGID, int sizeLID,
@@ -61,7 +57,7 @@ void get_object_list(void *data, int sizeGID, int sizeLID,
     /* In this example, return the IDs of our objects, but no weights.
      * Zoltan will assume equally weighted objects.
      */
-    for (i=0; i < mesh->numMyPoints; i++){
+    for (i=0; i < mesh->els.size(); i++){
         globalID[i] = mesh->els[i].identifier;
         localID[i] = i;
     }

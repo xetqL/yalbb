@@ -197,6 +197,65 @@ namespace load_balancing {
             return remote_data_gathered;
         }
 
+
+        template<int N>
+        void migrate_zoltan(std::vector<elements::Element<N>> &data, int numImport, int numExport, int* exportProcs, unsigned int* exportGlobalGids,
+                            const partitioning::CommunicationDatatype datatype,
+                            const MPI_Comm LB_COMM) {
+            int wsize; MPI_Comm_size(LB_COMM, &wsize);
+            int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
+
+            std::vector<elements::Element<N>> buffer;
+
+            std::map<int, std::shared_ptr< std::vector<elements::Element<N>> >> data_to_migrate;
+            for(size_t i = 0; i < numExport; ++i)
+                if(data_to_migrate.find(exportProcs[i]) == data_to_migrate.end())
+                    data_to_migrate[exportProcs[i]] = std::make_shared<std::vector<elements::Element<N>>>();
+
+            for(size_t i = 0; i < numExport; ++i){ //size_t PE = 0; PE < wsize; ++PE) {
+                auto PE = exportProcs[i];
+                auto gid= exportGlobalGids[i];
+
+                //check within the remaining elements which belong to the current PE
+                size_t data_id = 0;
+                while (data_id < data.size()) {
+                    if (gid == data[data_id].identifier) {
+                        //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+                        //swap iterator values in constant time
+                        std::iter_swap(data.begin() + data_id, data.end() - 1);
+                        //get the value and push it in the "to migrate" vector
+
+                        data_to_migrate[PE]->push_back(*(data.end() - 1));
+                        //pop the head of the list in constant time
+                        data.pop_back();
+                    } else data_id++; //if the element must stay with me then check the next one
+                }
+
+            }
+
+            std::vector<MPI_Request> reqs(data_to_migrate.size());
+            //std::vector<MPI_Status> statuses(neighbors.size());
+            int cpt = 0;
+            for(auto const &pe_data : data_to_migrate){
+                int send_size = pe_data.second->size();
+                MPI_Isend(&pe_data.second->front(), send_size, datatype.elements_datatype, pe_data.first, 300, LB_COMM, &reqs[cpt]);
+                cpt++;
+            }
+            int collectData = 0;
+            while(collectData < numImport) {// receive the data in any order
+                int source_rank, size;
+                MPI_Status status;
+                MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &status);
+                source_rank = status.MPI_SOURCE;
+                MPI_Get_count(&status, datatype.elements_datatype, &size);
+                collectData += size;
+                buffer.resize(size);
+                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, &status);
+                std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
+            }
+            MPI_Waitall(cpt, &reqs.front(), MPI_STATUSES_IGNORE);
+        }
+
         template<int N>
         void migrate_particles(std::vector<elements::Element<N>> &data,
                                const std::vector<partitioning::geometric::Domain<N>> &domains,

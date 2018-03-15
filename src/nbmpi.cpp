@@ -48,48 +48,53 @@ int main(int argc, char** argv) {
 
     auto zz = zoltan_create_wrapper();
 
-    init_mesh_data(rank, nproc, &mesh_data, &params);
-
-    zoltan_fn_init(zz, &mesh_data);
-
     int changes, numGidEntries, numLidEntries, numImport, numExport;
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
+    double t1 = MPI_Wtime();
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<2>();
+
+    /* Get file handle and initialize everything on P0 */
+    if (rank == 0) {
+        fp = fopen(params.fname, "w");
+    }
+
+    init_mesh_data(rank, nproc, mesh_data, &params);
+
     zoltan_fn_init(zz, &mesh_data);
-    rc = Zoltan_LB_Partition(zz,                 /* input (all remaining fields are output) */
-                             &changes,           /* 1 if partitioning was changed, 0 otherwise */
-                             &numGidEntries,     /* Number of integers used for a global ID */
-                             &numLidEntries,     /* Number of integers used for a local ID */
-                             &numImport,         /* Number of vertices to be sent to me */
-                             &importGlobalGids,  /* Global IDs of vertices to be sent to me */
-                             &importLocalGids,   /* Local IDs of vertices to be sent to me */
-                             &importProcs,       /* Process rank for source of each incoming vertex */
-                             &importToPart,      /* New partition for each incoming vertex */
-                             &numExport,         /* Number of vertices I must send to other processes*/
-                             &exportGlobalGids,  /* Global IDs of the vertices I must send */
-                             &exportLocalGids,   /* Local IDs of the vertices I must send */
-                             &exportProcs,       /* Process to which I send each of the vertices */
-                             &exportToPart);     /* Partition to which each vertex will belong */
+    rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
+                             &changes,           // 1 if partitioning was changed, 0 otherwise
+                             &numGidEntries,     // Number of integers used for a global ID
+                             &numLidEntries,     // Number of integers used for a local ID
+                             &numImport,         // Number of vertices to be sent to me
+                             &importGlobalGids,  // Global IDs of vertices to be sent to me
+                             &importLocalGids,   // Local IDs of vertices to be sent to me
+                             &importProcs,       // Process rank for source of each incoming vertex
+                             &importToPart,      // New partition for each incoming vertex
+                             &numExport,         // Number of vertices I must send to other processes
+                             &exportGlobalGids,  // Global IDs of the vertices I must send
+                             &exportLocalGids,   // Local IDs of the vertices I must send
+                             &exportProcs,       // Process to which I send each of the vertices
+                             &exportToPart);     // Partition to which each vertex will belong
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+
+    std::vector<partitioning::geometric::Domain<2>> domain_boundaries(nproc);
+
+    for(int part = 0; part < nproc; ++part){
+        Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+        auto domain = partitioning::geometric::borders_to_domain<2>(xmin, ymin, zmin, xmax, ymax, zmax, params.simsize);
+        domain_boundaries[part] = domain;
+    }
+
+    load_balancing::geometric::migrate_zoltan<2>(mesh_data.els ,numImport, numExport, exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
                         &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
                         &exportProcs, &exportToPart);
 
-    double xmin, ymin, zmin, xmax, ymax, zmax;
-    std::vector<partitioning::geometric::Domain<2>> domain_boundaries(nproc);
-    for(int part = 0; part < nproc; ++part){
-        Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<2>(xmin, ymin, zmin, xmax, ymax, zmax, params.simsize);
-        domain_boundaries[part] = domain;
-    }
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<2>();
-
-    load_balancing::geometric::migrate_particles<2>(mesh_data.els, domain_boundaries, datatype, MPI_COMM_WORLD);
-        double t1 = MPI_Wtime();
-
-    //run_box<2>(fp, params.npframe, params.nframes, params.dt, elements, domain_boundaries, load_balancer, &params);
+    //run_box<2>(fp, params.npframe, params.nframes, params.dt, mesh_data.els, domain_boundaries, load_balancer, &params);
     zoltan_run_box(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
 
     Zoltan_Destroy(&zz);
