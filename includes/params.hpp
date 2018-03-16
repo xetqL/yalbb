@@ -32,6 +32,7 @@ typedef struct sim_param_t {
     short computation_method; /* which computation method to use 1 is brute-force, 2 is cell linked list, 3 Fast Multipole Expansion (todo) */
     unsigned int world_size;
     unsigned int lb_interval;
+    int one_shot_lb_call;
 } sim_param_t;
 
 
@@ -62,9 +63,10 @@ static void print_usage() {
                     "\t-T: initial temperature (1)\n"
                     "\t-I: Load balancing call interval (0, never) \n"
                     "\t-d: simulation dimension (0-1;0-1)\n"
-                    "\t-r: record the live simulation\n"
+                    "\t-r: record the simulation in a binary file (movie)\n"
                     "\t-m: computation method(1 (BF), 2 (CLL), 3 (FME))\n"
-                    "\t-p: number of processing elements\n");
+                    "\t-p: number of processing elements\n"
+                    "\t-C: Call the load balancer only at this iteration\n");
 }
 
 static void default_params(sim_param_t* params) {
@@ -84,6 +86,7 @@ static void default_params(sim_param_t* params) {
     params->world_size = (unsigned int) 1;
     params->seed = rd(); //by default a random number
     params->lb_interval = 0;
+    params->one_shot_lb_call = -1;
 }
 
 /*@T
@@ -96,7 +99,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:I:d:m:p:";
+    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:I:d:m:p:C:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -128,6 +131,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_int_arg('m', computation_method);
             get_int_arg('p', world_size);
             get_int_arg('S', seed);
+            get_int_arg('C', one_shot_lb_call);
             default:
                 fprintf(stderr, "Unknown option\n");
                 print_usage();

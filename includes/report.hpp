@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <fstream>
-
+#include <iterator>
 inline void write_report_header(std::ofstream &stream, const sim_param_t* params, const int caller_rank, const int worker_id=0, const char* delimiter=";"){
     if(caller_rank == worker_id){
         stream << params->world_size << delimiter

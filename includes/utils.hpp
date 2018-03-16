@@ -26,50 +26,52 @@ inline std::string get_date_as_string() {
     return date;
 }
 
-namespace partitioning { namespace utils {
-        template<typename A, typename B>
-        const std::vector<std::pair<A, B>> zip(const std::vector<A>& a, const std::vector<B>& b){
-            std::vector<std::pair<A,B>> zipAB;
-            int sizeAB = a.size();
-            for(int i = 0; i < sizeAB; ++i)
-                zipAB.push_back(std::make_pair(a.at(i), b.at(i)));
-            return zipAB;
-        }
+namespace partitioning {
+namespace utils {
 
-        template<typename A, typename B>
-        const std::pair<std::vector<A>, std::vector<B>> unzip(const std::vector<std::pair<A,B>>& ab){
-            std::vector<A> left;
-            std::vector<B> right;
-            int sizeAB = ab.size();
-            for(int i = 0; i < sizeAB; ++i){
-                auto pair = ab.at(i);
-                left.push_back(pair.first);
-                right.push_back(pair.second);
-            }
-            return std::make_pair(left, right);
-        }
+template<typename A, typename B>
+const std::vector<std::pair<A, B>> zip(const std::vector<A>& a, const std::vector<B>& b){
+    std::vector<std::pair<A,B>> zipAB;
+    int sizeAB = a.size();
+    for(int i = 0; i < sizeAB; ++i)
+        zipAB.push_back(std::make_pair(a.at(i), b.at(i)));
+    return zipAB;
+}
 
-        /**
-         * Copied from https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
-         * @tparam R Return Container class
-         * @tparam Top Top container class from the container
-         * @tparam Sub Sub class deduced from the original container
-         * @param all Container that contains the sub containers
-         * @return flattened container
-         */
+template<typename A, typename B>
+const std::pair<std::vector<A>, std::vector<B>> unzip(const std::vector<std::pair<A,B>>& ab){
+    std::vector<A> left;
+    std::vector<B> right;
+    int sizeAB = ab.size();
+    for(int i = 0; i < sizeAB; ++i){
+        auto pair = ab.at(i);
+        left.push_back(pair.first);
+        right.push_back(pair.second);
+    }
+    return std::make_pair(left, right);
+}
 
-        template <template<typename...> class R=std::vector,
-                typename Top,
-                typename Sub = typename Top::value_type>
-        R<typename Sub::value_type> flatten(Top const& all)
-        {
-            using std::begin;
-            using std::end;
-            R<typename Sub::value_type> accum;
-            for(auto& sub : all)
-                std::copy(begin(sub), end(sub), std::inserter(accum, end(accum)));
-            return accum;
-        }
+/**
+ * Copied from https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
+ * @tparam R Return Container class
+ * @tparam Top Top container class from the container
+ * @tparam Sub Sub class deduced from the original container
+ * @param all Container that contains the sub containers
+ * @return flattened container
+ */
+template <template<typename...> class R=std::vector,
+        typename Top,
+        typename Sub = typename Top::value_type>
+R<typename Sub::value_type> flatten(Top const& all)
+{
+    using std::begin;
+    using std::end;
+    R<typename Sub::value_type> accum;
+    for(auto& sub : all)
+        std::copy(begin(sub), end(sub), std::inserter(accum, end(accum)));
+    return accum;
+}
+
 }   }
 
 #endif //NBMPI_UTILS_HPP
