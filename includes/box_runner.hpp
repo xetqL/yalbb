@@ -168,11 +168,11 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     }
     std::vector<elements::Element<2>> remote_el;
     double begin = MPI_Wtime();
-    for (int frame = 1; frame < nframes; ++frame) {
+    for (int frame = 0; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
             double start = MPI_Wtime();
-            if (params->one_shot_lb_call == (i+(frame-1)*npframe) || params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
+            if (params->one_shot_lb_call == (i+frame*npframe) || params->lb_interval > 0 && ((i+frame*npframe) % params->lb_interval) == 0) {
                 zoltan_fn_init(load_balancer, mesh_data);
                 rc = Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
                                          &changes,           /* 1 if partitioning was changed, 0 otherwise */
@@ -222,7 +222,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             double diff = (MPI_Wtime() - start) / 1e-3; //divide time by tick resolution
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
-            write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
+            write_report_data(lb_file, i+frame*npframe, times, rank);
         }
         if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart,
                                            mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);

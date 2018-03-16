@@ -53,7 +53,7 @@ static void print_usage() {
                     "\t-h: print this message\n"
                     "\t-o: output file name (run.out)\n"
                     "\t-n: number of particles (500)\n"
-                    "\t-F: number of frames (200)\n"
+                    "\t-F: number of frames (400)\n"
                     "\t-f: steps per frame (100)\n"
                     "\t-t: time step (1e-4)\n"
                     "\t-e: epsilon parameter in LJ potential (1)\n"
@@ -63,7 +63,7 @@ static void print_usage() {
                     "\t-T: initial temperature (1)\n"
                     "\t-I: Load balancing call interval (0, never) \n"
                     "\t-d: simulation dimension (0-1;0-1)\n"
-                    "\t-r: record the simulation in a binary file (movie)\n"
+                    "\t-r: record the simulation in a binary file (false)\n"
                     "\t-m: computation method(1 (BF), 2 (CLL), 3 (FME))\n"
                     "\t-p: number of processing elements\n"
                     "\t-C: Call the load balancer only at this iteration\n");

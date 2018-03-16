@@ -12,7 +12,7 @@ inline void write_report_header(std::ofstream &stream, const sim_param_t* params
     if(caller_rank == worker_id){
         stream << params->world_size << delimiter
                << params->npart << delimiter
-               << params->nframes*params->npframe << delimiter
+               << (params->nframes * params->npframe) << delimiter
                << params->lb_interval << delimiter
                << params->simsize << delimiter
                << params->G << delimiter
