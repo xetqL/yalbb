@@ -1,0 +1,10 @@
+from ovito.data import *
+
+def modify(frame, input, output):
+	print("The input contains %i particles." % input.number_of_particles)
+	cell = SimulationCell()
+	cell.matrix = [[10,0,0,0],
+				   [0,10,0,0],
+				   [0,0,10,0]]
+	cell.pbc = (True, True, True)
+	cell.display.line_width = 0.1

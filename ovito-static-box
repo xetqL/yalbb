@@ -1,0 +1,4 @@
+from ovito.data import *
+import ovito
+def modify(frame, input, output):
+	print("The input contains %i particles." % input.number_of_particles)
