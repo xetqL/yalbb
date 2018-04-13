@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 project(nbmpi)
 
+set(CMAKE_BUILD_TYPE Debug)
+
 set(CMAKE_CXX_STANDARD 14)
 find_package(MPI REQUIRED)
-
+find_package(GSL REQUIRED)
 set(CMAKE_CXX_COMPILER mpic++)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -84,7 +86,10 @@ add_executable(build
         includes/nbody_io.hpp
         includes/params.hpp
         includes/box_runner.hpp
-        includes/report.hpp)
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp)
 
 set_target_properties(build 
         PROPERTIES
@@ -96,7 +101,8 @@ target_link_libraries(build
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH})
+        ${ARMADILLO_LIBRARY_PATH}
+        ${GSL_LIBRARIES})
 
 set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
 set(LIBRL_INCLUDE_DIRECTORY  "" CACHE String "librl include directory")

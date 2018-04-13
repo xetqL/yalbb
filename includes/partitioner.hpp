@@ -16,13 +16,14 @@ namespace partitioning {
         MPI_Datatype range_datatype;
         MPI_Datatype domain_datatype;
 
-        CommunicationDatatype(const MPI_Datatype vec,
+        CommunicationDatatype(const MPI_Datatype &vec,
                               const MPI_Datatype &elements,
                               const MPI_Datatype &range_datatype,
-                              const MPI_Datatype &domain_datatype  ) :  vec_datatype(vec),
-                                                                        elements_datatype(elements),
-                                                                        range_datatype(range_datatype),
-                                                                        domain_datatype(domain_datatype){}
+                              const MPI_Datatype &domain_datatype ) :
+            vec_datatype(vec),
+            elements_datatype(elements),
+            range_datatype(range_datatype),
+            domain_datatype(domain_datatype){}
         void free_datatypes(){
             MPI_Type_free(&vec_datatype);
             MPI_Type_free(&elements_datatype);

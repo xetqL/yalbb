@@ -22,7 +22,7 @@ namespace load_balancing {
                                     const int dest_rank,
                                     std::vector<elements::Element<N>> &dest_el,
                                     const MPI_Datatype& sendtype,
-                                    const MPI_Comm& comm){
+                                    const MPI_Comm& comm) {
         int nlocal = local_el.size();
         std::vector<int> counts(world_size,0), displs(world_size, 0);
         MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, dest_rank, comm);
@@ -128,10 +128,10 @@ namespace load_balancing {
             MPI_Recv(&data.front(), my_data_size, this->get_element_datatype(), 0 , 666, LB_COMM, MPI_STATUS_IGNORE);
             //broadcast the geometric partition of the initial domain
             domain_boundary.clear();
-            if(this->caller_rank!=0){
+            if(this->caller_rank!=0) {
                 domain_boundary.resize(this->world_size);
                 MPI_Bcast(&domain_boundary.front(), this->world_size, this->get_domain_datatype(), 0, LB_COMM);
-            }else{
+            } else {
                 std::move(subdomains.begin(), subdomains.end(), std::back_inserter(domain_boundary));
             }
         }
@@ -149,26 +149,24 @@ namespace load_balancing {
         const std::vector<elements::Element<N>> exchange_data(const std::vector<elements::Element<N>> &data,
                                                               const std::vector<partitioning::geometric::Domain<N>> &domains,
                                                               const partitioning::CommunicationDatatype datatype,
-                                                              const MPI_Comm LB_COMM)
-        {
+                                                              const MPI_Comm LB_COMM,
+                                                              double cell_size = 0.007) {
             int wsize; MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
 
             std::vector<elements::Element<N>> buffer;
             std::vector<elements::Element<N>> remote_data_gathered;
             // Get the neighbors
-            //const size_t wsize = (size_t) this->world_size;
             std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
-            auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.0007)).first;
+            auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains<N>(caller_rank, domains, cell_size)).first;
 
             for(const size_t &PE : neighbors){//size_t PE = 0; PE < wsize; ++PE) {
                 if (PE == (size_t) caller_rank) continue; //do not check with myself
                 //check within the remaining elements which belong to the current PE
                 size_t data_id = 0;
                 while (data_id < data.size()) {
-                    if (elements::distance2<N>(domains.at(PE), data.at(data_id)) < 0.0007) {
-                        //get the value and push it in the "to migrate" vector
-                        data_to_migrate.at(PE).push_back(data.at(data_id));
+                    if (elements::distance2<N>(domains.at(PE), data.at(data_id)) <= cell_size) {
+                        data_to_migrate.at(PE).push_back(data.at(data_id)); // get the value and push it in the "to migrate" vector
                     }
                     data_id++; //if the element must stay with me then check the next one
                 }
@@ -193,10 +191,8 @@ namespace load_balancing {
                 cpt++;
             }
             MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front()); //less strict than mpi_barrier
-
             return remote_data_gathered;
         }
-
 
         template<int N>
         void migrate_zoltan(std::vector<elements::Element<N>> &data, int numImport, int numExport, int* exportProcs, unsigned int* exportGlobalGids,
@@ -204,39 +200,34 @@ namespace load_balancing {
                             const MPI_Comm LB_COMM) {
             int wsize; MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
-
-            std::vector<elements::Element<N>> buffer;
-
-            std::map<int, std::shared_ptr< std::vector<elements::Element<N>> >> data_to_migrate;
-            for(size_t i = 0; i < numExport; ++i)
+            std::vector<elements::Element<N> > buffer;
+            std::map<int, std::shared_ptr<std::vector<elements::Element<N> > > > data_to_migrate;
+            for(int i = 0; i < numExport; ++i)
                 if(data_to_migrate.find(exportProcs[i]) == data_to_migrate.end())
                     data_to_migrate[exportProcs[i]] = std::make_shared<std::vector<elements::Element<N>>>();
 
-            for(size_t i = 0; i < numExport; ++i){ //size_t PE = 0; PE < wsize; ++PE) {
+            for(int i = 0; i < numExport; ++i) {
                 auto PE = exportProcs[i];
                 auto gid= exportGlobalGids[i];
 
                 //check within the remaining elements which belong to the current PE
                 size_t data_id = 0;
                 while (data_id < data.size()) {
-                    if (gid == data[data_id].identifier) {
+                    if (gid == (size_t) data[data_id].gid) {
                         //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
                         //swap iterator values in constant time
                         std::iter_swap(data.begin() + data_id, data.end() - 1);
                         //get the value and push it in the "to migrate" vector
-
                         data_to_migrate[PE]->push_back(*(data.end() - 1));
                         //pop the head of the list in constant time
                         data.pop_back();
                     } else data_id++; //if the element must stay with me then check the next one
                 }
-
             }
 
             std::vector<MPI_Request> reqs(data_to_migrate.size());
-            //std::vector<MPI_Status> statuses(neighbors.size());
             int cpt = 0;
-            for(auto const &pe_data : data_to_migrate){
+            for(auto const &pe_data : data_to_migrate) {
                 int send_size = pe_data.second->size();
                 MPI_Isend(&pe_data.second->front(), send_size, datatype.elements_datatype, pe_data.first, 300, LB_COMM, &reqs[cpt]);
                 cpt++;
@@ -261,18 +252,18 @@ namespace load_balancing {
                                const std::vector<partitioning::geometric::Domain<N>> &domains,
                                const partitioning::CommunicationDatatype datatype,
                                const MPI_Comm LB_COMM,
-                               std::vector<size_t> neighbors = std::vector<size_t>() ) {
+                               std::vector<size_t> neighbors = std::vector<size_t>()) {
             int wsize; MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
 
             std::vector<elements::Element<N>> buffer;
             std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
             if(neighbors.empty())
-                neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.007)).first;
+                neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.08)).first;
 
-            for(const size_t &PE : neighbors){//size_t PE = 0; PE < wsize; ++PE) {
+            for(const size_t &PE : neighbors) {
                 if (PE == (size_t) caller_rank) continue; //do not check with myself
-                //check within the remaining elements which belong to the current PE
+                // check within the remaining elements which belong to the current PE
                 size_t data_id = 0;
                 while (data_id < data.size()) {
                     if (elements::is_inside<N>(data.at(data_id), domains.at(PE))) {
@@ -288,8 +279,9 @@ namespace load_balancing {
             }
             std::vector<MPI_Request> reqs(neighbors.size());
             std::vector<MPI_Status> statuses(neighbors.size());
+
             int cpt = 0, nb_neighbors = neighbors.size();
-            for(const size_t &PE : neighbors){
+            for(const size_t &PE : neighbors) {
                 int send_size = data_to_migrate.at(PE).size();
                 MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
                 cpt++;
@@ -353,7 +345,7 @@ namespace load_balancing {
                 std::vector<MPI_Request> reqs(neighbors.size());
                 std::vector<MPI_Status> statuses(neighbors.size());
                 int cpt = 0, nb_neighbors = neighbors.size();
-                for(const size_t &PE : neighbors){
+                for(const size_t &PE : neighbors) {
                     int send_size = data_to_migrate.at(PE).size();
                     MPI_Isend(&data_to_migrate.at(PE).front(), send_size, this->get_element_datatype(), PE, 300, this->LB_COMM, &reqs[cpt]);
                     cpt++;

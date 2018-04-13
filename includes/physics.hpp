@@ -8,18 +8,10 @@
 #include <limits>
 #include "spatial_elements.hpp"
 
-#define EPS   1
-#define SIG   1e-2
-#define RCUT  (2.5*SIG)
-
-constexpr double eps = 1.0;
-constexpr double sig  = 1e-2;
-constexpr double sig2 = sig*sig;
-constexpr double rcut = 2.5*sig;
 
 template<typename RealType>
 RealType compute_LJ_scalar(RealType r2, RealType eps, RealType sig2) {
-    if (r2 < 6.25 * sig2) { /* r_cutoff = 2.5 sigma */
+    if (r2 < 6.25 * sig2) { /* r_cutoff = 2.5 *sigma */
         RealType z = sig2 / r2;
         RealType u = z * z*z;
         return 24 * eps / r2 * u * (1 - 2 * u);

@@ -24,10 +24,10 @@ int main(int argc, char **argv) {
     std::vector<elements::Element<DIM>> points;
     //populate points
     points = {
-            elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0),
-            elements::Element<2>::createc({sig, 0.0}, {0,0}, 1),
-            elements::Element<2>::createc({0.0, sig}, {0,0}, 2),
-            elements::Element<2>::createc({sig, sig}, {0,0}, 3)
+            elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0, 0),
+            elements::Element<2>::createc({sig, 0.0}, {0,0}, 1, 1),
+            elements::Element<2>::createc({0.0, sig}, {0,0}, 2, 2),
+            elements::Element<2>::createc({sig, sig}, {0,0}, 3, 3)
     };
 
     auto computation_of_lj_scalar_within_rcut = std::make_shared<UnitTest<std::vector<elements::Element<DIM>>>>(
@@ -37,11 +37,11 @@ int main(int argc, char **argv) {
         std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
         std::uniform_real_distribution<double> dist(0.0, 2.5*sig);
         for(size_t i = 0; i < 100; i++)
-            points.push_back(elements::Element<2>::create_random(dist, gen, i));
+            points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
 
         for(auto &force_recepter : points){
             for(auto &force_source : points){
-                if(force_source.identifier != force_recepter.identifier){
+                if(force_source.gid != force_recepter.gid){
                     double dx = force_source.position.at(0) - force_recepter.position.at(0);
                     double dy = force_source.position.at(1) - force_recepter.position.at(1);
                     double C_LJ = compute_LJ_scalar(dx*dx+dy*dy, eps, sig2);
@@ -62,12 +62,12 @@ int main(int argc, char **argv) {
             "LJ potential is zero outside rcut", [] {
                 std::vector<elements::Element<DIM>> points;
                 points = {
-                        elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0),
-                        elements::Element<2>::createc({2.25*sig, 2.25*sig}, {0,0}, 1),
+                        elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0, 0),
+                        elements::Element<2>::createc({2.25*sig, 2.25*sig}, {0,0}, 1, 1),
                 };
                 for(auto &force_recepter : points){
                     for(auto &force_source : points){
-                        if(force_source.identifier != force_recepter.identifier){
+                        if(force_source.gid != force_recepter.gid){
                             double dx = force_source.position.at(0) - force_recepter.position.at(0);
                             double dy = force_source.position.at(1) - force_recepter.position.at(1);
                             double C_LJ = compute_LJ_scalar(dx*dx+dy*dy, eps, sig2);
@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
                 std::vector<int> head(nsub*nsub);
 
                 for(size_t i = 0; i < 100; i++)
-                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
 
                 //create_cell_linkedlist(nsub, lsub, points, pklist, head);
 
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
                 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
                 std::uniform_real_distribution<double> dist(1.0, 1.2);
                 for(size_t i = 0; i < 1000; i++){
-                    auto e = elements::Element<2>::create_random(dist, gen, i);
+                    auto e = elements::Element<2>::create_random(dist, gen, i, i);
                     e.velocity[0] = dist(gen) / 10.0;
                     e.velocity[1] = dist(gen) / 10.0;
                     points.push_back(e);

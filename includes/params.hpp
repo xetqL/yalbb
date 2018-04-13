@@ -8,7 +8,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 /*@T
  * \section{System parameters}
  *
@@ -33,6 +35,7 @@ typedef struct sim_param_t {
     unsigned int world_size;
     unsigned int lb_interval;
     int one_shot_lb_call;
+    std::string uuid;
 } sim_param_t;
 
 
@@ -87,6 +90,9 @@ static void default_params(sim_param_t* params) {
     params->seed = rd(); //by default a random number
     params->lb_interval = 0;
     params->one_shot_lb_call = -1;
+    boost::uuids::random_generator gen;
+    boost::uuids::uuid u = gen(); // generate unique id for this simulation
+    params->uuid = boost::uuids::to_string(u);
 }
 
 /*@T

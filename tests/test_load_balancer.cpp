@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     std::vector<elements::Element<2>> points;
     std::vector<elements::Element<2>> recipient(elements);
     for (int i = 0; i < elements; ++i) {
-        points.push_back(elements::Element<2>::create_random(dist, gen, i));
+        points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
     }
     partitioning::geometric::Domain<2> _domain_boundary = {
             std::make_pair(0.0, 1.0),
@@ -219,7 +219,7 @@ int main(int argc, char **argv) {
                 std::uniform_real_distribution<double> _dist(0.0+rank, 1.0+rank);
 
                 for (unsigned int i = 0; i < 10; ++i) {
-                    _recipient.push_back(elements::Element<2>::create_random(_dist, _gen, i));
+                    _recipient.push_back(elements::Element<2>::create_random(_dist, _gen, i, i));
                 }
 
                 std::vector<partitioning::geometric::Domain<2>> domains = {

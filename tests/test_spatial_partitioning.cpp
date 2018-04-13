@@ -24,7 +24,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
                 }
 
                 //apply bisection
@@ -48,7 +48,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
                 }
                 //apply bisection
                 SeqSpatialBisection<DIM> partitioner;
@@ -206,7 +206,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
                 }
                 //apply bisection
                 SeqSpatialBisection<DIM> partitioner;
@@ -246,7 +246,7 @@ int main(int argc, char** argv){
                 std::vector<elements::Element<DIM>> points;
                 //populate points
                 for (unsigned int i = 0; i < elements; ++i) {
-                    points.push_back(elements::Element<2>::create_random(dist, gen, i));
+                    points.push_back(elements::Element<2>::create_random(dist, gen, i, i));
                 }
                 //apply bisection
                 SeqSpatialBisection<DIM> partitioner;
@@ -278,8 +278,6 @@ int main(int argc, char** argv){
                         {std::make_pair(1.0, 2.0), std::make_pair(2.0, 2.5)},   // 6
                         {std::make_pair(0.0, 3.0), std::make_pair(2.5, 3.0)},   // 7
                         {std::make_pair(0.0, 3.0), std::make_pair(2.6, 3.0)},   // 8
-
-
                 };
                 std::vector<bool> neighbors = {
                         partitioning::geometric::are_domain_neighbors(domains.at(4), domains.at(5), 0.001),
@@ -308,7 +306,7 @@ int main(int argc, char** argv){
                         {std::make_pair(0.2, 0.5), std::make_pair(0.2, 0.5)}, // 0
                 };
                 std::array<double, 2> p = {0.3, 0.8}, v= {0.0, 0.0};
-                elements::Element<2> e = elements::Element<2>::create(p, v, 0);
+                elements::Element<2> e = elements::Element<2>::create(p, v, 0, 0);
                 return elements::distance2<2>(domains.at(0), e);
             }, [](auto const& d2) {
                 std::cout << d2 << std::endl;

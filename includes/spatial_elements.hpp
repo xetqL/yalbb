@@ -9,23 +9,28 @@
 #include <iostream>
 #include <algorithm>
 #include <mpi.h>
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
 #include "partitioner.hpp"
 
 namespace elements {
-
+    using Point3D = boost::geometry::model::point<double, 3, boost::geometry::cs::cartesian>;
+    using Box3D = boost::geometry::model::box<Point3D>;
     template<int N>
     struct Element {
-        int identifier;
+        int gid;
+        int lid;
         std::array<double, N> position,  velocity, acceleration;
 
         static const int number_of_dimensions = N;
-        constexpr Element(std::array<double, N> p, std::array<double, N> v, const int id) : identifier(id), position(p), velocity(v){
+
+        constexpr Element(std::array<double, N> p, std::array<double, N> v, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v){
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
-        constexpr Element(std::array<double, N> p, std::array<double, N> v, std::array<double,N> a, const int id) : identifier(id), position(p), velocity(v), acceleration(a){
+        constexpr Element(std::array<double, N> p, std::array<double, N> v, std::array<double,N> a, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(a){
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
-        constexpr Element() : identifier(0){
+        constexpr Element() : gid(0), lid(0){
             std::fill(velocity.begin(), velocity.end(), 0.0);
             std::fill(position.begin(), position.end(), 0.0);
             std::fill(acceleration.begin(), acceleration.end(), 0.0);
@@ -40,7 +45,7 @@ namespace elements {
         }
 
         static constexpr int byte_size() {
-            return N * 3 * sizeof(double) + sizeof(int);
+            return N * 3 * sizeof(double) + 2 * sizeof(int);
         }
 
         std::string to_communication_buffer(){
@@ -63,7 +68,7 @@ namespace elements {
 
             comm_buf << ";";
 
-            comm_buf << std::to_string(identifier);
+            comm_buf << std::to_string(gid);
 
             comm_buf << "!";
 
@@ -72,37 +77,37 @@ namespace elements {
 
         }
 
-        static Element<N> create(std::array<double, N> &p, std::array<double, N> &v, int id){
-            Element<N> e(p, v, id);
+        static Element<N> create(std::array<double, N> &p, std::array<double, N> &v, int gid, int lid){
+            Element<N> e(p, v, gid, lid);
             return e;
         }
 
-        static Element<N> createc(std::array<double, N> p, std::array<double, N> v, int id){
-            Element<N> e(p, v, id);
+        static Element<N> createc(std::array<double, N> p, std::array<double, N> v, int gid, int lid){
+            Element<N> e(p, v, gid, lid);
             return e;
         }
 
         template<class Distribution, class Generator>
-        static Element<N> create_random( Distribution& dist, Generator &gen, int id){
+        static Element<N> create_random( Distribution& dist, Generator &gen, int gid, int lid){
             std::array<double, N> p, v;
             std::generate(p.begin(), p.end(), [&dist, &gen](){return dist(gen);});
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
-            return Element::create(p, v, id);
+            return Element::create(p, v, gid, lid);
         }
 
         template<class Distribution, class Generator, class RejectionPredicate>
-        static Element<N> create_random( Distribution& dist, Generator &gen, int id, RejectionPredicate pred){
+        static Element<N> create_random( Distribution& dist, Generator &gen, int gid, int lid, RejectionPredicate pred){
             std::array<double, N> p, v;
             //generate point in N dimension
             int trial = 0;
             do {
-                if(trial >= 1000) throw std::runtime_error("Could not generate particle that satisfies the predicate. Try another distribution.");
+                if(trial >= 1000) throw std::runtime_error("Could not generate particles that satisfy the predicate. Try another distribution.");
                 std::generate(p.begin(), p.end(), [&dist, &gen](){return dist(gen);});
                 trial++;
             } while(!pred(p));
             //generate velocity in N dimension
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
-            return Element::create(p, v, id);
+            return Element::create(p, v, gid, lid);
         }
 
         template<class Distribution, class Generator, int Cnt>
@@ -110,7 +115,7 @@ namespace elements {
             std::array<Element<N>, Cnt> elements;
             int id = 0;
             std::generate(elements.begin(), elements.end(), [&]()mutable {
-                return Element<N>::create_random(dist, gen, id++);
+                return Element<N>::create_random(dist, gen, id, id++);
             });
             return elements;
         }
@@ -119,7 +124,7 @@ namespace elements {
         static void create_random_n(Container &elements, Distribution& dist, Generator &gen ) {
             int id = 0;
             std::generate(elements.begin(), elements.end(), [&]()mutable {
-                return Element<N>::create_random(dist, gen, id++);
+                return Element<N>::create_random(dist, gen, id, id++);
             });
         }
 
@@ -129,7 +134,7 @@ namespace elements {
             //construct a new function that does the work
             int id = 0;
             std::generate(elements.begin(), elements.end(), [&]() mutable {
-                return Element<N>::create_random(dist, gen, id++, [&elements, pred](auto const el){
+                return Element<N>::create_random(dist, gen, id, id++, [&elements, pred](auto const el){
                        return std::all_of(elements.begin(), elements.end(), [&](auto p){return pred(p.position, el);});
                 });
             });
@@ -141,7 +146,7 @@ namespace elements {
          * @return true if the position and the velocity of the two elements are equals
          */
         bool operator==(const Element &rhs) const {
-            return position == rhs.position && velocity == rhs.velocity && identifier == rhs.identifier;
+            return position == rhs.position && velocity == rhs.velocity && gid == rhs.gid;
         }
 
         bool operator!=(const Element &rhs) const {
@@ -164,14 +169,14 @@ namespace elements {
                 acc += "," + std::to_string(element.acceleration.at(i));
             }
             acc += ")";
-            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " id: " << element.identifier;
+            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " gid: " << element.gid << " lid: " << element.gid;
             return os;
         }
 
     };
 
     template<int N>
-    double distance2(std::array<double, N> e1, std::array<double, N> e2) {
+    inline double distance2(std::array<double, N> e1, std::array<double, N> e2) {
         double r2 = 0.0;
         for(int i = 0; i < N; ++i){
             r2 += std::pow(e1.at(i) - e2.at(i), 2);
@@ -179,28 +184,26 @@ namespace elements {
         return r2;
     }
 
-    template<int N>
-    double distance2(const std::pair<std::pair<double, double>, std::pair<double, double>> &l, const Element<N> &el){
-        return std::pow((l.second.second - l.first.second)*el.position.at(0) - (l.second.first - l.first.first)*el.position.at(1) + l.second.first*l.first.second - l.second.second*l.first.first, 2)/
-               (std::pow((l.second.second - l.first.second),2) + std::pow((l.second.first - l.first.first),2));
-    }
+    //template<int N>
+    //double distance2(const std::pair<std::pair<double, double>, std::pair<double, double>> &l, const Element<N> &el){
+    //    return std::pow((l.second.second - l.first.second)*el.position.at(0) - (l.second.first - l.first.first)*el.position.at(1) + l.second.first*l.first.second - l.second.second*l.first.first, 2)/
+    //           (std::pow((l.second.second - l.first.second),2) + std::pow((l.second.first - l.first.first),2));
+    //}
 
     template<int N>
-    double distance2(const std::array<std::pair<double, double>, N> &domain, const Element<N> &e1){
-        double width = std::abs(domain.at(0).second - domain.at(0).first);
-        double height= std::abs(domain.at(1).second - domain.at(1).first);
-        double x = (domain.at(0).second + domain.at(0).first)/2.0;
-        double y = (domain.at(1).second + domain.at(1).first)/2.0;
-        double dx = std::max(std::abs(e1.position.at(0) - x) - width / 2, 0.0);
-        double dy = std::max(std::abs(e1.position.at(1) - y) - height / 2, 0.0);
-        return dx * dx + dy * dy;
+    inline double distance2(const std::array<std::pair<double, double>, N> &domain, const Element<N> &e1){
+        Point3D minA(domain.at(0).first,  domain.at(1).first,N > 2 ? domain.at(2).first : 0.0);
+        Point3D maxA(domain.at(0).second, domain.at(1).second, N > 2 ? domain.at(2).second : 0.0);
+        Box3D bdomain(minA, maxA);
+        Point3D point(e1.position.at(0),  e1.position.at(1),N > 2 ? e1.position.at(2) : 0.0);
+        return std::pow(boost::geometry::distance(point, bdomain), 2);
     }
 
     template<int N, typename T>
     std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities) {
         std::vector<Element<N>> elements(length);
         for(int i=0; i < length; ++i){
-            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, i);
+            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, i, i);
             elements[i] = e;
         }
         return elements;
@@ -210,7 +213,7 @@ namespace elements {
     std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities, const T* acceleration) {
         std::vector<Element<N>> elements(length);
         for(int i=0; i < length; ++i){
-            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, {acceleration[2*i], acceleration[2*i+1]}, i);
+            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, {acceleration[2*i], acceleration[2*i+1]}, i, i);
             elements[i] = e;
         }
         return elements;
@@ -222,7 +225,7 @@ namespace elements {
             throw std::runtime_error("Can not transform data into an empty vector");
         }
         std::generate(elements.begin(), elements.end(), [i = 0, id=0, &positions, &velocities]() mutable {
-            Element<N> e({positions[i], positions[i+1]}, {velocities[i], velocities[i+1]}, id);
+            Element<N> e({positions[i], positions[i+1]}, {velocities[i], velocities[i+1]}, id, id);
             i=i+N;
             id++;
             return e;
@@ -275,6 +278,7 @@ namespace elements {
             double T = 2 * M_PI * udist(gen);
             elements[i].velocity[0] = (double) (R * std::cos(T));
             elements[i].velocity[1] = (double) (R * std::sin(T));
+            if (N == 3) elements[i].velocity[2] = (double) (T0 * std::sqrt(-2 * std::log(udist(gen))) * std::sin(T));
         }
     }
 
@@ -297,7 +301,7 @@ namespace elements {
         MPI_Type_contiguous(array_size, MPI_DOUBLE, &vec_datatype);
         MPI_Type_commit(&vec_datatype);
 
-        blockcount_element[0] = 1;
+        blockcount_element[0] = 2; //gid, lid
         blockcount_element[1] = 3; //position, velocity, acceleration
 
         oldtype_element[0] = MPI_INT;

@@ -7,12 +7,12 @@
 #include "../includes/box_runner.hpp"
 
 int main(int argc, char** argv) {
+    constexpr int DIMENSION = 3;
     sim_param_t params;
     FILE* fp = NULL;
-    int npart;
     int rank, nproc, dim;
     float ver;
-    MESH_DATA mesh_data;
+    MESH_DATA<DIMENSION> mesh_data;
 
     MPI_Init(&argc, &argv);
 
@@ -29,6 +29,7 @@ int main(int argc, char** argv) {
         MPI_Finalize();
         exit(0);
     }
+
     if (rank == 0 && params.record) {
         fp = fopen(params.fname, "w");
     }
@@ -38,16 +39,17 @@ int main(int argc, char** argv) {
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
     double t1 = MPI_Wtime();
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<2>();
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
     if(rc != ZOLTAN_OK){
         MPI_Finalize();
         exit(0);
     }
-    init_mesh_data(rank, nproc, mesh_data, &params);
+
+    init_mesh_data<DIMENSION>(rank, nproc, mesh_data, &params);
     auto zz = zoltan_create_wrapper();
-    zoltan_fn_init(zz, &mesh_data);
+    zoltan_fn_init<DIMENSION>(zz, &mesh_data);
     rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                              &changes,           // 1 if partitioning was changed, 0 otherwise
                              &numGidEntries,     // Number of integers used for a global ID
@@ -64,26 +66,28 @@ int main(int argc, char** argv) {
                              &exportToPart);     // Partition to which each vertex will belong
     double xmin, ymin, zmin, xmax, ymax, zmax;
 
-    std::vector<partitioning::geometric::Domain<2>> domain_boundaries(nproc);
+    std::vector<partitioning::geometric::Domain<DIMENSION>> domain_boundaries(nproc);
 
     for(int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<2>(xmin, ymin, zmin, xmax, ymax, zmax, params.simsize);
+        auto domain = partitioning::geometric::borders_to_domain<DIMENSION>(xmin, ymin, zmin,
+                                                                            xmax, ymax, zmax, params.simsize);
         domain_boundaries[part] = domain;
     }
 
-    load_balancing::geometric::migrate_zoltan<2>(mesh_data.els ,numImport, numExport, exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
+    load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
+                                                         exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
-    zoltan_run_box(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
+    zoltan_run_box<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     double t2 = MPI_Wtime();
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
-                        &importProcs, &importToPart);
+                        &importProcs,      &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
-                        &exportProcs, &exportToPart);
+                        &exportProcs,      &exportToPart);
     Zoltan_Destroy(&zz);
 
     if (fp) fclose(fp);

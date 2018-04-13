@@ -10,6 +10,10 @@
 #include <cstdint>
 #include <arpa/inet.h>
 #include <vector>
+
+//TODO: REWRITE THE DATA FRAME WRITER MODULE IN A EASIEST AND C++er WAY. Then, in Python create a viewer.
+
+
 /*@T
  * \section{Binary output}
  *
@@ -120,15 +124,61 @@ void write_frame_data(FILE* fp, const int n, float* x)
  * @param n
  * @param els
  */
-void write_frame_data(FILE* fp, int n, elements::Element<2> *els)
+template<int N>
+void write_frame_data(FILE* fp, int n, elements::Element<N> *els)
 {
-    float* dont_know_why = new float[2 * n]; //x & y for each particle
+    float* dont_know_why = new float[N * n]; //x & y for each particle
     for(int i = 0; i < n; ++i) {
-        dont_know_why[2*i]   = els[i].position[0];
-        dont_know_why[2*i+1] = els[i].position[1];
+        dont_know_why[N*i]   = els[i].position[0];
+        dont_know_why[N*i+1] = els[i].position[1];
+        if(N==3) dont_know_why[N*i+2] = els[i].position[2];
     }
     write_frame_data(fp, n, dont_know_why);
     delete[] dont_know_why;
+}
+
+void write_header_bin(std::ofstream &stream, const int n, const int dimension, double nscale)
+{
+    stream.write(reinterpret_cast<const char*>(&n),        sizeof(int));
+    stream.write(reinterpret_cast<const char*>(&dimension),sizeof(int));
+    stream.write(reinterpret_cast<const char*>(&nscale),   sizeof(double));
+}
+
+template<int N>
+void write_frame_data_bin(std::ofstream &stream, std::vector<elements::Element<N>>& els)
+{
+    for(elements::Element<N> &el : els ) {
+        stream.write(reinterpret_cast<const char *>(&el.position[0]), sizeof(double));
+        stream.write(reinterpret_cast<const char *>(&el.position[1]), sizeof(double));
+        if (N == 3) stream.write(reinterpret_cast<const char *>(&el.position[0]), sizeof(double));
+    }
+}
+
+struct SimpleXYZFormatter {
+    template<int N>
+    inline void write_data(std::ofstream &stream, elements::Element<N>& el){
+        if(N<3) stream << el.position[0] << " " << el.position[1] << std::endl;
+        else stream << el.position[0] << " " << el.position[1] << " " <<  el.position[2] << std::endl;
+    }
+    inline void write_header(std::ofstream &stream, const int n, float simsize){
+        configure_stream(stream);
+    }
+    template<int N>
+    inline void write_frame_header(std::ofstream &stream, std::vector<elements::Element<N>>& els, const sim_param_t* params){
+        stream << els.size() << std::endl << "Lattice=\""<<0.0<<" "<<0.0<<" "<<0.0<<" "<<params->simsize<<" "<<params->simsize<<" "<<params->simsize<<"\""<< std::endl;
+    }
+private:
+    inline void configure_stream(std::ofstream &stream, int precision = 6){
+        stream << std::fixed << std::setprecision(6);
+    }
+};
+
+template<int N, class FrameFormater>
+void write_frame_data(std::ofstream &stream, std::vector<elements::Element<N>>& els, FrameFormater& formatter, const sim_param_t* params) {
+    formatter.write_frame_header(stream, els, params);
+    for(elements::Element<N> &el : els ) {
+        formatter.write_data(stream, el);
+    }
 }
 
 #endif //NBMPI_NBODY_IO_HPP
