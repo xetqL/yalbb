@@ -1,3 +1,5 @@
+*.metrics
+*.ovito
 # Application
 *.out
 
