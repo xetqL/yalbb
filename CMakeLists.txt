@@ -8,7 +8,7 @@ find_package(GSL REQUIRED)
 
 set(MPI_COMPILER mpic++ CACHE String "MPI compiler binary (default is mpic++)")
 
-set(CMAKE_CXX_COMPILER ${MPI_COMPILER})
+set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14")
 
