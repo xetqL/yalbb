@@ -39,7 +39,7 @@ std::vector<FloatingPointPrecision> compute_cells_loads(int number_of_cell_per_r
     int number_of_cell_per_col = number_of_cell_per_row,
         total_cells = number_of_cell_per_col*number_of_cell_per_row;
 
-    FloatingPointPrecision avg = (FloatingPointPrecision) npart / (number_of_cell_per_row * number_of_cell_per_col);
+    //FloatingPointPrecision avg = (FloatingPointPrecision) npart / (number_of_cell_per_row * number_of_cell_per_col);
     int diff = total_cells - plist.size();
     int xcellidx;
     int ycellidx;
@@ -108,15 +108,16 @@ namespace load_dynamic {
 template<typename Container>
 inline double compute_ema(int size, double alpha, const Container& Y){
     const int position = Y.size() - size;
-    const int starting_el = position >= 0 ? position : 0;
+    const size_t starting_el = position >= 0 ? position : 0;
     double acc = Y[starting_el];
-    for (int t = starting_el+1; t < Y.size(); ++t) acc = alpha*Y[t] + (1-alpha)*acc;
+    for (size_t t = starting_el+1; t < Y.size(); ++t) acc = alpha * Y[t] + (1-alpha) * acc;
     return acc;
 }
 
 template<typename Container>
-inline double compute_ma(double alpha, const Container& Y){
-    return (std::accumulate(Y.begin(), Y.end(), 0.0)) / Y.size();
+inline double compute_ma(int size, const Container& Y){
+    auto begin_it = size > Y.size() ? Y.begin() : Y.end() - size;
+    return std::accumulate(begin_it, Y.end(), 0.0) / Y.size();
 }
 
 /**
@@ -127,8 +128,13 @@ inline double compute_ma(double alpha, const Container& Y){
 * @return MACD indicator
 */
 template<typename Container>
-inline double compute_macd(const Container& Y, const int sz_small_ema = 12, const int sz_big_ema = 26, const double alpha = 0.95) {
+inline double compute_macd_ema(const Container& Y, const int sz_small_ema = 12, const int sz_big_ema = 26, const double alpha = 0.95) {
     return compute_ema(sz_small_ema, alpha, Y) - compute_ema(sz_big_ema, alpha, Y);
+}
+
+template<typename Container>
+inline double compute_macd_ma(const Container& Y, const int sz_small_ema = 12, const int sz_big_ema = 26) {
+    return compute_ma(sz_small_ema, Y) - compute_ma(sz_big_ema, Y);
 }
 
 }// end namespace load_dynamic
@@ -138,8 +144,9 @@ template<class T>
 struct SlidingWindow {
     std::deque<T> data_container;
 
-    int window_max_size;
-    SlidingWindow(int window_max_size): window_max_size(window_max_size) {};
+    size_t window_max_size;
+    SlidingWindow(size_t window_max_size): window_max_size(window_max_size) {};
+
     inline void add(const T& data){
 
         if(data_container.size() < window_max_size)

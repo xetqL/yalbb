@@ -73,6 +73,7 @@ set_target_properties(build_tests_lj
 # Executable
 ########################################################################################################################
 ## Main build
+
 add_executable(build
         Makefile
         ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp
@@ -97,6 +98,7 @@ set_target_properties(build
 
 set(ZOLTAN_LIBRARY_PATH zoltan CACHE String "zoltan library path (zoltan.a)")
 set(ARMADILLO_LIBRARY_PATH "" CACHE String "armadillo library path (libarmadillo.so)")
+
 target_link_libraries(build
         PRIVATE
         ${MPI_C_LIBRARIES}
@@ -108,6 +110,7 @@ set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
 set(LIBRL_INCLUDE_DIRECTORY  "" CACHE String "librl include directory")
 set(ARMADILLO_INCLUDE_DIRECTORY "" CACHE String "armadillo include directory")
 set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE String "zoltan include directory")
+
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
@@ -116,6 +119,37 @@ target_include_directories(build
         ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY}
 )
+
+add_executable(dataset
+        Makefile
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/box_runner.hpp
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp
+        src/dataset_builder.cpp)
+target_include_directories(dataset
+        PRIVATE
+        ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${LIBRL_INCLUDE_DIRECTORY}
+        ${ARMADILLO_INCLUDE_DIRECTORY}
+        ${ZOLTAN_INCLUDE_DIRECTORY})
+target_link_libraries(dataset
+        PRIVATE
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH}
+        ${ARMADILLO_LIBRARY_PATH}
+        ${GSL_LIBRARIES})
 
 add_custom_target(tests
         COMMAND bin/tests_utils

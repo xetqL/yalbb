@@ -100,7 +100,7 @@ int compute_forces (
     double eps  = (double) params->eps_lj;
     double sig  = (double) params->sig_lj;
     double sig2 = sig*sig;
-    int complexity = 0;
+    int complexity = local_elements.size();
     // each particle MUST checks the local particles and the particles from neighboring PE
     std::unordered_map<int, elements::Element<N>> element_map;
 
@@ -153,6 +153,7 @@ int compute_forces (
             }
         }
     }
+    return complexity;
 }
 
 template<int N>

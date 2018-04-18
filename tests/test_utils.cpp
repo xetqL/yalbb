@@ -8,6 +8,7 @@
 #include <random>
 
 #include "../includes/utils.hpp"
+#include "../includes/metrics.hpp"
 
 using namespace partitioning::utils;
 int main(int argc, char** argv){
@@ -86,10 +87,35 @@ int main(int argc, char** argv){
             }
     );
 
+    auto linear_regression_get_slope = std::make_shared<UnitTest<double>>(
+            "The linear regression works and you can get the slope", []{
+                std::vector<double> x = {1,2,3,4,5,6,7,8}, y = {1,2,3,4,5,6,7,8};
+                return statistic::linear_regression(x, y).first;
+            }, [](auto result){
+                return result == 1;
+            }
+    );
+
+    auto macd_computation = std::make_shared<UnitTest<double>>(
+            "MACD computation", []{
+                std::vector<double> data = {1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1,8,4,9,12,9,11,8,6,4,7,2,1,1};
+                SlidingWindow<double> window(data.size());
+                for(auto v : data) {
+                    window.add(v);
+                    std::cout << metric::load_dynamic::compute_macd(window.data_container, 4) << std::endl;
+                }
+                return 1;
+            }, [](auto result){
+                return result == 1;
+            }
+    );
+
     runner.add_test(is_unzip_correct);
     runner.add_test(is_zip_correct);
     runner.add_test(is_flatten_size_correct);
     runner.add_test(is_flatten_correct);
+    runner.add_test(linear_regression_get_slope);
+    runner.add_test(macd_computation);
 
     runner.run();
     runner.summarize();

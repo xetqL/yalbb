@@ -48,8 +48,10 @@ int main(int argc, char** argv) {
     }
 
     init_mesh_data<DIMENSION>(rank, nproc, mesh_data, &params);
+
     auto zz = zoltan_create_wrapper();
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
+
     rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                              &changes,           // 1 if partitioning was changed, 0 otherwise
                              &numGidEntries,     // Number of integers used for a global ID

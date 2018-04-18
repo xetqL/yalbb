@@ -22,6 +22,11 @@ int main(int argc, char **argv) {
     std::uniform_real_distribution<double> dist(0.1, 0.6);
 
     std::vector<elements::Element<DIM>> points;
+
+    double sig  = 1e-2;
+    double sig2 = sig*sig;
+    double eps  = 1;
+
     //populate points
     points = {
             elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0, 0),
@@ -31,7 +36,7 @@ int main(int argc, char **argv) {
     };
 
     auto computation_of_lj_scalar_within_rcut = std::make_shared<UnitTest<std::vector<elements::Element<DIM>>>>(
-      "LJ potential is =/= zero inside rcut", [] {
+      "LJ potential is =/= zero inside rcut", [=] {
         std::vector<elements::Element<DIM>> points;
         std::random_device rd; //Will be used to obtain a seed for the random number engine
         std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
@@ -59,15 +64,15 @@ int main(int argc, char **argv) {
     );
 
     auto computation_of_lj_scalar_outside_rcut = std::make_shared<UnitTest<std::vector<elements::Element<DIM>>>>(
-            "LJ potential is zero outside rcut", [] {
+            "LJ potential is zero outside rcut", [=] {
                 std::vector<elements::Element<DIM>> points;
                 points = {
                         elements::Element<2>::createc({0.0, 0.0}, {0,0}, 0, 0),
                         elements::Element<2>::createc({2.25*sig, 2.25*sig}, {0,0}, 1, 1),
                 };
-                for(auto &force_recepter : points){
-                    for(auto &force_source : points){
-                        if(force_source.gid != force_recepter.gid){
+                for(auto &force_recepter : points) {
+                    for(auto &force_source : points) {
+                        if(force_source.gid != force_recepter.gid) {
                             double dx = force_source.position.at(0) - force_recepter.position.at(0);
                             double dy = force_source.position.at(1) - force_recepter.position.at(1);
                             double C_LJ = compute_LJ_scalar(dx*dx+dy*dy, eps, sig2);
@@ -85,7 +90,7 @@ int main(int argc, char **argv) {
     );
 
     auto cell_linked_list_creation = std::make_shared<UnitTest<std::unordered_map<int,int>>>(
-            "LinkedList indeed contains all the particles", [] {
+            "LinkedList indeed contains all the particles", [=] {
                 std::vector<elements::Element<DIM>> points;
                 std::random_device rd; //Will be used to obtain a seed for the random number engine
                 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()

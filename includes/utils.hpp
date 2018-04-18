@@ -10,6 +10,9 @@
 #include <stdexcept>
 #include <iomanip>
 #include <functional>
+#include <cassert>
+#include <cmath>
+#include <limits>
 
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
@@ -149,25 +152,34 @@ R<typename Sub::value_type> flatten(Top const& all)
 }
 }
 namespace statistic {
-
+/**
+ * From http://www.tangentex.com/RegLin.htm
+ * @tparam ContainerA
+ * @tparam ContainerB
+ * @param x x data
+ * @param y y data
+ * @return (a,b) of ax+b
+ */
 template<typename ContainerA, typename ContainerB>
-std::pair<double, double> linear_regression(const ContainerA& x, const ContainerB& y, double alpha = 0.01, double max_err = 0.1, int max_iter = 100){
-    double b0 = 0;
-    double b1 = 0;
-    int i = 0;
-    double err = std::numeric_limits<double>::max();
+std::pair<double, double> linear_regression(const ContainerA& x, const ContainerB& y) {
+    int i; double xsomme, ysomme, xysomme, xxsomme;
 
-    while (err > max_err && i < max_iter) {
-        int idx = i % x.size();
-        double p = b0 + b1 * x[idx];
-        double err = std::pow(p - y[idx], 2);
-        b0 = b0 - alpha * err;
-        b1 = b1 - alpha * err * x[idx];
-        i++;
+    double ai, bi;
+
+    xsomme = 0.0; ysomme = 0.0;
+    xysomme = 0.0; xxsomme = 0.0;
+    const int n = x.size();
+    for (i=0;i<n;i++) {
+        xsomme = xsomme + x[i]; ysomme = ysomme + y[i];
+        xysomme = xysomme + x[i]*y[i];
+        xxsomme = xxsomme + x[i]*x[i];
     }
 
-    return std::make_pair(b0, b1);
-};
+    ai = (n*xysomme - xsomme*ysomme)/(n*xxsomme - xsomme*xsomme);
+    bi = (ysomme - ai*xsomme)/n;
+
+    return std::make_pair(ai, bi);
+}
 
 } // end of namespace statistic
 

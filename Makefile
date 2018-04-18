@@ -124,6 +124,19 @@ tests/fast:
 .PHONY : tests/fast
 
 #=============================================================================
+# Target rules for targets named dataset
+
+# Build rule for target.
+dataset: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 dataset
+.PHONY : dataset
+
+# fast build rule for target.
+dataset/fast:
+	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/build
+.PHONY : dataset/fast
+
+#=============================================================================
 # Target rules for targets named build
 
 # Build rule for target.
@@ -187,6 +200,33 @@ build_tests_lj: cmake_check_build_system
 build_tests_lj/fast:
 	$(MAKE) -f CMakeFiles/build_tests_lj.dir/build.make CMakeFiles/build_tests_lj.dir/build
 .PHONY : build_tests_lj/fast
+
+src/dataset_builder.o: src/dataset_builder.cpp.o
+
+.PHONY : src/dataset_builder.o
+
+# target to build an object file
+src/dataset_builder.cpp.o:
+	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/src/dataset_builder.cpp.o
+.PHONY : src/dataset_builder.cpp.o
+
+src/dataset_builder.i: src/dataset_builder.cpp.i
+
+.PHONY : src/dataset_builder.i
+
+# target to preprocess a source file
+src/dataset_builder.cpp.i:
+	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/src/dataset_builder.cpp.i
+.PHONY : src/dataset_builder.cpp.i
+
+src/dataset_builder.s: src/dataset_builder.cpp.s
+
+.PHONY : src/dataset_builder.s
+
+# target to generate assembly for a file
+src/dataset_builder.cpp.s:
+	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/src/dataset_builder.cpp.s
+.PHONY : src/dataset_builder.cpp.s
 
 src/nbmpi.o: src/nbmpi.cpp.o
 
@@ -331,12 +371,16 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... tests"
+	@echo "... dataset"
 	@echo "... build"
 	@echo "... build_tests_space_partitioning"
 	@echo "... build_tests_utils"
 	@echo "... rebuild_cache"
 	@echo "... build_tests_lb"
 	@echo "... build_tests_lj"
+	@echo "... src/dataset_builder.o"
+	@echo "... src/dataset_builder.i"
+	@echo "... src/dataset_builder.s"
 	@echo "... src/nbmpi.o"
 	@echo "... src/nbmpi.i"
 	@echo "... src/nbmpi.s"

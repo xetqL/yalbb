@@ -36,6 +36,7 @@ typedef struct sim_param_t {
     unsigned int lb_interval;
     int one_shot_lb_call;
     std::string uuid;
+    bool verbose = true;
 } sim_param_t;
 
 

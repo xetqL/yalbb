@@ -1,5 +1,6 @@
 *.metrics
 *.ovito
+dataset*
 # Application
 *.out
 
