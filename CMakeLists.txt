@@ -19,8 +19,10 @@ set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
-include_directories(/home/xetql/boost_1_66_0)
-link_directories(/home/xetql/boost_1_66_0/stage/lib)
+set(BOOST_INCLUDE_DIRECTORY "" CACHE String "Boost include directory (local)")
+include_directories(${BOOST_INCLUDE_DIRECTORY})
+set(BOOST_LIBRARY_DIRECTORY "" CACHE String "Boost library directory (local)")
+link_directories(${BOOST_LIBRARY_DIRECTORY})
 
 ########################################################################################################################
 # Tests
