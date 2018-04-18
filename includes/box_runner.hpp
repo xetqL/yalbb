@@ -225,11 +225,12 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
             MPI_Barrier(comm);
+            float iteration_time = (MPI_Wtime() - start) / 1e-6;
             if((i+frame*npframe) >= params->one_shot_lb_call - 51 && (i+frame*npframe) <= params->one_shot_lb_call - 1) {
                 double start_metric = MPI_Wtime();
                 // Particles are migrated, PEs are ready for the next time-step.
                 // Now compute the metrics ...
-                float iteration_time = (MPI_Wtime() - start) / 1e-6; // divide diff time by tick resolution
+                 // divide diff time by tick resolution
                 start = MPI_Wtime(); // start overhead measurement
                 auto cell_load = metric::topology::compute_cells_loads<double, N>(M, mesh_data->els.size(), plklist);
 
@@ -275,10 +276,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                             macd_load_imbalance, macd_loads, macd_complexity, 0.0
                     };
                 }
-
                 total_metric_computation_time += (MPI_Wtime() - start_metric);
             }
-            MPI_Barrier(comm);
             //write_report_data_bin(lb_file, i + frame * npframe, times, rank, 0);
         }
 
@@ -286,17 +285,19 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
         if(params->record)
             load_balancing::gather_elements_on(nproc, rank, params->npart,
                                                mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
-        MPI_Barrier(comm);
-        if (rank == 0) {
-            double end = MPI_Wtime();
-            double time_spent = (end - begin);
-            if(params->verbose) printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
-            begin = MPI_Wtime();
+        if(params->verbose){
+            MPI_Barrier(comm);
+            if (rank == 0) {
+                double end = MPI_Wtime();
+                double time_spent = (end - begin);
+                if(params->verbose) printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
+                begin = MPI_Wtime();
+            }
         }
     }
 
     MPI_Barrier(comm);
-    double diff = ((MPI_Wtime() - start_sim)); //- total_metric_computation_time;
+    double diff = ((MPI_Wtime() - start_sim)) - total_metric_computation_time;
     if(rank == 0){
         dataset.open("dataset-rcb-"+std::to_string(params->world_size)+
                      "-"+std::to_string(params->npart)+
@@ -306,7 +307,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                      "-"+std::to_string((params->eps_lj))+
                      "-"+std::to_string((params->sig_lj)),
                      std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-        std::cout << "Sim. finished: " << diff << " secs. "<< "& metrics: "<<total_metric_computation_time << std::endl;
+        std::cout << "Sim. finished: " << diff << " secs. "<< "& metrics: "<<total_metric_computation_time << " secs"<< std::endl;
         dataset_entry[dataset_entry.size() - 1] = diff;
         write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
         dataset.close();

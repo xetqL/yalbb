@@ -37,9 +37,8 @@ int main(int argc, char** argv) {
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
-    params.one_shot_lb_call = 0;
-    params.verbose = false;
 
+    params.verbose = false;
     MESH_DATA<DIMENSION> mesh_data_original;
     init_mesh_data<DIMENSION>(rank, nproc, mesh_data_original, &params);
 
@@ -48,6 +47,7 @@ int main(int argc, char** argv) {
         MESH_DATA<DIMENSION> mesh_data;
         init_mesh_data<DIMENSION>(rank, nproc, mesh_data, &params);
         int rc = Zoltan_Initialize(argc, argv, &ver);
+
         if(rc != ZOLTAN_OK){
             MPI_Finalize();
             exit(0);
