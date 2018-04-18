@@ -3,8 +3,6 @@ project(nbmpi)
 
 set(CMAKE_BUILD_TYPE Debug)
 
-set(CMAKE_CXX_STANDARD 14)
-
 find_package(MPI REQUIRED)
 find_package(GSL REQUIRED)
 
