@@ -299,7 +299,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     MPI_Barrier(comm);
     double diff = ((MPI_Wtime() - start_sim)) - total_metric_computation_time;
     if(rank == 0){
-        dataset.open("dataset-rcb-"+std::to_string(params->world_size)+
+        dataset.open("dataset-rcb-"+std::to_string(params->seed)+
+                     "-"+std::to_string(params->world_size)+
                      "-"+std::to_string(params->npart)+
                      "-"+std::to_string((params->nframes*params->npframe))+
                      "-"+std::to_string((int)(params->T0))+
