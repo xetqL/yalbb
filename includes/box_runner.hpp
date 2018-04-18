@@ -248,7 +248,6 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                     float gini_times = metric::load_balancing::compute_gini_index(times);
                     float gini_loads = metric::load_balancing::compute_gini_index(loads);
                     float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
-
                     float skewness_times = gsl_stats_float_skew(&times.front(), 1, times.size());
                     float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
@@ -258,8 +257,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                     window_complexity->add(gini_complexities);
 
                     // Generate y from 0 to 1 and store in a vector
-                    std::vector<float> it(window_load_imbalance->data_container.size());
-                    std::iota(it.begin(), it.end(), 0);
+                    std::vector<float> it(window_load_imbalance->data_container.size()); std::iota(it.begin(), it.end(), 0);
 
                     float slope_load_imbalance = statistic::linear_regression(it, window_load_imbalance->data_container).first;
                     float macd_load_imbalance = metric::load_dynamic::compute_macd_ema(window_load_imbalance->data_container, 12, 26,  2.0/(window_load_imbalance->data_container.size()+1));
@@ -274,8 +272,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                             gini_times, gini_loads, gini_complexities,
                             skewness_times, skewness_loads, skewness_complexities,
                             slope_load_imbalance, slope_loads, slope_complexity,
-                            macd_load_imbalance, macd_loads, macd_complexity,
-                            0.0
+                            macd_load_imbalance, macd_loads, macd_complexity, 0.0
                     };
                 }
 

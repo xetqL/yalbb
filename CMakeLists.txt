@@ -4,11 +4,15 @@ project(nbmpi)
 set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_CXX_STANDARD 14)
+
 find_package(MPI REQUIRED)
 find_package(GSL REQUIRED)
-set(CMAKE_CXX_COMPILER mpic++)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+set(MPI_COMPILER mpic++ CACHE String "MPI compiler binary (default is mpic++)")
+
+set(CMAKE_CXX_COMPILER ${MPI_COMPILER})
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
