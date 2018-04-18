@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
-    params.one_shot_lb_call = 120;
-    params.verbose = true;
+    params.one_shot_lb_call = 0;
+    params.verbose = false;
 
     MESH_DATA<DIMENSION> mesh_data_original;
     init_mesh_data<DIMENSION>(rank, nproc, mesh_data_original, &params);
