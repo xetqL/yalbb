@@ -24,16 +24,16 @@ namespace elements {
 
         static const int number_of_dimensions = N;
 
-        constexpr Element(std::array<double, N> p, std::array<double, N> v, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v){
-            std::fill(acceleration.begin(), acceleration.end(), 0.0);
+        constexpr Element(std::array<double, N> p, std::array<double, N> v, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(){
+            //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
         constexpr Element(std::array<double, N> p, std::array<double, N> v, std::array<double,N> a, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(a){
-            std::fill(acceleration.begin(), acceleration.end(), 0.0);
+            //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
-        constexpr Element() : gid(0), lid(0){
-            std::fill(velocity.begin(), velocity.end(), 0.0);
-            std::fill(position.begin(), position.end(), 0.0);
-            std::fill(acceleration.begin(), acceleration.end(), 0.0);
+        constexpr Element() : gid(0), lid(0), position(), velocity(), acceleration(){
+            //std::fill(velocity.begin(), velocity.end(), 0.0);
+            //std::fill(position.begin(), position.end(), 0.0);
+            //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
 
         /**
