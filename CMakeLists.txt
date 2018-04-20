@@ -153,6 +153,37 @@ target_link_libraries(dataset
         ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
+add_executable(basegain
+        Makefile
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/box_runner.hpp
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp
+        src/dataset_base_gain.cpp)
+target_include_directories(basegain
+        PRIVATE
+        ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${LIBRL_INCLUDE_DIRECTORY}
+        ${ARMADILLO_INCLUDE_DIRECTORY}
+        ${ZOLTAN_INCLUDE_DIRECTORY})
+target_link_libraries(basegain
+        PRIVATE
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH}
+        ${ARMADILLO_LIBRARY_PATH}
+        ${GSL_LIBRARIES})
+
 add_custom_target(tests
         COMMAND bin/tests_utils
         COMMAND bin/tests_space_partitioning

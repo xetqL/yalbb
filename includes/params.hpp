@@ -90,7 +90,7 @@ static void default_params(sim_param_t* params) {
     params->world_size = (unsigned int) 1;
     params->seed = rd(); //by default a random number
     params->lb_interval = 0;
-    params->one_shot_lb_call = -1;
+    params->one_shot_lb_call = 0;
     boost::uuids::random_generator gen;
     boost::uuids::uuid u = gen(); // generate unique id for this simulation
     params->uuid = boost::uuids::to_string(u);

@@ -163,6 +163,19 @@ build_tests_space_partitioning/fast:
 .PHONY : build_tests_space_partitioning/fast
 
 #=============================================================================
+# Target rules for targets named basegain
+
+# Build rule for target.
+basegain: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 basegain
+.PHONY : basegain
+
+# fast build rule for target.
+basegain/fast:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/build
+.PHONY : basegain/fast
+
+#=============================================================================
 # Target rules for targets named build_tests_utils
 
 # Build rule for target.
@@ -200,6 +213,33 @@ build_tests_lj: cmake_check_build_system
 build_tests_lj/fast:
 	$(MAKE) -f CMakeFiles/build_tests_lj.dir/build.make CMakeFiles/build_tests_lj.dir/build
 .PHONY : build_tests_lj/fast
+
+src/dataset_base_gain.o: src/dataset_base_gain.cpp.o
+
+.PHONY : src/dataset_base_gain.o
+
+# target to build an object file
+src/dataset_base_gain.cpp.o:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/src/dataset_base_gain.cpp.o
+.PHONY : src/dataset_base_gain.cpp.o
+
+src/dataset_base_gain.i: src/dataset_base_gain.cpp.i
+
+.PHONY : src/dataset_base_gain.i
+
+# target to preprocess a source file
+src/dataset_base_gain.cpp.i:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/src/dataset_base_gain.cpp.i
+.PHONY : src/dataset_base_gain.cpp.i
+
+src/dataset_base_gain.s: src/dataset_base_gain.cpp.s
+
+.PHONY : src/dataset_base_gain.s
+
+# target to generate assembly for a file
+src/dataset_base_gain.cpp.s:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/src/dataset_base_gain.cpp.s
+.PHONY : src/dataset_base_gain.cpp.s
 
 src/dataset_builder.o: src/dataset_builder.cpp.o
 
@@ -374,10 +414,14 @@ help:
 	@echo "... dataset"
 	@echo "... build"
 	@echo "... build_tests_space_partitioning"
+	@echo "... basegain"
 	@echo "... build_tests_utils"
 	@echo "... rebuild_cache"
 	@echo "... build_tests_lb"
 	@echo "... build_tests_lj"
+	@echo "... src/dataset_base_gain.o"
+	@echo "... src/dataset_base_gain.i"
+	@echo "... src/dataset_base_gain.s"
 	@echo "... src/dataset_builder.o"
 	@echo "... src/dataset_builder.i"
 	@echo "... src/dataset_builder.s"

@@ -21,12 +21,14 @@ int main(int argc, char** argv) {
         MPI_Finalize();
         return -1;
     }
-
+/*
     if(params.world_size != (size_t) nproc) {
         std::cout << "World size does not match the expected world size: World=" << nproc << " Expected=" << params.world_size << std::endl;
         MPI_Finalize();
         exit(0);
     }
+*/
+    params.world_size = nproc;
 
     if (rank == 0 && params.record) {
         fp = fopen(params.fname, "w");
@@ -41,6 +43,23 @@ int main(int argc, char** argv) {
     params.verbose = false;
     MESH_DATA<DIMENSION> mesh_data_original;
     init_mesh_data<DIMENSION>(rank, nproc, mesh_data_original, &params);
+    if(rank==0){
+        std::cout << "==============================================" << std::endl;
+        std::cout << "= Simulation is starting now...                 " << std::endl;
+        std::cout << "= Parameters: " << std::endl;
+        std::cout << "= Particles: " << params.npart<< std::endl;
+        std::cout << "= Seed: " << params.seed<<std::endl;
+        std::cout << "= PEs: " << params.world_size<<std::endl;
+        std::cout << "= Simulation size: " << params.simsize<<std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes*params.npframe<<std::endl;
+        std::cout << "= Initial conditions: " << std::endl;
+        std::cout << "= SIG:" << params.sig_lj<<std::endl;
+        std::cout << "= EPS:  " << params.eps_lj<<std::endl;
+        std::cout << "= Borders: collisions " << params.npart<<std::endl;
+        std::cout << "= Gravity:  " << params.G<<std::endl;
+        std::cout << "= Temperature: " << params.T0<<std::endl;
+        std::cout << "==============================================" << std::endl;
+    }
 
     while(params.one_shot_lb_call < params.nframes * params.npframe) {
         MPI_Barrier(MPI_COMM_WORLD);
@@ -48,14 +67,13 @@ int main(int argc, char** argv) {
         init_mesh_data<DIMENSION>(rank, nproc, mesh_data, &params);
         int rc = Zoltan_Initialize(argc, argv, &ver);
 
-        if(rc != ZOLTAN_OK){
+        if(rc != ZOLTAN_OK) {
             MPI_Finalize();
             exit(0);
         }
 
         auto zz = zoltan_create_wrapper();
         zoltan_fn_init<DIMENSION>(zz, &mesh_data);
-        double t1 = MPI_Wtime();
         rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                                  &changes,           // 1 if partitioning was changed, 0 otherwise
                                  &numGidEntries,     // Number of integers used for a global ID
@@ -84,11 +102,9 @@ int main(int argc, char** argv) {
         load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                              exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
         if(rank == 0) std::cout << "Computing performance gain for LB at time-step: "<< params.one_shot_lb_call<<std::endl;
-        zoltan_run_box<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
+        zoltan_run_box_dataset<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
 
         MPI_Barrier(MPI_COMM_WORLD);
-
-        double t2 = MPI_Wtime();
 
         Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
                             &importProcs,      &importToPart);
@@ -97,12 +113,11 @@ int main(int argc, char** argv) {
         Zoltan_Destroy(&zz);
 
         //if (rank == 0) printf("Simulation finished in %f seconds\n", (t2 - t1));
-        params.one_shot_lb_call += DATASET_LBCALL_STEP;
+        params.one_shot_lb_call += DELTA_LB_CALL;
     }
 
     if (fp) fclose(fp);
 
     MPI_Finalize();
     return 0;
-
 }

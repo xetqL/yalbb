@@ -15,6 +15,10 @@
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_statistics.h>
 
+//Authorize definition of this variable through CLI
+#ifndef DELTA_LB_CALL
+#define DELTA_LB_CALL 100
+#endif
 
 namespace metric {
 namespace topology {

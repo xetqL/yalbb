@@ -174,7 +174,6 @@ std::pair<double, double> linear_regression(const ContainerA& x, const Container
         xysomme = xysomme + x[i]*y[i];
         xxsomme = xxsomme + x[i]*x[i];
     }
-
     ai = (n*xysomme - xsomme*ysomme)/(n*xxsomme - xsomme*xsomme);
     bi = (ysomme - ai*xsomme)/n;
 

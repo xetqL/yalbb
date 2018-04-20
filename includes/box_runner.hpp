@@ -123,7 +123,7 @@ void run_box(FILE* fp, // Output file (at 0)
 }
 
 template<int N>
-void zoltan_run_box(FILE* fp,          // Output file (at 0)
+void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     MESH_DATA<N>* mesh_data,
                     Zoltan_Struct* load_balancer,
                     const sim_param_t* params,
@@ -136,6 +136,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     const double dt = params->dt;
     const int nframes = params->nframes;
     const int npframe = params->npframe;
+    const int WINDOW_SIZE = 50;
+    const double tick_freq = 1e-3;
     int dim;
 
     // ZOLTAN VARIABLES
@@ -162,26 +164,44 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     auto date = get_date_as_string();
     std::vector<elements::Element<N>> remote_el;
 
-    std::vector<elements::Element<N>> recv_buf(params->npart);
-    if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
 
     if (rank == 0) { // Write report and outputs ...
-        window_load_imbalance = std::make_unique<SlidingWindow<double>>(50); //sliding window of size 50
-        window_loads          = std::make_unique<SlidingWindow<double>>(50); //sliding window of size 50
-        window_complexity     = std::make_unique<SlidingWindow<double>>(50); //sliding window of size 50
+        window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
+        window_loads          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
+        window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
     }
 
     std::vector<float> dataset_entry(13);
+
     double total_metric_computation_time = 0.0;
-    double start_sim = MPI_Wtime();
-    double begin = start_sim;
+    double compute_time_after_lb = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
+            if((params->one_shot_lb_call + DELTA_LB_CALL) == (i+frame*npframe) ) {
+                if(rank == 0) {
+                    dataset.open("dataset-rcb-"+std::to_string(params->seed)+
+                                 "-"+std::to_string(params->world_size)+
+                                 "-"+std::to_string(params->npart)+
+                                 "-"+std::to_string((params->nframes*params->npframe))+
+                                 "-"+std::to_string((params->T0))+
+                                 "-"+std::to_string((params->G))+
+                                 "-"+std::to_string((params->eps_lj))+
+                                 "-"+std::to_string((params->sig_lj)),
+                                 std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+                    std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and "
+                              <<  (i+frame*npframe)<<": "<< compute_time_after_lb << " ms. "
+                              << ", metrics: "<< total_metric_computation_time << std::endl;
+                    dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
+                    write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
+                    dataset.close();
+                    std::cout << " Go to the next experiment. " << std::endl;
+                }
+                return;
+            }
             MPI_Barrier(comm);
             double start = MPI_Wtime();
-            if ((params->one_shot_lb_call == (i+frame*npframe) ||
-                (params->lb_interval > 0 && ((i+frame*npframe) % params->lb_interval) == 0)) &&
-                (i+frame*npframe) > 0) {
+            if ((params->one_shot_lb_call == (i+frame*npframe) ) && (i+frame*npframe) > 0) {
+                compute_time_after_lb = 0.0;
                 zoltan_fn_init(load_balancer, mesh_data);
                 Zoltan_LB_Partition(load_balancer,           /* input (all remaining fields are output) */
                                          &changes,           /* 1 if partitioning was changed, 0 otherwise */
@@ -198,7 +218,6 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                                          &exportProcs,       /* Process to which I send each of the vertices */
                                          &exportToPart);     /* Partition to which each vertex will belong */
                 if(changes) for(int part = 0; part < nproc; ++part) { // algorithm specific ...
-                    //TODO: Use bounding box and Zoltan_LB_Box_Assign etc. to be more generic..?
                     Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
                     auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin,
                                                                                 xmax, ymax, zmax, params->simsize);
@@ -225,13 +244,12 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
             MPI_Barrier(comm);
-            float iteration_time = (MPI_Wtime() - start) / 1e-6;
-            if((i+frame*npframe) >= params->one_shot_lb_call - 51 && (i+frame*npframe) <= params->one_shot_lb_call - 1) {
+
+            double iteration_time = (MPI_Wtime() - start) / tick_freq;
+            compute_time_after_lb += iteration_time;
+
+            if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
                 double start_metric = MPI_Wtime();
-                // Particles are migrated, PEs are ready for the next time-step.
-                // Now compute the metrics ...
-                 // divide diff time by tick resolution
-                start = MPI_Wtime(); // start overhead measurement
                 auto cell_load = metric::topology::compute_cells_loads<double, N>(M, mesh_data->els.size(), plklist);
 
                 // Retrieve local data to Master PE
@@ -246,6 +264,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
 
                 // compute metrics and storeif() {
                 if (rank == 0) {
+
                     float gini_times = metric::load_balancing::compute_gini_index(times);
                     float gini_loads = metric::load_balancing::compute_gini_index(loads);
                     float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
@@ -270,49 +289,248 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                     float macd_complexity = metric::load_dynamic::compute_macd_ema(window_complexity->data_container, 12, 26,  1.0/(window_complexity->data_container.size()+1));
 
                     dataset_entry = {
-                            gini_times, gini_loads, gini_complexities,
-                            skewness_times, skewness_loads, skewness_complexities,
-                            slope_load_imbalance, slope_loads, slope_complexity,
-                            macd_load_imbalance, macd_loads, macd_complexity, 0.0
+                        gini_times, gini_loads, gini_complexities,
+                        skewness_times, skewness_loads, skewness_complexities,
+                        slope_load_imbalance, slope_loads, slope_complexity,
+                        macd_load_imbalance, macd_loads, macd_complexity, 0.0
                     };
                 }
-                total_metric_computation_time += (MPI_Wtime() - start_metric);
-            }
-            //write_report_data_bin(lb_file, i + frame * npframe, times, rank, 0);
-        }
+                total_metric_computation_time += (MPI_Wtime() - start_metric) / tick_freq;
+            } // end of metric computation
+        } // end of time-steps
+    } // end of frames
+    if(rank==0) dataset.close();
+}
 
-        // Write metrics to report file
-        if(params->record)
-            load_balancing::gather_elements_on(nproc, rank, params->npart,
-                                               mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
-        if(params->verbose){
-            MPI_Barrier(comm);
-            if (rank == 0) {
-                double end = MPI_Wtime();
-                double time_spent = (end - begin);
-                if(params->verbose) printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
-                begin = MPI_Wtime();
-            }
-        }
+
+template<int N>
+void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
+                            MESH_DATA<N>* mesh_data,
+                            Zoltan_Struct* load_balancer,
+                            const sim_param_t* params,
+                            const MPI_Comm comm = MPI_COMM_WORLD)
+{
+    int nproc,rank;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nproc);
+    std::ofstream dataset;
+    if(rank==0)
+        dataset.open("dataset-base-times-rcb-"+std::to_string(params->seed)+
+                     "-"+std::to_string(params->world_size)+
+                     "-"+std::to_string(params->npart)+
+                     "-"+std::to_string((params->nframes*params->npframe))+
+                     "-"+std::to_string((params->T0))+
+                     "-"+std::to_string((params->G))+
+                     "-"+std::to_string((params->eps_lj))+
+                     "-"+std::to_string((params->sig_lj)),
+                     std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+    const double dt = params->dt;
+    const int nframes = params->nframes;
+    const int npframe = params->npframe;
+    const double tick_freq = 1e-3;
+
+    // ZOLTAN VARIABLES
+    int dim;
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    // END OF ZOLTAN VARIABLES
+
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
+
+    // get boundaries of all domains
+    for(int part = 0; part < nproc; ++part) {
+        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        domain_boundaries[part] = domain;
     }
 
-    MPI_Barrier(comm);
-    double diff = ((MPI_Wtime() - start_sim)) - total_metric_computation_time;
-    if(rank == 0){
-        dataset.open("dataset-rcb-"+std::to_string(params->seed)+
-                     "-"+std::to_string(params->world_size)+
+    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+    int M = std::ceil(params->simsize / rm); // number of cell in a row
+    float lsub = rm; //cell size
+
+    std::vector<elements::Element<N>> remote_el;
+    double compute_time_after_lb = 0.0;
+    for (int frame = 0; frame < nframes; ++frame) {
+        for (int i = 0; i < npframe; ++i) {
+            if((i+frame*npframe) % DELTA_LB_CALL == 0 && (i+frame*npframe) > 0 && rank == 0) {
+                std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and " <<  (i+frame*npframe)<< " is " << compute_time_after_lb << " ms" << std::endl;
+                write_metric_data_bin(dataset, (i+frame*npframe) - DELTA_LB_CALL, {compute_time_after_lb}, rank);
+                compute_time_after_lb = 0.0;
+            }
+            MPI_Barrier(comm);
+            double start = MPI_Wtime();
+            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
+            lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+            lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+            leapfrog2(dt, mesh_data->els);
+            leapfrog1(dt, mesh_data->els);
+            apply_reflect(mesh_data->els, params->simsize);
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
+            double iteration_time = (MPI_Wtime() - start) / tick_freq;
+            compute_time_after_lb += iteration_time;
+
+        } // end of time-steps
+    } // end of frames
+    if(rank == 0) dataset.close();
+}
+
+template<int N>
+void zoltan_run_box(FILE* fp,          // Output file (at 0)
+                    MESH_DATA<N>* mesh_data,
+                    Zoltan_Struct* load_balancer,
+                    const sim_param_t* params,
+                    const MPI_Comm comm = MPI_COMM_WORLD)
+{
+    int nproc,rank;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nproc);
+    std::ofstream lb_file, metric_file, frame_file;
+    const double dt = params->dt;
+    const int nframes = params->nframes;
+    const int npframe = params->npframe;
+    int dim;
+
+    SimpleXYZFormatter frame_formater;
+
+    // ZOLTAN VARIABLES
+    int changes, numGidEntries, numLidEntries, numImport, numExport;
+    ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
+    int *importProcs, *importToPart, *exportProcs, *exportToPart;
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    // END OF ZOLTAN VARIABLES
+
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
+
+    // get boundaries of all domains
+    for(int part = 0; part < nproc; ++part) {
+        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        domain_boundaries[part] = domain;
+    }
+
+    double start_sim = MPI_Wtime();
+    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+
+    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+
+    int M = std::ceil(params->simsize / rm); // number of cell in a row
+    float lsub = rm; //cell size
+
+    std::vector<elements::Element<N>> recv_buf(params->npart);
+    auto date = get_date_as_string();
+    if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
+    if (rank == 0) { // Write report and outputs ...
+        lb_file.open("LIr_"+std::to_string(params->world_size)+
                      "-"+std::to_string(params->npart)+
                      "-"+std::to_string((params->nframes*params->npframe))+
                      "-"+std::to_string((int)(params->T0))+
                      "-"+std::to_string((params->G))+
                      "-"+std::to_string((params->eps_lj))+
-                     "-"+std::to_string((params->sig_lj)),
-                     std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-        std::cout << "Sim. finished: " << diff << " secs. "<< "& metrics: "<<total_metric_computation_time << " secs"<< std::endl;
-        dataset_entry[dataset_entry.size() - 1] = diff;
-        write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
-        dataset.close();
+                     "-"+std::to_string((params->sig_lj))+
+                     "-"+std::to_string((params->one_shot_lb_call))+
+                     "_"+date+".data", std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+        write_report_header_bin(lb_file, params, rank);     // write header
+
+        metric_file.open(params->uuid+"-"+date+".metrics",  std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+        write_report_header_bin(metric_file, params, rank, rank); // write the same header
+
+        if(params->record) {
+            write_header(fp, params->npart, params->simsize);
+            write_frame_data(fp, params->npart, &recv_buf[0]);
+            frame_file.open("run_cpp.out", std::ofstream::out | std::ofstream::trunc);
+            frame_formater.write_header(frame_file, params->npframe, params->simsize);
+            write_frame_data(frame_file, recv_buf, frame_formater, params);
+        }
+
+    }
+    std::vector<elements::Element<N>> remote_el;
+    double begin = MPI_Wtime();
+    for (int frame = 0; frame < nframes; ++frame) {
+        for (int i = 0; i < npframe; ++i) {
+            MPI_Barrier(comm);
+            //double start = MPI_Wtime();
+            // Load balance criteria...
+            if (params->one_shot_lb_call == (i+frame*npframe) || (params->lb_interval > 0 && ((i+frame*npframe) % params->lb_interval) == 0)) {
+                zoltan_fn_init(load_balancer, mesh_data);
+                Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
+                                    &changes,           /* 1 if partitioning was changed, 0 otherwise */
+                                    &numGidEntries,     /* Number of integers used for a global ID */
+                                    &numLidEntries,     /* Number of integers used for a local ID */
+                                    &numImport,         /* Number of vertices to be sent to me */
+                                    &importGlobalGids,  /* Global IDs of vertices to be sent to me */
+                                    &importLocalGids,   /* Local IDs of vertices to be sent to me */
+                                    &importProcs,       /* Process rank for source of each incoming vertex */
+                                    &importToPart,      /* New partition for each incoming vertex */
+                                    &numExport,         /* Number of vertices I must send to other processes*/
+                                    &exportGlobalGids,  /* Global IDs of the vertices I must send */
+                                    &exportLocalGids,   /* Local IDs of the vertices I must send */
+                                    &exportProcs,       /* Process to which I send each of the vertices */
+                                    &exportToPart);     /* Partition to which each vertex will belong */
+                if(changes) for(int part = 0; part < nproc; ++part) {
+                    Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+                    auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+                    domain_boundaries[part] = domain;
+                }
+                load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
+                                                             exportGlobalGids, datatype, MPI_COMM_WORLD);
+                Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+                Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+            }
+            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
+
+            // update local ids
+            for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
+
+            lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+
+            lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+
+            leapfrog2(dt, mesh_data->els);
+            leapfrog1(dt, mesh_data->els);
+            apply_reflect(mesh_data->els, params->simsize);
+
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+
+            // END OF COMPUTATION
+            ////////////////////////////////////////////////////////////////////////////////////////
+            // Retrieve timings
+            //float diff = (MPI_Wtime() - start) / 1e-3; // divide diff time by tick resolution
+            //std::vector<float> times(nproc);
+            //MPI_Gather(&diff, 1, MPI_FLOAT, &times.front(), 1, MPI_FLOAT, 0, comm);
+            //write_report_data_bin(lb_file, i+frame*npframe, times, rank, 0);
+            ////////////////////////////////////////////////////////////////////////////////////////
+        }
+        // Send metrics
+
+        // Write metrics to report file
+        if(params->record)
+            load_balancing::gather_elements_on(nproc, rank, params->npart,
+                                               mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
+        MPI_Barrier(comm);
+        if (rank == 0) {
+            double end = MPI_Wtime();
+            double time_spent = (end - begin);
+            if(params->record) {
+                write_frame_data(frame_file, recv_buf, frame_formater, params);
+                write_frame_data(fp, params->npart, &recv_buf[0]);
+            }
+            printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
+            begin = MPI_Wtime();
+        }
+    }
+
+    MPI_Barrier(comm);
+    if(rank == 0){
+        double diff = (MPI_Wtime() - start_sim) / 1e-3;
+        write_report_total_time_bin<float>(lb_file, diff, rank);
+        lb_file.close();
+        frame_file.close();
+        metric_file.close();
     }
 }
+
 
 #endif //NBMPI_BOXRUNNER_HPP
