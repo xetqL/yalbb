@@ -26,6 +26,7 @@ link_directories(${BOOST_LIBRARY_DIRECTORY})
 # Tests
 ########################################################################################################################
 ## Space Partitioning
+
 add_executable(build_tests_space_partitioning
         Makefile
         ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp

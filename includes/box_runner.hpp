@@ -262,9 +262,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                 std::vector<float> complexities(nproc);
                 MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
 
-                // compute metrics and storeif() {
                 if (rank == 0) {
-
                     float gini_times = metric::load_balancing::compute_gini_index(times);
                     float gini_loads = metric::load_balancing::compute_gini_index(loads);
                     float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
@@ -272,9 +270,9 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
 
-                    window_load_imbalance->add(gini_times);
                     window_loads->add(gini_loads);
                     window_complexity->add(gini_complexities);
+                    window_load_imbalance->add(gini_times);
 
                     // Generate y from 0 to 1 and store in a vector
                     std::vector<float> it(window_load_imbalance->data_container.size()); std::iota(it.begin(), it.end(), 0);
