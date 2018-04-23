@@ -139,6 +139,10 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     const int WINDOW_SIZE = 50;
     const double tick_freq = 1e-3;
     int dim;
+    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+    int M = std::ceil(params->simsize / rm); // number of cell in a row
+    float lsub = rm; //cell size
+    auto date = get_date_as_string();
 
     // ZOLTAN VARIABLES
     int changes, numGidEntries, numLidEntries, numImport, numExport;
@@ -158,12 +162,8 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     }
     std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_loads;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
-    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
-    int M = std::ceil(params->simsize / rm); // number of cell in a row
-    float lsub = rm; //cell size
-    auto date = get_date_as_string();
-    std::vector<elements::Element<N>> remote_el;
 
+    std::vector<elements::Element<N>> remote_el;
 
     if (rank == 0) { // Write report and outputs ...
         window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
@@ -179,6 +179,10 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
         for (int i = 0; i < npframe; ++i) {
             if((params->one_shot_lb_call + DELTA_LB_CALL) == (i+frame*npframe) ) {
                 if(rank == 0) {
+                    std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and "
+                              <<  (i+frame*npframe)<<": "<< compute_time_after_lb << " ms. "
+                              << ", metrics: "<< total_metric_computation_time << std::endl;
+                    dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
                     dataset.open("dataset-rcb-"+std::to_string(params->seed)+
                                  "-"+std::to_string(params->world_size)+
                                  "-"+std::to_string(params->npart)+
@@ -188,10 +192,6 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                                  "-"+std::to_string((params->eps_lj))+
                                  "-"+std::to_string((params->sig_lj)),
                                  std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-                    std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and "
-                              <<  (i+frame*npframe)<<": "<< compute_time_after_lb << " ms. "
-                              << ", metrics: "<< total_metric_computation_time << std::endl;
-                    dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
                     write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
                     dataset.close();
                     std::cout << " Go to the next experiment. " << std::endl;
@@ -244,7 +244,6 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
             MPI_Barrier(comm);
-
             double iteration_time = (MPI_Wtime() - start) / tick_freq;
             compute_time_after_lb += iteration_time;
 
