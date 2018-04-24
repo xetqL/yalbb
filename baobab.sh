@@ -9,7 +9,7 @@ else
     CURRENTCALL=$4
 fi
 while [ $CURRENTCALL -lt $NBIT ]; do
-    sbatch -n $PE -p parallel -t 2-00:00:00 ljmpi.slurm $PE $PARTICLES $NBIT $CURRENTCALL
+    sbatch -n $PE -p cui -t 2-00:00:00 ljmpi.slurm $PE $PARTICLES $NBIT $CURRENTCALL
     let CURRENTCALL=$CURRENTCALL+100
 done
 
