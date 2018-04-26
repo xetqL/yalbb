@@ -39,10 +39,10 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /home/xetql/cmake-3.11.0-rc3-Linux-x86_64/bin/cmake
+CMAKE_COMMAND = /home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/cmake
 
 # The command to remove a file.
-RM = /home/xetql/cmake-3.11.0-rc3-Linux-x86_64/bin/cmake -E remove -f
+RM = /home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/cmake -E remove -f
 
 # Escaping for special characters.
 EQUALS = =
@@ -56,27 +56,27 @@ CMAKE_BINARY_DIR = /home/xetql/Dropbox/projects/cpp/nbody/nbmpi
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target edit_cache
-edit_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/home/xetql/cmake-3.11.0-rc3-Linux-x86_64/bin/ccmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : edit_cache
-
-# Special rule for the target edit_cache
-edit_cache/fast: edit_cache
-
-.PHONY : edit_cache/fast
-
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/home/xetql/cmake-3.11.0-rc3-Linux-x86_64/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
 rebuild_cache/fast: rebuild_cache
 
 .PHONY : rebuild_cache/fast
+
+# Special rule for the target edit_cache
+edit_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
+	/home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/cmake-gui -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : edit_cache
+
+# Special rule for the target edit_cache
+edit_cache/fast: edit_cache
+
+.PHONY : edit_cache/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -111,82 +111,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named tests
+# Target rules for targets named build_tests_lj
 
 # Build rule for target.
-tests: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 tests
-.PHONY : tests
+build_tests_lj: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_lj
+.PHONY : build_tests_lj
 
 # fast build rule for target.
-tests/fast:
-	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
-.PHONY : tests/fast
-
-#=============================================================================
-# Target rules for targets named dataset
-
-# Build rule for target.
-dataset: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 dataset
-.PHONY : dataset
-
-# fast build rule for target.
-dataset/fast:
-	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/build
-.PHONY : dataset/fast
-
-#=============================================================================
-# Target rules for targets named build
-
-# Build rule for target.
-build: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build
-.PHONY : build
-
-# fast build rule for target.
-build/fast:
-	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
-.PHONY : build/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_space_partitioning
-
-# Build rule for target.
-build_tests_space_partitioning: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
-.PHONY : build_tests_space_partitioning
-
-# fast build rule for target.
-build_tests_space_partitioning/fast:
-	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
-.PHONY : build_tests_space_partitioning/fast
-
-#=============================================================================
-# Target rules for targets named basegain
-
-# Build rule for target.
-basegain: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 basegain
-.PHONY : basegain
-
-# fast build rule for target.
-basegain/fast:
-	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/build
-.PHONY : basegain/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_utils
-
-# Build rule for target.
-build_tests_utils: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
-.PHONY : build_tests_utils
-
-# fast build rule for target.
-build_tests_utils/fast:
-	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
-.PHONY : build_tests_utils/fast
+build_tests_lj/fast:
+	$(MAKE) -f CMakeFiles/build_tests_lj.dir/build.make CMakeFiles/build_tests_lj.dir/build
+.PHONY : build_tests_lj/fast
 
 #=============================================================================
 # Target rules for targets named build_tests_lb
@@ -202,17 +137,95 @@ build_tests_lb/fast:
 .PHONY : build_tests_lb/fast
 
 #=============================================================================
-# Target rules for targets named build_tests_lj
+# Target rules for targets named build_tests_utils
 
 # Build rule for target.
-build_tests_lj: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_lj
-.PHONY : build_tests_lj
+build_tests_utils: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
+.PHONY : build_tests_utils
 
 # fast build rule for target.
-build_tests_lj/fast:
-	$(MAKE) -f CMakeFiles/build_tests_lj.dir/build.make CMakeFiles/build_tests_lj.dir/build
-.PHONY : build_tests_lj/fast
+build_tests_utils/fast:
+	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
+.PHONY : build_tests_utils/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_space_partitioning
+
+# Build rule for target.
+build_tests_space_partitioning: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
+.PHONY : build_tests_space_partitioning
+
+# fast build rule for target.
+build_tests_space_partitioning/fast:
+	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
+.PHONY : build_tests_space_partitioning/fast
+
+#=============================================================================
+# Target rules for targets named build
+
+# Build rule for target.
+build: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build
+.PHONY : build
+
+# fast build rule for target.
+build/fast:
+	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
+.PHONY : build/fast
+
+#=============================================================================
+# Target rules for targets named dataset
+
+# Build rule for target.
+dataset: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 dataset
+.PHONY : dataset
+
+# fast build rule for target.
+dataset/fast:
+	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/build
+.PHONY : dataset/fast
+
+#=============================================================================
+# Target rules for targets named full_dataset
+
+# Build rule for target.
+full_dataset: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 full_dataset
+.PHONY : full_dataset
+
+# fast build rule for target.
+full_dataset/fast:
+	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/build
+.PHONY : full_dataset/fast
+
+#=============================================================================
+# Target rules for targets named basegain
+
+# Build rule for target.
+basegain: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 basegain
+.PHONY : basegain
+
+# fast build rule for target.
+basegain/fast:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/build
+.PHONY : basegain/fast
+
+#=============================================================================
+# Target rules for targets named tests
+
+# Build rule for target.
+tests: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 tests
+.PHONY : tests
+
+# fast build rule for target.
+tests/fast:
+	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
+.PHONY : tests/fast
 
 src/dataset_base_gain.o: src/dataset_base_gain.cpp.o
 
@@ -267,6 +280,33 @@ src/dataset_builder.s: src/dataset_builder.cpp.s
 src/dataset_builder.cpp.s:
 	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/src/dataset_builder.cpp.s
 .PHONY : src/dataset_builder.cpp.s
+
+src/full_dataset_builder.o: src/full_dataset_builder.cpp.o
+
+.PHONY : src/full_dataset_builder.o
+
+# target to build an object file
+src/full_dataset_builder.cpp.o:
+	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/src/full_dataset_builder.cpp.o
+.PHONY : src/full_dataset_builder.cpp.o
+
+src/full_dataset_builder.i: src/full_dataset_builder.cpp.i
+
+.PHONY : src/full_dataset_builder.i
+
+# target to preprocess a source file
+src/full_dataset_builder.cpp.i:
+	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/src/full_dataset_builder.cpp.i
+.PHONY : src/full_dataset_builder.cpp.i
+
+src/full_dataset_builder.s: src/full_dataset_builder.cpp.s
+
+.PHONY : src/full_dataset_builder.s
+
+# target to generate assembly for a file
+src/full_dataset_builder.cpp.s:
+	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/src/full_dataset_builder.cpp.s
+.PHONY : src/full_dataset_builder.cpp.s
 
 src/nbmpi.o: src/nbmpi.cpp.o
 
@@ -409,22 +449,26 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... edit_cache"
-	@echo "... tests"
-	@echo "... dataset"
-	@echo "... build"
-	@echo "... build_tests_space_partitioning"
-	@echo "... basegain"
-	@echo "... build_tests_utils"
 	@echo "... rebuild_cache"
-	@echo "... build_tests_lb"
 	@echo "... build_tests_lj"
+	@echo "... build_tests_lb"
+	@echo "... build_tests_utils"
+	@echo "... build_tests_space_partitioning"
+	@echo "... build"
+	@echo "... dataset"
+	@echo "... full_dataset"
+	@echo "... basegain"
+	@echo "... tests"
+	@echo "... edit_cache"
 	@echo "... src/dataset_base_gain.o"
 	@echo "... src/dataset_base_gain.i"
 	@echo "... src/dataset_base_gain.s"
 	@echo "... src/dataset_builder.o"
 	@echo "... src/dataset_builder.i"
 	@echo "... src/dataset_builder.s"
+	@echo "... src/full_dataset_builder.o"
+	@echo "... src/full_dataset_builder.i"
+	@echo "... src/full_dataset_builder.s"
 	@echo "... src/nbmpi.o"
 	@echo "... src/nbmpi.i"
 	@echo "... src/nbmpi.s"
