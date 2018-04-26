@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
 
     params.verbose = false;
     MESH_DATA<DIMENSION> mesh_data_original;
-    init_mesh_data<DIMENSION>(rank, nproc, mesh_data_original, &params);
+
     if(rank==0){
         std::cout << "==============================================" << std::endl;
         std::cout << "= Simulation is starting now...                 " << std::endl;
@@ -107,7 +107,6 @@ int main(int argc, char** argv) {
     Zoltan_Destroy(&zz);
 
     //if (rank == 0) printf("Simulation finished in %f seconds\n", (t2 - t1));
-
 
     if (fp) fclose(fp);
 

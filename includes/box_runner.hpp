@@ -226,9 +226,11 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
 
                 load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                              exportGlobalGids, datatype, MPI_COMM_WORLD);
+                MPI_Barrier(comm);
                 Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
                 Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
             }
+
             remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
 
             // update local ids
@@ -298,22 +300,22 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     if(rank==0) dataset.close();
 
     if(rank == 0) {
-                    std::cout << " Time within "<< params->one_shot_lb_call << " and "
-                              <<  params->npframe*params->nframes <<": "<< compute_time_after_lb << " ms. "
-                              << ", metrics: "<< total_metric_computation_time << std::endl;
-                    dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
-                    dataset.open("dataset-rcb-"+std::to_string(params->seed)+
-                                 "-"+std::to_string(params->world_size)+
-                                 "-"+std::to_string(params->npart)+
-                                 "-"+std::to_string((params->nframes*params->npframe))+
-                                 "-"+std::to_string((params->T0))+
-                                 "-"+std::to_string((params->G))+
-                                 "-"+std::to_string((params->eps_lj))+
-                                 "-"+std::to_string((params->sig_lj)),
-                                 std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-                    write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
-                    dataset.close();
-                    std::cout << " Go to the next experiment. " << std::endl;
+        std::cout << " Time within "<< params->one_shot_lb_call << " and "
+                  <<  params->npframe*params->nframes <<": "<< compute_time_after_lb << " ms. "
+                  << ", metrics: "<< total_metric_computation_time << std::endl;
+        dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
+        dataset.open("dataset-rcb-"+std::to_string(params->seed)+
+                     "-"+std::to_string(params->world_size)+
+                     "-"+std::to_string(params->npart)+
+                     "-"+std::to_string((params->nframes*params->npframe))+
+                     "-"+std::to_string((params->T0))+
+                     "-"+std::to_string((params->G))+
+                     "-"+std::to_string((params->eps_lj))+
+                     "-"+std::to_string((params->sig_lj)),
+                     std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+        write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
+        dataset.close();
+        std::cout << " Go to the next experiment. " << std::endl;
     }
 }
 
@@ -453,8 +455,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
         write_report_header_bin(metric_file, params, rank, rank); // write the same header
 
         if(params->record) {
-            write_header(fp, params->npart, params->simsize);
-            write_frame_data(fp, params->npart, &recv_buf[0]);
+            //write_header(fp, params->npart, params->simsize);
+            //write_frame_data(fp, params->npart, &recv_buf[0]);
             frame_file.open("run_cpp.out", std::ofstream::out | std::ofstream::trunc);
             frame_formater.write_header(frame_file, params->npframe, params->simsize);
             write_frame_data(frame_file, recv_buf, frame_formater, params);
@@ -530,7 +532,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             double time_spent = (end - begin);
             if(params->record) {
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
-                write_frame_data(fp, params->npart, &recv_buf[0]);
+                //write_frame_data(fp, params->npart, &recv_buf[0]);
             }
             printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
             begin = MPI_Wtime();
