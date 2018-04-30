@@ -198,7 +198,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                 return;
             }
             MPI_Barrier(comm);
-            float start = MPI_Wtime();
+            double start = MPI_Wtime();
             if ((params->one_shot_lb_call == (i+frame*npframe) ) && (i+frame*npframe) > 0) {
                 compute_time_after_lb = 0.0;
                 zoltan_fn_init(load_balancer, mesh_data);
@@ -245,23 +245,23 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
             MPI_Barrier(comm);
-            float iteration_time = (MPI_Wtime() - start) / tick_freq;
+            double iteration_time = (MPI_Wtime() - start);
             compute_time_after_lb += iteration_time;
             if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
                 double start_metric = MPI_Wtime();
 
                 // Retrieve local data to Master PE
-                std::vector<float> times(nproc);
-                MPI_Gather(&iteration_time, 1, MPI_FLOAT, &times.front(), 1, MPI_FLOAT, 0, comm);
+                std::vector<double> times(nproc);
+                MPI_Gather(&iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
 
                 std::vector<float> complexities(nproc);
                 MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
 
                 if (rank == 0) {
-                    float gini_times =  metric::load_balancing::compute_gini_index(times);
+                    float gini_times = (float) metric::load_balancing::compute_gini_index(times);
                     //float gini_loads = 0.0;//metric::load_balancing::compute_gini_index(loads);
-                    float gini_complexities = 0.0;//metric::load_balancing::compute_gini_index(complexities);
-                    float skewness_times = gsl_stats_float_skew(&times.front(), 1, times.size());
+                    float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
+                    float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
                     //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
 
