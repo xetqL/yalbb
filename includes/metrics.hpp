@@ -84,19 +84,20 @@ std::vector<FloatingPointPrecision> compute_cells_loads(int number_of_cell_per_r
 namespace load_balancing {
 
 template<typename RealType>
-RealType compute_gini_index(std::vector<RealType> const& revenues){
+RealType compute_gini_index(std::vector<RealType> const& revenues) throw(){
     const int pop_size = revenues.size();
     std::vector<int> world(pop_size);
     std::iota(world.begin(), world.end(), 1);
-    double h = 1.0 / (RealType) pop_size;
+    RealType h = 1.0 / (RealType) pop_size;
     RealType total_workload_sec = std::accumulate(revenues.begin(), revenues.end(), 0.0); //summed time + communications
     std::vector<RealType> workload_ratios = functional::map<RealType>(revenues, [&total_workload_sec](auto v){return v / total_workload_sec;});
     std::sort(workload_ratios.begin(), workload_ratios.end());
     std::vector<RealType> cumulative_workload_ratios = functional::scan_left(workload_ratios, [](auto acc, auto v){ return acc + v;}, (RealType) 0.0);
     const unsigned int nb_ratios = cumulative_workload_ratios.size();
-    double gini_area = 0.0;
+    RealType gini_area = 0.0;
     for(size_t i = 1; i < nb_ratios; ++i)
         gini_area += h * (cumulative_workload_ratios[i-1] + cumulative_workload_ratios[i]) / 2.0;
+    if (std::abs(gini_area) > 0.5) throw std::runtime_error("Area under the curve cannot be greater than 0.5: "+std::to_string(gini_area));
     return (0.5 - gini_area);
 }
 
