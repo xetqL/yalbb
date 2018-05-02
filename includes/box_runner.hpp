@@ -136,7 +136,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     const double dt = params->dt;
     const int nframes = params->nframes;
     const int npframe = params->npframe;
-    const int WINDOW_SIZE = 50;
+    const int WINDOW_SIZE = 99;
     const double tick_freq = 1e-3;
     int dim;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
@@ -160,18 +160,18 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
         auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
         domain_boundaries[part] = domain;
     }
-    std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_loads;
+    std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_times;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::vector<elements::Element<N>> remote_el;
 
     if (rank == 0) { // Write report and outputs ...
         window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
-        window_loads          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
+        window_times          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
         window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
     }
 
-    std::vector<float> dataset_entry(9);
+    std::vector<float> dataset_entry(11);
 
     double total_metric_computation_time = 0.0;
     double compute_time_after_lb = 0.0;
@@ -265,7 +265,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
 
-                    //window_loads->add(gini_loads);
+                    window_times->add(iteration_time);
                     window_complexity->add(gini_complexities);
                     window_load_imbalance->add(gini_times);
 
@@ -278,11 +278,14 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     float slope_complexity = statistic::linear_regression(it, window_complexity->data_container).first;
                     float macd_complexity = metric::load_dynamic::compute_macd_ema(window_complexity->data_container, 12, 26,  1.0/(window_complexity->data_container.size()+1));
 
+                    float slope_times = statistic::linear_regression(it, window_times->data_container).first;
+                    float macd_times  = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,  1.0/(window_times->data_container.size()+1));
+
                     dataset_entry = {
                         gini_times, gini_complexities,
                         skewness_times, skewness_complexities,
-                        slope_load_imbalance, slope_complexity,
-                        macd_load_imbalance, macd_complexity, 0.0
+                        slope_load_imbalance, slope_complexity, slope_times,
+                        macd_load_imbalance, macd_complexity, macd_times, 0.0
                     };
                 }
                 total_metric_computation_time += (MPI_Wtime() - start_metric) / tick_freq;
