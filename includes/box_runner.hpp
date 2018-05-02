@@ -160,15 +160,16 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
         auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
         domain_boundaries[part] = domain;
     }
-    std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_times;
+    std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_times, window_gini_complexity;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::vector<elements::Element<N>> remote_el;
 
     if (rank == 0) { // Write report and outputs ...
-        window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
-        window_times          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
-        window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
+        window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_times          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_complexity= std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
     }
 
     std::vector<float> dataset_entry(11);
@@ -244,15 +245,17 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
 
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
+            double my_iteration_time = (MPI_Wtime() - start);
             MPI_Barrier(comm);
-            double iteration_time = (MPI_Wtime() - start);
-            compute_time_after_lb += iteration_time;
+            double true_iteration_time = (MPI_Wtime() - start);
+
+            compute_time_after_lb += true_iteration_time;
             if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
                 double start_metric = MPI_Wtime();
 
                 // Retrieve local data to Master PE
                 std::vector<double> times(nproc);
-                MPI_Gather(&iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
+                MPI_Gather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
 
                 std::vector<float> complexities(nproc);
                 MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
@@ -265,7 +268,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
 
-                    window_times->add(iteration_time);
+                    window_times->add(true_iteration_time);
                     window_complexity->add(gini_complexities);
                     window_load_imbalance->add(gini_times);
 
