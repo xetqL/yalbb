@@ -171,7 +171,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
         window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE); //sliding window of size 50
     }
 
-    std::vector<float> dataset_entry(13);
+    std::vector<float> dataset_entry(9);
 
     double total_metric_computation_time = 0.0;
     double compute_time_after_lb = 0.0;

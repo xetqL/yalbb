@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     MESH_DATA<DIMENSION> _mesh_data;
     init_mesh_data<DIMENSION>(rank, nproc, _mesh_data, &params);
 
-    while(params.one_shot_lb_call < (params.npframe*params.npframe)){
+    while(params.one_shot_lb_call < (params.npframe*params.nframes)){
         MPI_Barrier(MPI_COMM_WORLD);
         MESH_DATA<DIMENSION> mesh_data = _mesh_data;
 
