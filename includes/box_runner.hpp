@@ -137,7 +137,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     const int nframes = params->nframes;
     const int npframe = params->npframe;
     const int WINDOW_SIZE = 99;
-    const double tick_freq = 1e-3;
+    const double tick_freq = MPI_Wtick();
     int dim;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
     int M = std::ceil(params->simsize / rm); // number of cell in a row
@@ -245,9 +245,9 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
 
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
-            double my_iteration_time = (MPI_Wtime() - start);
+            double my_iteration_time = (MPI_Wtime() - start) / tick_freq;
             MPI_Barrier(comm);
-            double true_iteration_time = (MPI_Wtime() - start);
+            double true_iteration_time = (MPI_Wtime() - start) / tick_freq;
 
             compute_time_after_lb += true_iteration_time;
             if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
