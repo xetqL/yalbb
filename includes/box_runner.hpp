@@ -223,13 +223,13 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                                                                                 xmax, ymax, zmax, params->simsize);
                     domain_boundaries[part] = domain;
                 }
-
                 load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                              exportGlobalGids, datatype, MPI_COMM_WORLD);
-                MPI_Barrier(comm);
+
                 Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
                 Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
-            }
+            } else load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
 
             remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
 
@@ -242,8 +242,6 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els);
             apply_reflect(mesh_data->els, params->simsize);
-
-            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
             double my_iteration_time = (MPI_Wtime() - start) / tick_freq;
             MPI_Barrier(comm);
