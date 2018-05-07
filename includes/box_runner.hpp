@@ -336,7 +336,7 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     const double dt = params->dt;
     const int nframes = params->nframes;
     const int npframe = params->npframe;
-    const double tick_freq = 1e-3;
+    const double tick_freq = MPI_Wtick();
 
     // ZOLTAN VARIABLES
     int dim;
