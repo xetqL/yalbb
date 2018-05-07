@@ -337,11 +337,19 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     const int nframes = params->nframes;
     const int npframe = params->npframe;
     const double tick_freq = MPI_Wtick();
-
+    const int WINDOW_SIZE = 99;
     // ZOLTAN VARIABLES
     int dim;
     double xmin, ymin, zmin, xmax, ymax, zmax;
     // END OF ZOLTAN VARIABLES
+    std::unique_ptr<SlidingWindow<double>> window_load_imbalance, window_complexity, window_times, window_gini_complexity;
+    if (rank == 0) { // Write report and outputs ...
+        window_load_imbalance = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_times          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_complexity     = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_complexity= std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+    }
+    std::vector<float> dataset_entry(11);
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
@@ -364,23 +372,79 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
         for (int i = 0; i < npframe; ++i) {
             if((i+frame*npframe) % DELTA_LB_CALL == 0 && (i+frame*npframe) > 0 && rank == 0) {
                 std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and " <<  (i+frame*npframe)<< " is " << compute_time_after_lb << " ms" << std::endl;
-                write_metric_data_bin(dataset, (i+frame*npframe) - DELTA_LB_CALL, {compute_time_after_lb}, rank);
+                dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
+                write_metric_data_bin(dataset, (i+frame*npframe) - DELTA_LB_CALL, dataset_entry, rank);
                 compute_time_after_lb = 0.0;
             }
+
             MPI_Barrier(comm);
             double start = MPI_Wtime();
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els);
             apply_reflect(mesh_data->els, params->simsize);
+            double my_iteration_time = (MPI_Wtime() - start) / tick_freq;
             MPI_Barrier(comm);
+
             double iteration_time = (MPI_Wtime() - start) / tick_freq;
+            double true_iteration_time = iteration_time;
             compute_time_after_lb += iteration_time;
 
+            if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
+                double start_metric = MPI_Wtime();
+
+                // Retrieve local data to Master PE
+                std::vector<double> times(nproc);
+                MPI_Gather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
+
+                std::vector<float> complexities(nproc);
+                MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
+
+                if (rank == 0) {
+                    float gini_times = (float) metric::load_balancing::compute_gini_index(times);
+                    //float gini_loads = 0.0;//metric::load_balancing::compute_gini_index(loads);
+                    float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
+
+                    float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
+                    //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
+                    float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
+
+                    window_times->add(true_iteration_time);
+                    window_complexity->add(gini_complexities);
+                    window_load_imbalance->add(gini_times);
+
+                    // Generate y from 0 to 1 and store in a vector
+                    std::vector<float> it(window_load_imbalance->data_container.size());
+                    std::iota(it.begin(), it.end(), 0);
+
+                    float slope_load_imbalance = statistic::linear_regression(it,
+                                                                              window_load_imbalance->data_container).first;
+                    float macd_load_imbalance = metric::load_dynamic::compute_macd_ema(
+                            window_load_imbalance->data_container, 12, 26,
+                            2.0 / (window_load_imbalance->data_container.size() + 1));
+
+                    float slope_complexity = statistic::linear_regression(it, window_complexity->data_container).first;
+                    float macd_complexity = metric::load_dynamic::compute_macd_ema(window_complexity->data_container,
+                                                                                   12, 26, 1.0 /
+                                                                                           (window_complexity->data_container.size() +
+                                                                                            1));
+
+                    float slope_times = statistic::linear_regression(it, window_times->data_container).first;
+                    float macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
+                                                                              1.0 / (window_times->data_container.size() + 1));
+
+                    dataset_entry = {
+                            gini_times, gini_complexities,
+                            skewness_times, skewness_complexities,
+                            slope_load_imbalance, slope_complexity, slope_times,
+                            macd_load_imbalance, macd_complexity, macd_times, 0.0
+                    };
+                }
+            }
         } // end of time-steps
     } // end of frames
     if(rank == 0) dataset.close();
