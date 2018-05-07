@@ -394,56 +394,54 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
             double true_iteration_time = iteration_time;
             compute_time_after_lb += iteration_time;
 
-            if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
-                double start_metric = MPI_Wtime();
+            double start_metric = MPI_Wtime();
 
-                // Retrieve local data to Master PE
-                std::vector<double> times(nproc);
-                MPI_Gather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
+            // Retrieve local data to Master PE
+            std::vector<double> times(nproc);
+            MPI_Gather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
 
-                std::vector<float> complexities(nproc);
-                MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
+            std::vector<float> complexities(nproc);
+            MPI_Gather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, 0, comm);
 
-                if (rank == 0) {
-                    float gini_times = (float) metric::load_balancing::compute_gini_index(times);
-                    //float gini_loads = 0.0;//metric::load_balancing::compute_gini_index(loads);
-                    float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
+            if (rank == 0) {
+                float gini_times = (float) metric::load_balancing::compute_gini_index(times);
+                //float gini_loads = 0.0;//metric::load_balancing::compute_gini_index(loads);
+                float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
 
-                    float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
-                    //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
-                    float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
+                float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
+                //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
+                float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
 
-                    window_times->add(true_iteration_time);
-                    window_complexity->add(gini_complexities);
-                    window_load_imbalance->add(gini_times);
+                window_times->add(true_iteration_time);
+                window_complexity->add(gini_complexities);
+                window_load_imbalance->add(gini_times);
 
-                    // Generate y from 0 to 1 and store in a vector
-                    std::vector<float> it(window_load_imbalance->data_container.size());
-                    std::iota(it.begin(), it.end(), 0);
+                // Generate y from 0 to 1 and store in a vector
+                std::vector<float> it(window_load_imbalance->data_container.size());
+                std::iota(it.begin(), it.end(), 0);
 
-                    float slope_load_imbalance = statistic::linear_regression(it,
-                                                                              window_load_imbalance->data_container).first;
-                    float macd_load_imbalance = metric::load_dynamic::compute_macd_ema(
-                            window_load_imbalance->data_container, 12, 26,
-                            2.0 / (window_load_imbalance->data_container.size() + 1));
+                float slope_load_imbalance = statistic::linear_regression(it,
+                                                                          window_load_imbalance->data_container).first;
+                float macd_load_imbalance = metric::load_dynamic::compute_macd_ema(
+                        window_load_imbalance->data_container, 12, 26,
+                        2.0 / (window_load_imbalance->data_container.size() + 1));
 
-                    float slope_complexity = statistic::linear_regression(it, window_complexity->data_container).first;
-                    float macd_complexity = metric::load_dynamic::compute_macd_ema(window_complexity->data_container,
-                                                                                   12, 26, 1.0 /
-                                                                                           (window_complexity->data_container.size() +
-                                                                                            1));
+                float slope_complexity = statistic::linear_regression(it, window_complexity->data_container).first;
+                float macd_complexity = metric::load_dynamic::compute_macd_ema(window_complexity->data_container,
+                                                                               12, 26, 1.0 /
+                                                                                       (window_complexity->data_container.size() +
+                                                                                        1));
 
-                    float slope_times = statistic::linear_regression(it, window_times->data_container).first;
-                    float macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
-                                                                              1.0 / (window_times->data_container.size() + 1));
+                float slope_times = statistic::linear_regression(it, window_times->data_container).first;
+                float macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
+                                                                          1.0 / (window_times->data_container.size() + 1));
 
-                    dataset_entry = {
-                            gini_times, gini_complexities,
-                            skewness_times, skewness_complexities,
-                            slope_load_imbalance, slope_complexity, slope_times,
-                            macd_load_imbalance, macd_complexity, macd_times, 0.0
-                    };
-                }
+                dataset_entry = {
+                        gini_times, gini_complexities,
+                        skewness_times, skewness_complexities,
+                        slope_load_imbalance, slope_complexity, slope_times,
+                        macd_load_imbalance, macd_complexity, macd_times, 0.0
+                };
             }
         } // end of time-steps
     } // end of frames
