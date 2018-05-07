@@ -136,8 +136,18 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     const double dt = params->dt;
     const int nframes = params->nframes;
     const int npframe = params->npframe;
+
     const int WINDOW_SIZE = 99;
-    const double tick_freq = MPI_Wtick();
+    const double TICK_FREQ = MPI_Wtick();
+
+    const std::string DATASET_FILENAME = "dataset-rcb-"+std::to_string(params->seed)+
+                                          "-"+std::to_string(params->world_size)+
+                                          "-"+std::to_string(params->npart)+
+                                          "-"+std::to_string((params->T0))+
+                                          "-"+std::to_string((params->G))+
+                                          "-"+std::to_string((params->simsize))+
+                                          "-"+std::to_string((params->eps_lj))+
+                                          "-"+std::to_string((params->sig_lj));
     int dim;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
     int M = std::ceil(params->simsize / rm); // number of cell in a row
@@ -184,14 +194,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                               <<  (i+frame*npframe)<<": "<< compute_time_after_lb << " ms. "
                               << ", metrics: "<< total_metric_computation_time << std::endl;
                     dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
-                    dataset.open("dataset-rcb-"+std::to_string(params->seed)+
-                                 "-"+std::to_string(params->world_size)+
-                                 "-"+std::to_string(params->npart)+
-                                 "-"+std::to_string((params->T0))+
-                                 "-"+std::to_string((params->G))+
-                                 "-"+std::to_string((params->eps_lj))+
-                                 "-"+std::to_string((params->sig_lj)),
-                                 std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+                    dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
                     write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
                     dataset.close();
                     std::cout << " Go to the next experiment. " << std::endl;
@@ -243,9 +246,9 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             leapfrog1(dt, mesh_data->els);
             apply_reflect(mesh_data->els, params->simsize);
 
-            double my_iteration_time = (MPI_Wtime() - start) / tick_freq;
+            double my_iteration_time = (MPI_Wtime() - start) / TICK_FREQ;
             MPI_Barrier(comm);
-            double true_iteration_time = (MPI_Wtime() - start) / tick_freq;
+            double true_iteration_time = (MPI_Wtime() - start) / TICK_FREQ;
 
             compute_time_after_lb += true_iteration_time;
             if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
@@ -262,6 +265,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                     float gini_times = (float) metric::load_balancing::compute_gini_index(times);
                     //float gini_loads = 0.0;//metric::load_balancing::compute_gini_index(loads);
                     float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
+
                     float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
                     //float skewness_loads = gsl_stats_float_skew(&loads.front(), 1, loads.size());
                     float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
@@ -289,7 +293,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                         macd_load_imbalance, macd_complexity, macd_times, 0.0
                     };
                 }
-                total_metric_computation_time += (MPI_Wtime() - start_metric) / tick_freq;
+                total_metric_computation_time += (MPI_Wtime() - start_metric) / TICK_FREQ;
             } // end of metric computation
         } // end of time-steps
     } // end of frames
@@ -300,15 +304,7 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
                   <<  params->npframe*params->nframes <<": "<< compute_time_after_lb << " ms. "
                   << ", metrics: "<< total_metric_computation_time << std::endl;
         dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
-        dataset.open("dataset-rcb-"+std::to_string(params->seed)+
-                     "-"+std::to_string(params->world_size)+
-                     "-"+std::to_string(params->npart)+
-                     "-"+std::to_string((params->nframes*params->npframe))+
-                     "-"+std::to_string((params->T0))+
-                     "-"+std::to_string((params->G))+
-                     "-"+std::to_string((params->eps_lj))+
-                     "-"+std::to_string((params->sig_lj)),
-                     std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+        dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
         write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
         dataset.close();
         std::cout << " Go to the next experiment. " << std::endl;
@@ -327,16 +323,16 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream dataset;
-    if(rank==0)
-        dataset.open("dataset-base-times-rcb-"+std::to_string(params->seed)+
-                     "-"+std::to_string(params->world_size)+
-                     "-"+std::to_string(params->npart)+
-                     "-"+std::to_string((params->nframes*params->npframe))+
-                     "-"+std::to_string((params->T0))+
-                     "-"+std::to_string((params->G))+
-                     "-"+std::to_string((params->eps_lj))+
-                     "-"+std::to_string((params->sig_lj)),
-                     std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+    const std::string DATASET_FILENAME = "dataset-base-times-rcb-"+std::to_string(params->seed)+
+                                         "-"+std::to_string(params->world_size)+
+                                         "-"+std::to_string(params->npart)+
+                                         "-"+std::to_string((params->T0))+
+                                         "-"+std::to_string((params->G))+
+                                         "-"+std::to_string((params->simsize))+
+                                         "-"+std::to_string((params->eps_lj))+
+                                         "-"+std::to_string((params->sig_lj));
+    if(rank==0) dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+
     const double dt = params->dt;
     const int nframes = params->nframes;
     const int npframe = params->npframe;
@@ -373,13 +369,14 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
             }
             MPI_Barrier(comm);
             double start = MPI_Wtime();
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
             remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, lsub);
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
             lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els);
             apply_reflect(mesh_data->els, params->simsize);
-            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             double iteration_time = (MPI_Wtime() - start) / tick_freq;
             compute_time_after_lb += iteration_time;
