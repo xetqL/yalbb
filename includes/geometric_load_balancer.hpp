@@ -150,6 +150,8 @@ namespace load_balancing {
                                                               const std::vector<partitioning::geometric::Domain<N>> &domains,
                                                               const partitioning::CommunicationDatatype datatype,
                                                               const MPI_Comm LB_COMM,
+                                                              int &nb_elements_recv,
+                                                              int &nb_elements_sent,
                                                               double cell_size = 0.007) {
             int wsize; MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
@@ -174,8 +176,10 @@ namespace load_balancing {
             std::vector<MPI_Request> reqs(neighbors.size());
             std::vector<MPI_Status> statuses(neighbors.size());
             int cpt = 0, nb_neighbors = neighbors.size();
+            nb_elements_sent = 0;
             for(const size_t &neighbor_idx : neighbors){   //give all my data to neighbors
                 int send_size = data_to_migrate.at(neighbor_idx).size();
+                nb_elements_sent += send_size;
                 MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, datatype.elements_datatype, neighbor_idx, 200, LB_COMM, &reqs[cpt]);
                 cpt++;
             }
@@ -191,6 +195,7 @@ namespace load_balancing {
                 cpt++;
             }
             MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front()); //less strict than mpi_barrier
+            nb_elements_recv = remote_data_gathered.size();
             return remote_data_gathered;
         }
 
@@ -226,6 +231,7 @@ namespace load_balancing {
             }
 
             std::vector<MPI_Request> reqs(data_to_migrate.size());
+
             int cpt = 0;
             for(auto const &pe_data : data_to_migrate) {
                 int send_size = pe_data.second->size();

@@ -160,11 +160,11 @@ namespace statistic {
  * @param y y data
  * @return (a,b) of ax+b
  */
-template<typename ContainerA, typename ContainerB>
-std::pair<double, double> linear_regression(const ContainerA& x, const ContainerB& y) {
-    int i; double xsomme, ysomme, xysomme, xxsomme;
+template<typename Realtype, typename ContainerA, typename ContainerB>
+std::pair<Realtype, Realtype> linear_regression(const ContainerA& x, const ContainerB& y) {
+    int i; Realtype xsomme, ysomme, xysomme, xxsomme;
 
-    double ai, bi;
+    Realtype ai, bi;
 
     xsomme = 0.0; ysomme = 0.0;
     xysomme = 0.0; xxsomme = 0.0;

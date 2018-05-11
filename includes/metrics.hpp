@@ -110,17 +110,17 @@ double load_imbalance_standard_metric(Container const& timings) {
 
 namespace load_dynamic {
 
-template<typename Container>
-inline double compute_ema(int size, double alpha, const Container& Y){
+template<typename Realtype, typename Container>
+inline Realtype compute_ema(int size, Realtype alpha, const Container& Y){
     const int position = Y.size() - size;
     const size_t starting_el = position >= 0 ? position : 0;
-    double acc = Y[starting_el];
+    Realtype acc = Y[starting_el];
     for (size_t t = starting_el+1; t < Y.size(); ++t) acc = alpha * Y[t] + (1-alpha) * acc;
     return acc;
 }
 
-template<typename Container>
-inline double compute_ma(int size, const Container& Y){
+template<typename Realtype, typename Container>
+inline Realtype compute_ma(int size, const Container& Y){
     auto begin_it = size > Y.size() ? Y.begin() : Y.end() - size;
     return std::accumulate(begin_it, Y.end(), 0.0) / Y.size();
 }
@@ -132,8 +132,8 @@ inline double compute_ma(int size, const Container& Y){
 * @param Y the window
 * @return MACD indicator
 */
-template<typename Container>
-inline double compute_macd_ema(const Container& Y, const int sz_small_ema = 12, const int sz_big_ema = 26, const double alpha = 0.95) {
+template<typename Realtype, typename Container>
+inline Realtype compute_macd_ema(const Container& Y, const int sz_small_ema = 12, const int sz_big_ema = 26, const Realtype alpha = 0.95) {
     return compute_ema(sz_small_ema, alpha, Y) - compute_ema(sz_big_ema, alpha, Y);
 }
 
