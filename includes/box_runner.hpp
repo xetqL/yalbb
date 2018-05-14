@@ -219,7 +219,6 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " without load balancing"<<std::endl;
                 *mesh_data = mem_data;
             }
-        if(rank==0)std::cout << time_step_index << std::endl;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         MPI_Barrier(comm);
