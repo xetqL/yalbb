@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     MESH_DATA<DIMENSION> _mesh_data;
     init_mesh_data<DIMENSION>(rank, nproc, _mesh_data, &params);
 
-    while(params.one_shot_lb_call < (params.npframe*params.nframes)){
+    //while(params.one_shot_lb_call < (params.npframe*params.nframes)){
         MPI_Barrier(MPI_COMM_WORLD);
         MESH_DATA<DIMENSION> mesh_data = _mesh_data;
 
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
         load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                              exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
         if(rank == 0) std::cout << "Computing performance gain for LB at time-step: "<< params.one_shot_lb_call<<std::endl;
-        zoltan_run_box_dataset<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
+        generate_dataset<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
 
         MPI_Barrier(MPI_COMM_WORLD);
 
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
         params.one_shot_lb_call += DELTA_LB_CALL;
 
         //if (rank == 0) printf("Simulation finished in %f seconds\n", (t2 - t1));
-    }
+    //}
     if (fp) fclose(fp);
 
     MPI_Finalize();
