@@ -224,7 +224,6 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
             }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
         MPI_Barrier(comm);
         double start = MPI_Wtime();
         if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && with_lb) {

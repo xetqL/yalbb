@@ -245,7 +245,7 @@ void write_load_balancing_reports(std::ofstream& dataset, std::string fname, int
                   << std::endl;
         dataset_entry[dataset_entry.size() - 1] = gain;
         if(!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
-        write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
+        write_report_data_bin<float>(dataset, ts_idx - DELTA_LB_CALL, dataset_entry, rank);
         dataset.close();
         std::cout << " Go to the next experiment. " << std::endl;
     }
