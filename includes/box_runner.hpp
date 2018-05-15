@@ -202,25 +202,30 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
     double compute_time_without_lb = 0.0;
     int time_step_index = 0;
     bool with_lb = true;
+    auto saved_domains = domain_boundaries;
     mem_data = *mesh_data;
     while(time_step_index < (nframes*npframe)) {
         if((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0)
             if (!with_lb) {
                 metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
-                                                         compute_time_without_lb - compute_time_with_lb, features, rank, params);
+                                                         compute_time_without_lb - compute_time_with_lb,
+                                                         features, rank, params);
                 compute_time_with_lb = 0.0;
                 compute_time_without_lb = 0.0;
                 with_lb = true;
                 mem_data = *mesh_data;
+                saved_domains = domain_boundaries;
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " with load balancing"<<std::endl;
             } else {
                 with_lb = false;
                 time_step_index -= DELTA_LB_CALL;
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " without load balancing"<<std::endl;
                 *mesh_data = mem_data;
+                domain_boundaries = saved_domains;
             }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
         MPI_Barrier(comm);
         double start = MPI_Wtime();
         if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && with_lb) {
@@ -244,6 +249,7 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
         MPI_Barrier(comm);
         int received = 0, sent = 0;
         remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+
         // update local ids
         for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
         lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
