@@ -214,7 +214,6 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
                 compute_time_without_lb = 0.0;
                 with_lb = true;
                 mem_data = *mesh_data;
-                saved_domains = domain_boundaries;
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " with load balancing"<<std::endl;
             } else {
                 with_lb = false;
