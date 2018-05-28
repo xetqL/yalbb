@@ -163,6 +163,19 @@ build_tests_space_partitioning/fast:
 .PHONY : build_tests_space_partitioning/fast
 
 #=============================================================================
+# Target rules for targets named astar
+
+# Build rule for target.
+astar: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 astar
+.PHONY : astar
+
+# fast build rule for target.
+astar/fast:
+	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/build
+.PHONY : astar/fast
+
+#=============================================================================
 # Target rules for targets named build
 
 # Build rule for target.
@@ -226,6 +239,33 @@ tests: cmake_check_build_system
 tests/fast:
 	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
 .PHONY : tests/fast
+
+src/astar_search.o: src/astar_search.cpp.o
+
+.PHONY : src/astar_search.o
+
+# target to build an object file
+src/astar_search.cpp.o:
+	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/astar_search.cpp.o
+.PHONY : src/astar_search.cpp.o
+
+src/astar_search.i: src/astar_search.cpp.i
+
+.PHONY : src/astar_search.i
+
+# target to preprocess a source file
+src/astar_search.cpp.i:
+	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/astar_search.cpp.i
+.PHONY : src/astar_search.cpp.i
+
+src/astar_search.s: src/astar_search.cpp.s
+
+.PHONY : src/astar_search.s
+
+# target to generate assembly for a file
+src/astar_search.cpp.s:
+	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/astar_search.cpp.s
+.PHONY : src/astar_search.cpp.s
 
 src/dataset_base_gain.o: src/dataset_base_gain.cpp.o
 
@@ -450,16 +490,20 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... rebuild_cache"
+	@echo "... edit_cache"
 	@echo "... build_tests_lj"
 	@echo "... build_tests_lb"
 	@echo "... build_tests_utils"
 	@echo "... build_tests_space_partitioning"
+	@echo "... astar"
 	@echo "... build"
 	@echo "... dataset"
 	@echo "... full_dataset"
 	@echo "... basegain"
 	@echo "... tests"
-	@echo "... edit_cache"
+	@echo "... src/astar_search.o"
+	@echo "... src/astar_search.i"
+	@echo "... src/astar_search.s"
 	@echo "... src/dataset_base_gain.o"
 	@echo "... src/dataset_base_gain.i"
 	@echo "... src/dataset_base_gain.s"

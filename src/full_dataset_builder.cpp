@@ -6,7 +6,6 @@
 
 #include "../includes/box_runner.hpp"
 
-#define DATASET_LBCALL_STEP 10
 int main(int argc, char** argv) {
     constexpr int DIMENSION = 3;
     sim_param_t params;

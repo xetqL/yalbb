@@ -37,6 +37,7 @@ typedef struct sim_param_t {
     int one_shot_lb_call;
     std::string uuid;
     bool verbose = true;
+    bool start_with_lb = false;
 } sim_param_t;
 
 
@@ -69,7 +70,7 @@ static void print_usage() {
                     "\t-d: simulation dimension (0-1;0-1)\n"
                     "\t-r: record the simulation in a binary file (false)\n"
                     "\t-m: computation method(1 (BF), 2 (CLL), 3 (FME))\n"
-                    "\t-p: number of processing elements\n"
+                    "\t-L: Compute dataset for NoLB then LB\n"
                     "\t-C: Call the load balancer only at this iteration\n");
 }
 
@@ -91,6 +92,7 @@ static void default_params(sim_param_t* params) {
     params->seed = rd(); //by default a random number
     params->lb_interval = 0;
     params->one_shot_lb_call = 0;
+    params->start_with_lb = false;
     boost::uuids::random_generator gen;
     boost::uuids::uuid u = gen(); // generate unique id for this simulation
     params->uuid = boost::uuids::to_string(u);
@@ -106,7 +108,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rho:n:F:f:t:e:s:S:g:T:I:d:m:p:C:";
+    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:C:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -139,6 +141,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_int_arg('p', world_size);
             get_int_arg('S', seed);
             get_int_arg('C', one_shot_lb_call);
+            get_bool_arg('L', start_with_lb);
             default:
                 fprintf(stderr, "Unknown option\n");
                 print_usage();

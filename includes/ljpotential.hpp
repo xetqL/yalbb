@@ -13,23 +13,11 @@
 #include "params.hpp"
 #include "physics.hpp"
 #include "utils.hpp"
+#include "zoltan_fn.hpp"
+#include "geometric_load_balancer.hpp"
 
 namespace lennard_jones {
 
-template <int N>
-void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params, int seed = 0) noexcept {
-    float T0 = params->T0;
-    int n = elements.size();
-    //std::random_device rd; //Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
-    std::uniform_real_distribution<double> udist(0.0, 1.0);
-    for (int i = 0; i < n; ++i) {
-        double R = T0 * std::sqrt(-2 * std::log(udist(gen)));
-        double T = 2 * M_PI * udist(gen);
-        elements[i].velocity[0] = (double) (R * std::cos(T));
-        elements[i].velocity[1] = (double) (R * std::sin(T));
-    }
-}
 struct CLL{
     int* head;
     int* plklist;
@@ -156,71 +144,6 @@ int compute_forces (
     return complexity;
 }
 
-template<int N>
-void compute_forces_and_build_graph (
-        const int M, /* Number of subcell in a row  */
-        const float lsub, /* length of a cell */
-        std::vector<elements::Element<N>> &local_elements,
-        const std::vector<elements::Element<N>> &remote_elements,
-        const std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
-        const sim_param_t* params ) noexcept {
-
-    double g    = (double) params->G;
-    double eps  = (double) params->eps_lj;
-    double sig  = (double) params->sig_lj;
-    double sig2 = sig*sig;
-
-    // each particle MUST checks the local particles and the particles from neighboring PE
-    std::unordered_map<int, elements::Element<N>> element_map;
-
-    for(auto &el : local_elements){
-        std::fill(el.acceleration.begin(), el.acceleration.end(), 0.0); //fill all dimension with zero
-        el.acceleration.at(1) = -g;
-    }
-
-    int linearcellidx;
-    int nlinearcellidx;
-
-    // process only the particle we are interested in
-    for (auto &force_recepter : local_elements) { //O(n)
-
-        // find cell from particle position
-        linearcellidx = (int) (std::floor(force_recepter.position.at(0) / lsub)) + M * (std::floor(force_recepter.position.at(1) / lsub));
-        // convert linear index to grid position
-        int xcellidx = linearcellidx % M;
-        int ycellidx = linearcellidx / M;
-        /* Explore neighboring cells */
-        for (int neighborx = -1; neighborx < 2; neighborx++) {
-            for (int neighbory = -1; neighbory < 2; neighbory++) {
-
-                /* Check boundary conditions */
-                if (xcellidx + neighborx < 0 || xcellidx + neighborx >= M) continue;
-                if (ycellidx + neighbory < 0 || ycellidx + neighbory >= M) continue;
-
-                nlinearcellidx = (xcellidx + neighborx) + M * (ycellidx + neighbory);
-                if(plist.find(nlinearcellidx) != plist.end()){
-                    auto el_list = plist.at(nlinearcellidx).get();
-                    size_t cell_el_size = el_list->size();
-                    for(size_t el_idx = 0; el_idx < cell_el_size; ++el_idx){
-                        auto const& force_source = el_list->at(el_idx);
-                        if (force_recepter.gid != force_source.gid) {
-
-                            double dx = force_source.position.at(0) - force_recepter.position.at(0);
-                            double dy = force_source.position.at(1) - force_recepter.position.at(1);
-
-                            double C_LJ = compute_LJ_scalar(dx * dx + dy * dy, eps, sig2);
-
-                            force_recepter.acceleration[0] += (C_LJ * dx);
-                            force_recepter.acceleration[1] += (C_LJ * dy);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/* <int, std::unique_ptr<std::vector<elements::Element<N>>>> */
 template<int N, class MapType>
 void compute_forces(
         const int M, /* Number of subcell in a row  */
@@ -283,32 +206,6 @@ void compute_forces(
         }
     }
 }
-
-/*
-template<int N>
-void create_cell_linkedlist(
-        const int nsub, // number of subdomain per row
-        const double lsub, // width of subdomain
-        const std::vector<elements::Element<N>> &local_elements, // particle location
-        const std::vector<elements::Element<N>> &remote_elements, // particle location
-        std::unordered_map<int, int> &particleslklist, // particle linked list
-        std::vector<int> &head) throw() {// head of particle linked list {
-    int cell_of_particle;
-    for (int icell = 0; icell < nsub * nsub; icell++) head[icell] = -1;
-    size_t local_size = local_elements.size(),
-           remote_size = remote_elements.size();
-    for (size_t cpt = 0; cpt < local_size + remote_size; ++cpt) {
-        auto const& particle = cpt >= local_size ? remote_elements[cpt-local_size] : local_elements[cpt];
-
-        cell_of_particle = (int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
-
-        if (cell_of_particle >= (nsub * nsub) || cell_of_particle < 0) throw std::runtime_error("Particle "+std::to_string(cell_of_particle) + " is out of domain");
-
-        particleslklist[particle.identifier] = head[cell_of_particle];
-        head[cell_of_particle] = particle.identifier;
-    }
-}
-*/
 
 template<typename RealType>
 void compute_forces(
@@ -448,78 +345,37 @@ void compute_forces(
         }
     }
 }
+template <int N>
+inline std::tuple<int, int, int> compute_one_step(
+        MESH_DATA<N>* mesh_data,
+        std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > >& plklist,
+        const std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
+        const partitioning::CommunicationDatatype& datatype,
+        const sim_param_t* params,
+        const MPI_Comm comm){
 
-/*template<int N>
-void compute_forces(
-        const int M, // Number of subcell in a row
-        const float lsub, // length of a cell
-        std::vector<elements::Element<N>> &local_elements,
-        const std::vector<elements::Element<N>> &remote_elements,
-        const std::vector<int> &head, // Starting neighboring particles
-        const std::unordered_map<int, int> &plklist, // Neighboring subcell particles organized as a linkedlist
-        const sim_param_t* params) // Simulation parameters  {
+    int received, sent;
+    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+    int M = std::ceil(params->simsize / rm); // number of cell in a row
+    float lsub = rm; //cell size
+    const double dt = params->dt;
 
-    double g    = (double) params->G;
-    double eps  = (double) params->eps_lj;
-    double sig  = (double) params->sig_lj;
-    double sig2 = sig*sig;
+    auto remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
 
-    // each particle MUST checks the local particles and the particles from neighboring PE
-    std::unordered_map<int, elements::Element<N>> element_map;
+    // update local ids
+    const size_t nb_elements = mesh_data->els.size();
+    for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
-    for(auto &el : remote_elements){
-        element_map[el.identifier]= el;
-    }
-    for(auto &el : local_elements){
-        element_map[el.identifier]= el;
-    }
-    for(auto &el : local_elements){
-        std::fill(el.acceleration.begin(), el.acceleration.end(), 0.0); //fill all dimension with zero
-        el.acceleration.at(1) = -g;
-    }
+    lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
 
-    int linearcellidx;
-    int nlinearcellidx;
-    int nparticleidx;
+    int cmplx = lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
 
-    // process only the particle we are interested in
-    for (auto &force_recepter : local_elements) {
+    leapfrog2(dt, mesh_data->els);
+    leapfrog1(dt, mesh_data->els);
+    apply_reflect(mesh_data->els, params->simsize);
 
-        // find cell from particle position
-        linearcellidx = (int) (std::floor(force_recepter.position.at(0) / lsub)) + M * (std::floor(force_recepter.position.at(1) / lsub));
-
-        // convert linear index to grid position
-        int xcellidx = linearcellidx % M;
-        int ycellidx = linearcellidx / M;
-
-        // Explore neighboring cells
-        for (int neighborx = -1; neighborx < 2; neighborx++) {
-            for (int neighbory = -1; neighbory < 2; neighbory++) {
-
-                // Check boundary conditions
-                if (xcellidx + neighborx < 0 || xcellidx + neighborx >= M) continue;
-                if (ycellidx + neighbory < 0 || ycellidx + neighbory >= M) continue;
-
-                nlinearcellidx = (xcellidx + neighborx) + M * (ycellidx + neighbory);
-
-                nparticleidx = head[nlinearcellidx];
-                while (nparticleidx != -1) {
-
-                    if (force_recepter.identifier != nparticleidx) {
-                        double dx = force_recepter.position.at(0) - element_map[nparticleidx].position.at(0);
-                        double dy = force_recepter.position.at(1) - element_map[nparticleidx].position.at(1);
-
-                        double C_LJ = compute_LJ_scalar(dx * dx + dy * dy, eps, sig2);
-
-                        force_recepter.acceleration[0] += (C_LJ * dx);
-                        force_recepter.acceleration[1] += (C_LJ * dy);
-                    }
-                    nparticleidx = plklist.at(nparticleidx);
-                }
-            }
-        }
-    }
+    return std::make_tuple(cmplx, received, sent);
 }
-*/
+
 }
 #endif //NBMPI_LJPOTENTIAL_HPP

@@ -43,7 +43,7 @@ add_executable(build_tests_utils
         Makefile
         ${TEST_SOURCE_DIRECTORY}/test_utils.cpp
         ${INCLUDE_DIRECTORY}/utils.hpp
-        includes/spatial_elements.hpp)
+        includes/spatial_elements.hpp includes/astar.hpp)
 set_target_properties(build_tests_utils
         PROPERTIES
         OUTPUT_NAME "tests_utils")
@@ -179,6 +179,37 @@ target_include_directories(full_dataset
         ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 target_link_libraries(full_dataset
+        PRIVATE
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH}
+        ${ARMADILLO_LIBRARY_PATH}
+        ${GSL_LIBRARIES})
+
+add_executable(astar
+        Makefile
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/box_runner.hpp
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp
+        src/astar_search.cpp)
+target_include_directories(astar
+        PRIVATE
+        ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${LIBRL_INCLUDE_DIRECTORY}
+        ${ARMADILLO_INCLUDE_DIRECTORY}
+        ${ZOLTAN_INCLUDE_DIRECTORY})
+target_link_libraries(astar
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}

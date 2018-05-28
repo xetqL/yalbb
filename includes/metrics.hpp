@@ -19,27 +19,23 @@
 #ifndef DELTA_LB_CALL
 #define DELTA_LB_CALL 100
 #endif
+
 template<class T>
 struct SlidingWindow {
     std::deque<T> data_container;
-
     size_t window_max_size;
     SlidingWindow(size_t window_max_size): window_max_size(window_max_size) {};
-
     inline void add(const T& data){
-
         if(data_container.size() < window_max_size)
             data_container.push_back(data); // add while not full
-        else {                      // when full
+        else {                              // when full
             data_container.pop_front();     // delete oldest data
             data_container.push_back(data); // push new data
         }
     }
 };
 
-
 namespace metric {
-
 
 namespace topology {
 
@@ -239,21 +235,18 @@ void write_load_balancing_reports(std::ofstream& dataset, std::string fname, int
                                   std::vector<float>& dataset_entry,  int rank, const sim_param_t* params, int exec_rank = 0){
     if(rank == exec_rank) {
         int npframe = params->npframe;
-        std::cout << " Time within "<< ((ts_idx) - DELTA_LB_CALL) << " and "
-                  <<  (ts_idx) <<": "<< gain << " ms. "
-
+        std::cout << " Gain within "<< ((ts_idx) - DELTA_LB_CALL) << " and "
+                  <<  (ts_idx) <<": "<< gain << " s."
                   << std::endl;
         dataset_entry[dataset_entry.size() - 1] = gain;
         if(!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
         write_report_data_bin<float>(dataset, ts_idx - DELTA_LB_CALL, dataset_entry, rank);
         dataset.close();
-        std::cout << " Go to the next experiment. " << std::endl;
     }
-}
 
 }
 
-
+}// end namespace metric::io
 }// end namespace metric
 
 

@@ -8,6 +8,20 @@
 #include <limits>
 #include "spatial_elements.hpp"
 
+template <int N>
+void init_particles_random_v(std::vector<elements::Element<N>> &elements, sim_param_t* params, int seed = 0) noexcept {
+    float T0 = params->T0;
+    int n = elements.size();
+    //std::random_device rd; //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> udist(0.0, 1.0);
+    for (int i = 0; i < n; ++i) {
+        double R = T0 * std::sqrt(-2 * std::log(udist(gen)));
+        double T = 2 * M_PI * udist(gen);
+        elements[i].velocity[0] = (double) (R * std::cos(T));
+        elements[i].velocity[1] = (double) (R * std::sin(T));
+    }
+}
 
 template<typename RealType>
 RealType compute_LJ_scalar(RealType r2, RealType eps, RealType sig2) {

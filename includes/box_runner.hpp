@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <zoltan.h>
 
+#include "../includes/astar.hpp"
 #include "../includes/ljpotential.hpp"
 #include "../includes/report.hpp"
 #include "../includes/physics.hpp"
@@ -40,7 +41,7 @@
 #endif
 
 #ifndef TICK_FREQ
-#define TICK_FREQ MPI_Wtick()
+#define TICK_FREQ 1 // MPI_Wtick()
 #endif
 
 template<int N>
@@ -201,47 +202,76 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
     double compute_time_with_lb = 0.0;
     double compute_time_without_lb = 0.0;
     int time_step_index = 0;
-    bool with_lb = true;
+
+    bool start_with_lb = params->start_with_lb;
+    bool with_lb = start_with_lb;
+
     auto saved_domains = domain_boundaries;
     mem_data = *mesh_data;
     while(time_step_index < (nframes*npframe)) {
         if((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0)
-            if (!with_lb) {
-                metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
-                                                         compute_time_without_lb - compute_time_with_lb,
-                                                         features, rank, params);
-                compute_time_with_lb = 0.0;
-                compute_time_without_lb = 0.0;
+            if (!with_lb) { // NO LB PART
                 with_lb = true;
-                mem_data = *mesh_data;
+                if(start_with_lb) {
+                    if(rank==0) std::cout << "LB= "<< compute_time_with_lb << "; NoLB= "<<compute_time_without_lb<<std::endl;
+                    metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
+                                                             compute_time_without_lb - compute_time_with_lb,
+                                                             features, rank, params);
+                    compute_time_with_lb = 0.0;
+                    compute_time_without_lb = 0.0;
+                    mem_data = *mesh_data;
+                }
+                if(!start_with_lb){
+                    time_step_index -= DELTA_LB_CALL;
+                    domain_boundaries = saved_domains;
+                    *mesh_data = mem_data;
+                }
+
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " with load balancing"<<std::endl;
-            } else {
+            } else { // LB PART
                 with_lb = false;
-                time_step_index -= DELTA_LB_CALL;
+                if(!start_with_lb) {
+                    if(rank==0) std::cout << "LB= "<< compute_time_with_lb << "; NoLB= "<<compute_time_without_lb<<std::endl;
+                    metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
+                                                             compute_time_with_lb - compute_time_without_lb,
+                                                             features, rank, params);
+                    compute_time_with_lb = 0.0;
+                    compute_time_without_lb = 0.0;
+                    mem_data = *mesh_data;
+                    saved_domains = domain_boundaries;
+                }
+                if(start_with_lb) {
+                    time_step_index -= DELTA_LB_CALL;
+                    domain_boundaries = saved_domains;
+                    *mesh_data = mem_data;
+                }
                 if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " without load balancing"<<std::endl;
-                *mesh_data = mem_data;
-                domain_boundaries = saved_domains;
             }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         MPI_Barrier(comm);
         double start = MPI_Wtime();
         if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && with_lb) {
-            features = dataset_entry;
+            if(start_with_lb) features = dataset_entry;
             zoltan_fn_init(load_balancer, mesh_data);
             Zoltan_LB_Partition(load_balancer, &changes, &numGidEntries, &numLidEntries,
                                 &numImport, &importGlobalGids, &importLocalGids, &importProcs, &importToPart,
                                 &numExport, &exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
-            if(changes) for(int part = 0; part < nproc; ++part) { // algorithm specific ...
+            if(changes) {
+                for(int part = 0; part < nproc; ++part) { // algorithm specific ...
                     Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
                     auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin,
                                                                                 xmax, ymax, zmax, params->simsize);
                     domain_boundaries[part] = domain;
                 }
+            }
             load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                          exportGlobalGids, datatype, MPI_COMM_WORLD);
             Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
             Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+        } else if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && !with_lb) {
+            if(!start_with_lb) features = dataset_entry;
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
         } else load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
         MPI_Barrier(comm);
@@ -592,6 +622,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
+    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     // get boundaries of all domains
     for(int part = 0; part < nproc; ++part) {
@@ -601,7 +632,6 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     }
 
     double start_sim = MPI_Wtime();
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
 
@@ -715,5 +745,98 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     }
 }
 
+template<int N>
+std::vector<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> astar_runner(
+        MESH_DATA<N>* mesh_data,
+        Zoltan_Struct* load_balancer,
+        int edge_length,
+        float optimal_step_time,
+        const sim_param_t* params,
+        const MPI_Comm comm = MPI_COMM_WORLD) {
 
+    int nproc,rank;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nproc);
+    const int nframes = params->nframes;
+    const int npframe = params->npframe;
+    using Domain = std::vector<partitioning::geometric::Domain<N>>;
+
+    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    Domain domain_boundaries(nproc);
+    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::priority_queue<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> queue;
+
+    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(0, 0, true, 0, 0, 0, mesh_data, nullptr, domain_boundaries),
+                    solution;
+    std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
+    //solution.push_front(current_node);
+    int it = 0;
+    float time = 0, start, child_cost, true_child_cost;
+    const int total_iteration = nframes*npframe;
+    while(it < nframes*npframe) {
+        auto children = current_node->get_children();
+
+        mesh_data = children.first->mesh_data;
+        domain_boundaries = children.first->domain;
+        MPI_Barrier(comm);
+
+        start = MPI_Wtime();
+        zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+        for(int i = 0; i < npframe; i++) {
+            MPI_Barrier(comm);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+        }
+        child_cost = MPI_Wtime() - start;
+        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_FLOAT, MPI_MAX, comm);
+
+        children.first->iteration      = it+npframe;
+        children.first->node_cost      = true_child_cost;
+        children.first->heuristic_cost = (total_iteration - (children.first->iteration)) * optimal_step_time;
+        children.second->domain        = domain_boundaries;
+
+        mesh_data = children.second->mesh_data;
+        domain_boundaries = children.second->domain;
+
+        MPI_Barrier(comm);
+        start = MPI_Wtime();
+
+        for(int i = 0; i < npframe; i++) {
+            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+
+        }
+
+        child_cost = MPI_Wtime() - start;
+
+        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_FLOAT, MPI_MAX, comm);
+
+        children.second->iteration      = it+npframe;
+        children.second->node_cost      = true_child_cost;
+        children.second->heuristic_cost = true_child_cost + (total_iteration - (children.second->iteration+npframe)) * optimal_step_time;
+        children.second->domain         = domain_boundaries;
+
+        queue.push(children.first);
+        queue.push(children.second);
+
+        current_node = queue.top(); queue.pop();
+
+        if(current_node->iteration >= nframes*npframe) {
+            solution = current_node;
+        }
+
+        it = current_node->iteration;
+        MPI_Barrier(comm);
+        std::cout << "end" << std::endl;
+    }
+    if(!rank) std::cout <<"full finished boii" << std::endl;
+    //retrieve best path
+    while(solution->idx > 0) {
+        solution_path.push_back(solution);
+        solution = solution->parent;
+    }
+
+    return solution_path;
+}
 #endif //NBMPI_BOXRUNNER_HPP

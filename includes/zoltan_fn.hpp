@@ -6,8 +6,9 @@
 #define NBMPI_ZOLTAN_FN_HPP
 
 #include "spatial_elements.hpp"
-#include "ljpotential.hpp"
 #include "params.hpp"
+#include "spatial_bisection.hpp"
+#include "geometric_load_balancer.hpp"
 
 #include <cassert>
 #include <random>
@@ -118,6 +119,49 @@ void zoltan_fn_init(Zoltan_Struct* zz, MESH_DATA<N>* mesh_data){
     Zoltan_Set_Obj_List_Fn(  zz, get_object_list<N>,       mesh_data);
     Zoltan_Set_Num_Geom_Fn(  zz, get_num_geometry<N>,      mesh_data);
     Zoltan_Set_Geom_Multi_Fn(zz, get_geometry_list<N>,     mesh_data);
+}
+
+template <int N>
+inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
+                         std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
+                         Zoltan_Struct* load_balancer,
+                         const int nproc,
+                         const sim_param_t* params,
+                         const partitioning::CommunicationDatatype& datatype,
+                         const MPI_Comm comm){
+    // ZOLTAN VARIABLES
+    int changes, numGidEntries, numLidEntries, numImport, numExport;
+    ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
+    int *importProcs, *importToPart, *exportProcs, *exportToPart, dim;
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    // END OF ZOLTAN VARIABLES
+
+    zoltan_fn_init(load_balancer, mesh_data);
+    Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
+                        &changes,           /* 1 if partitioning was changed, 0 otherwise */
+                        &numGidEntries,     /* Number of integers used for a global ID */
+                        &numLidEntries,     /* Number of integers used for a local ID */
+                        &numImport,         /* Number of vertices to be sent to me */
+                        &importGlobalGids,  /* Global IDs of vertices to be sent to me */
+                        &importLocalGids,   /* Local IDs of vertices to be sent to me */
+                        &importProcs,       /* Process rank for source of each incoming vertex */
+                        &importToPart,      /* New partition for each incoming vertex */
+                        &numExport,         /* Number of vertices I must send to other processes*/
+                        &exportGlobalGids,  /* Global IDs of the vertices I must send */
+                        &exportLocalGids,   /* Local IDs of the vertices I must send */
+                        &exportProcs,       /* Process to which I send each of the vertices */
+                        &exportToPart);     /* Partition to which each vertex will belong */
+    if(changes) for(int part = 0; part < nproc; ++part) {
+            Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+            domain_boundaries[part] = domain;
+        }
+
+    load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
+                                                 exportGlobalGids, datatype, MPI_COMM_WORLD);
+
+    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 }
 
 #endif //NBMPI_ZOLTAN_FN_HPP
