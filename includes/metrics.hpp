@@ -7,6 +7,7 @@
 
 #include <utility>
 #include <vector>
+#include <list>
 #include <cmath>
 #include <limits>
 #include <deque>
@@ -14,6 +15,8 @@
 
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_statistics.h>
+#include "report.hpp"
+#include "utils.hpp"
 
 //Authorize definition of this variable through CLI
 #ifndef DELTA_LB_CALL
@@ -24,9 +27,11 @@ template<class T>
 struct SlidingWindow {
     std::deque<T> data_container;
     size_t window_max_size;
-    SlidingWindow(size_t window_max_size): window_max_size(window_max_size) {};
-    inline void add(const T& data){
-        if(data_container.size() < window_max_size)
+
+    SlidingWindow(size_t window_max_size) : window_max_size(window_max_size) {};
+
+    inline void add(const T &data) {
+        if (data_container.size() < window_max_size)
             data_container.push_back(data); // add while not full
         else {                              // when full
             data_container.pop_front();     // delete oldest data
@@ -36,6 +41,13 @@ struct SlidingWindow {
 };
 
 namespace metric {
+
+class FeatureContainer {
+public:
+    virtual std::vector<float> get_features() = 0;
+
+    virtual int get_target() = 0;
+};
 
 namespace topology {
 
@@ -168,10 +180,10 @@ inline double compute_macd_ma(const Container &Y, const int sz_small_ema = 12, c
 }// end namespace load_dynamic
 
 std::vector<float>
-compute_metrics(std::shared_ptr<SlidingWindow<double>>& window_times,
-                std::shared_ptr<SlidingWindow<double>>& window_gini_times,
-                std::shared_ptr<SlidingWindow<double>>& window_gini_complexities,
-                std::shared_ptr<SlidingWindow<double>>& window_gini_communications,
+compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
+                std::shared_ptr<SlidingWindow<double>> &window_gini_times,
+                std::shared_ptr<SlidingWindow<double>> &window_gini_complexities,
+                std::shared_ptr<SlidingWindow<double>> &window_gini_communications,
                 float true_iteration_time, std::vector<double> times,
                 int sent, int received, float complexity, int my_rank, MPI_Comm comm, int exec_rank = 0) {
 
@@ -208,11 +220,13 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>>& window_times,
                                                                               2.0 /
                                                                               (window_gini_times->data_container.size() +
                                                                                1));
-        float slope_gini_complexity = statistic::linear_regression<float>(it, window_gini_complexities->data_container).first;
+        float slope_gini_complexity = statistic::linear_regression<float>(it,
+                                                                          window_gini_complexities->data_container).first;
         float macd_gini_complexity = metric::load_dynamic::compute_macd_ema<float>(
                 window_gini_complexities->data_container, 12, 26,
                 1.0 / (window_gini_complexities->data_container.size() + 1));
-        float slope_gini_communications = statistic::linear_regression<float>(it, window_gini_communications->data_container).first;
+        float slope_gini_communications = statistic::linear_regression<float>(it,
+                                                                              window_gini_communications->data_container).first;
         float macd_gini_communications = metric::load_dynamic::compute_macd_ema<float>(
                 window_gini_communications->data_container, 12, 26,
                 1.0 / (window_gini_complexities->data_container.size() + 1));
@@ -229,18 +243,97 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>>& window_times,
     }
     return {};
 }
+
+std::vector<float>
+all_compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
+                    std::shared_ptr<SlidingWindow<double>> &window_gini_times,
+                    std::shared_ptr<SlidingWindow<double>> &window_gini_complexities,
+                    std::shared_ptr<SlidingWindow<double>> &window_gini_communications,
+                    float true_iteration_time, std::vector<double> times,
+                    int sent, int received, float complexity, MPI_Comm comm) {
+    int nproc = 0;
+    MPI_Comm_size(comm, &nproc);
+
+    std::vector<float> communications(nproc);
+    float fsent = (float) (sent + received);
+
+    MPI_Allgather(&fsent, 1, MPI_FLOAT, &communications.front(), 1, MPI_FLOAT, comm);
+    std::vector<float> complexities(nproc);
+    MPI_Allgather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, comm);
+
+    float gini_times = (float) load_balancing::compute_gini_index<double>(times);
+    float gini_complexities = load_balancing::compute_gini_index(complexities);
+    float gini_communications = load_balancing::compute_gini_index(communications);
+
+    float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
+    float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
+    float skewness_communications = gsl_stats_float_skew(&communications.front(), 1, communications.size());
+
+    window_times->add(true_iteration_time);
+    window_gini_complexities->add(gini_complexities);
+    window_gini_times->add(gini_times);
+    window_gini_communications->add(gini_communications);
+
+    // Generate y from 0 to 1 and store in a vector
+    std::vector<float> it(window_gini_times->data_container.size());
+    std::iota(it.begin(), it.end(), 0);
+
+    float slope_gini_times = statistic::linear_regression<float>(it, window_gini_times->data_container).first;
+    float macd_gini_times = metric::load_dynamic::compute_macd_ema<float>(window_gini_times->data_container, 12, 26,
+                                                                          2.0 /
+                                                                          (window_gini_times->data_container.size() +
+                                                                           1));
+    float slope_gini_complexity = statistic::linear_regression<float>(it,
+                                                                      window_gini_complexities->data_container).first;
+    float macd_gini_complexity = metric::load_dynamic::compute_macd_ema<float>(
+            window_gini_complexities->data_container, 12, 26,
+            1.0 / (window_gini_complexities->data_container.size() + 1));
+    float slope_gini_communications = statistic::linear_regression<float>(it,
+                                                                          window_gini_communications->data_container).first;
+    float macd_gini_communications = metric::load_dynamic::compute_macd_ema<float>(
+            window_gini_communications->data_container, 12, 26,
+            1.0 / (window_gini_complexities->data_container.size() + 1));
+    float slope_times = statistic::linear_regression<float>(it, window_times->data_container).first;
+    float macd_times = metric::load_dynamic::compute_macd_ema<float>(window_times->data_container, 12, 26, 1.0 /
+                                                                                                           (window_times->data_container.size() +
+                                                                                                            1));
+    return {
+            gini_times, gini_complexities, gini_communications,
+            skewness_times, skewness_complexities, skewness_communications,
+            slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
+            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
+    };
+}
+
 namespace io {
 
-void write_load_balancing_reports(std::ofstream& dataset, std::string fname, int ts_idx, float gain,
-                                  std::vector<float>& dataset_entry,  int rank, const sim_param_t* params, int exec_rank = 0){
-    if(rank == exec_rank) {
+void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int ts_idx, float gain,
+                                  std::vector<float> &dataset_entry, int rank, const sim_param_t *params,
+                                  int exec_rank = 0) {
+    if (rank == exec_rank) {
         int npframe = params->npframe;
-        std::cout << " Gain within "<< ((ts_idx) - DELTA_LB_CALL) << " and "
-                  <<  (ts_idx) <<": "<< gain << " s."
+        std::cout << " Gain within " << ((ts_idx) - DELTA_LB_CALL) << " and "
+                  << (ts_idx) << ": " << gain << " s."
                   << std::endl;
         dataset_entry[dataset_entry.size() - 1] = gain;
-        if(!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+        if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
         write_report_data_bin<float>(dataset, ts_idx - DELTA_LB_CALL, dataset_entry, rank);
+        dataset.close();
+    }
+
+}
+template<class FeatureContainer>
+void write_dataset(std::ofstream &dataset, std::string fname,
+                                  std::list<std::shared_ptr<FeatureContainer>> fcontainers, int rank,
+                                  int exec_rank = 0) {
+    if (rank == exec_rank) {
+        if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app);
+        for (auto const &features_container : fcontainers) {
+            for(auto const& feature: features_container->get_features()){
+                dataset << std::fixed << std::setprecision(3) << feature << " ";
+            }
+            dataset << features_container->get_target() << std::endl;
+        }
         dataset.close();
     }
 

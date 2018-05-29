@@ -10,10 +10,10 @@
 
 #include "../includes/box_runner.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     constexpr int DIMENSION = 3;
     sim_param_t params;
-    FILE* fp = NULL;
+    FILE *fp = NULL;
     int rank, nproc, dim;
     float ver;
 
@@ -41,26 +41,26 @@ int main(int argc, char** argv) {
     params.verbose = false;
     MESH_DATA<DIMENSION> mesh_data_original;
 
-    if(rank==0){
+    if (rank == 0) {
         std::cout << "==============================================" << std::endl;
         std::cout << "= Simulation is starting now...                 " << std::endl;
         std::cout << "= Parameters: " << std::endl;
-        std::cout << "= Particles: " << params.npart<< std::endl;
-        std::cout << "= Seed: " << params.seed<<std::endl;
-        std::cout << "= PEs: " << params.world_size<<std::endl;
-        std::cout << "= Simulation size: " << params.simsize<<std::endl;
-        std::cout << "= Number of time-steps: " << params.nframes*params.npframe<<std::endl;
+        std::cout << "= Particles: " << params.npart << std::endl;
+        std::cout << "= Seed: " << params.seed << std::endl;
+        std::cout << "= PEs: " << params.world_size << std::endl;
+        std::cout << "= Simulation size: " << params.simsize << std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes * params.npframe << std::endl;
         std::cout << "= Initial conditions: " << std::endl;
-        std::cout << "= SIG:" << params.sig_lj<<std::endl;
-        std::cout << "= EPS:  " << params.eps_lj<<std::endl;
-        std::cout << "= Borders: collisions " << params.npart<<std::endl;
-        std::cout << "= Gravity:  " << params.G<<std::endl;
-        std::cout << "= Temperature: " << params.T0<<std::endl;
+        std::cout << "= SIG:" << params.sig_lj << std::endl;
+        std::cout << "= EPS:  " << params.eps_lj << std::endl;
+        std::cout << "= Borders: collisions " << params.npart << std::endl;
+        std::cout << "= Gravity:  " << params.G << std::endl;
+        std::cout << "= Temperature: " << params.T0 << std::endl;
         std::cout << "==============================================" << std::endl;
     }
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
-    if(rc != ZOLTAN_OK) {
+    if (rc != ZOLTAN_OK) {
         MPI_Finalize();
         exit(0);
     }
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
 
     std::vector<partitioning::geometric::Domain<DIMENSION>> domain_boundaries(nproc);
 
-    for(int part = 0; part < nproc; ++part) {
+    for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
         auto domain = partitioning::geometric::borders_to_domain<DIMENSION>(xmin, ymin, zmin,
                                                                             xmax, ymax, zmax, params.simsize);
@@ -101,15 +101,24 @@ int main(int argc, char** argv) {
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
-    auto res = astar_runner<DIMENSION>(&mesh_data,zz,params.npframe,0, &params, MPI_COMM_WORLD);
+    auto res = astar_runner<DIMENSION>(&mesh_data, zz, 0, &params, MPI_COMM_WORLD);
+    std::ofstream dataset;
+    const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
+                                         "-" + std::to_string(params.world_size) +
+                                         "-" + std::to_string(params.npart) +
+                                         "-" + std::to_string((params.T0)) +
+                                         "-" + std::to_string((params.G)) +
+                                         "-" + std::to_string((params.simsize)) +
+                                         "-" + std::to_string((params.eps_lj)) +
+                                         "-" + std::to_string((params.sig_lj)) + ".data";
+    metric::io::write_dataset(dataset, DATASET_FILENAME, res, rank, 0);
 
-    std::for_each(res.begin(), res.end(), [=](auto v){std::cout << (v->decision?"Y":"N") << std::endl;});
     MPI_Barrier(MPI_COMM_WORLD);
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
-                        &importProcs,      &importToPart);
+                        &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
-                        &exportProcs,      &exportToPart);
+                        &exportProcs, &exportToPart);
     Zoltan_Destroy(&zz);
 
     if (fp) fclose(fp);

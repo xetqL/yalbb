@@ -45,14 +45,14 @@
 #endif
 
 template<int N>
-void run_box(FILE* fp, // Output file (at 0)
+void run_box(FILE *fp, // Output file (at 0)
              const int npframe, // Steps per frame
              const int nframes, // Frames
              const double dt, // Time step
              std::vector<elements::Element<2>> local_elements,
              std::vector<partitioning::geometric::Domain<N>> domain_boundaries,
              load_balancing::geometric::GeometricLoadBalancer<N> load_balancer,
-             const sim_param_t* params,
+             const sim_param_t *params,
              MPI_Comm comm = MPI_COMM_WORLD) // Simulation params
 {
     std::ofstream lb_file;
@@ -69,12 +69,14 @@ void run_box(FILE* fp, // Output file (at 0)
     float lsub = params->simsize / ((float) M); //cell size
     std::vector<elements::Element<2>> recv_buf(params->npart);
 
-    if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart, local_elements, 0, recv_buf, load_balancer.get_element_datatype(), comm);
+    if (params->record)
+        load_balancing::gather_elements_on(nproc, rank, params->npart, local_elements, 0, recv_buf,
+                                           load_balancer.get_element_datatype(), comm);
     if (rank == 0) {
         auto date = get_date_as_string();
-        lb_file.open("load_imbalance_report-"+date+".data", std::ofstream::out | std::ofstream::trunc );
+        lb_file.open("load_imbalance_report-" + date + ".data", std::ofstream::out | std::ofstream::trunc);
         write_report_header(lb_file, params, rank);
-        if(params->record) {
+        if (params->record) {
             write_header(fp, params->npart, params->simsize);
             write_frame_data(fp, params->npart, &recv_buf[0]);
         }
@@ -87,16 +89,21 @@ void run_box(FILE* fp, // Output file (at 0)
             MPI_Barrier(comm);
             double start = MPI_Wtime();
             // Rebalance if asked
-            if (params->one_shot_lb_call == (i+(frame-1)*npframe) || params->lb_interval > 0 && ((i+(frame-1)*npframe) % params->lb_interval) == 0) {
-                load_balancing::gather_elements_on(nproc, rank, params->npart, local_el, 0, local_el, load_balancer.get_element_datatype(), comm);
+            if (params->one_shot_lb_call == (i + (frame - 1) * npframe) ||
+                params->lb_interval > 0 && ((i + (frame - 1) * npframe) % params->lb_interval) == 0) {
+                load_balancing::gather_elements_on(nproc, rank, params->npart, local_el, 0, local_el,
+                                                   load_balancer.get_element_datatype(), comm);
                 partitioning::geometric::Domain<N> _domain_boundary = {
                         std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)};
-                domain_boundaries = { _domain_boundary };
+                domain_boundaries = {_domain_boundary};
                 load_balancer.load_balance(local_el, domain_boundaries);
             }
-            int r,s;
+            int r, s;
             // get particles that can potentially interact with mine
-            std::vector<elements::Element<2>> remote_el = load_balancing::geometric::exchange_data<2>(local_el, domain_boundaries,datatype, comm, r, s);
+            std::vector<elements::Element<2>> remote_el = load_balancing::geometric::exchange_data<2>(local_el,
+                                                                                                      domain_boundaries,
+                                                                                                      datatype, comm, r,
+                                                                                                      s);
             //select computation method
             switch (params->computation_method) {
                 case 1:
@@ -112,40 +119,40 @@ void run_box(FILE* fp, // Output file (at 0)
             leapfrog1(dt, local_el);
             apply_reflect(local_el, params->simsize);
             //finish this time step by sending particles that does not belong to me anymore...
-            load_balancing::geometric::migrate_particles<2>(local_el, domain_boundaries,datatype , comm);
+            load_balancing::geometric::migrate_particles<2>(local_el, domain_boundaries, datatype, comm);
 
             double diff = (MPI_Wtime() - start) / 1e-3; //divide time by tick resolution
             std::vector<double> times(nproc);
             MPI_Gather(&diff, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
-            write_report_data(lb_file, i+(frame-1)*npframe, times, rank);
+            write_report_data(lb_file, i + (frame - 1) * npframe, times, rank);
         }
 
-        if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart,
-                                           local_el, 0, recv_buf, load_balancer.get_element_datatype(), comm);
+        if (params->record)
+            load_balancing::gather_elements_on(nproc, rank, params->npart,
+                                               local_el, 0, recv_buf, load_balancer.get_element_datatype(), comm);
         if (rank == 0) {
             double end = MPI_Wtime();
             double time_spent = (end - begin);
-            if(params->record) write_frame_data(fp, params->npart, &recv_buf[0]);
+            if (params->record) write_frame_data(fp, params->npart, &recv_buf[0]);
             printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
             begin = MPI_Wtime();
         }
     }
 
     load_balancer.stop();
-    if(rank == 0){
-        double diff =(MPI_Wtime() - start_sim);
+    if (rank == 0) {
+        double diff = (MPI_Wtime() - start_sim);
         lb_file << diff << std::endl;
         lb_file.close();
     }
 }
 
 template<int N>
-void generate_dataset(MESH_DATA<N>* mesh_data,
-                      Zoltan_Struct* load_balancer,
-                      const sim_param_t* params,
-                      const MPI_Comm comm = MPI_COMM_WORLD)
-{
-    int nproc,rank;
+void generate_dataset(MESH_DATA<N> *mesh_data,
+                      Zoltan_Struct *load_balancer,
+                      const sim_param_t *params,
+                      const MPI_Comm comm = MPI_COMM_WORLD) {
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream dataset, frame_file;
@@ -155,14 +162,14 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
     const int nframes = params->nframes;
     const int npframe = params->npframe;
 
-    const std::string DATASET_FILENAME = "full-dataset-"+std::to_string(params->seed)+
-                                         "-"+std::to_string(params->world_size)+
-                                         "-"+std::to_string(params->npart)+
-                                         "-"+std::to_string((params->T0))+
-                                         "-"+std::to_string((params->G))+
-                                         "-"+std::to_string((params->simsize))+
-                                         "-"+std::to_string((params->eps_lj))+
-                                         "-"+std::to_string((params->sig_lj));
+    const std::string DATASET_FILENAME = "full-dataset-" + std::to_string(params->seed) +
+                                         "-" + std::to_string(params->world_size) +
+                                         "-" + std::to_string(params->npart) +
+                                         "-" + std::to_string((params->T0)) +
+                                         "-" + std::to_string((params->G)) +
+                                         "-" + std::to_string((params->simsize)) +
+                                         "-" + std::to_string((params->eps_lj)) +
+                                         "-" + std::to_string((params->sig_lj));
     int dim;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
     int M = std::ceil(params->simsize / rm); // number of cell in a row
@@ -180,23 +187,22 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
-    for(int part = 0; part < nproc; ++part) {
+    for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                    params->simsize);
         domain_boundaries[part] = domain;
     }
-    std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications ;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::vector<elements::Element<N>> remote_el;
-
+    std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
     if (rank == 0) { // Write report and outputs ...
-        window_gini_times          = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
-        window_times               = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
-        window_gini_complexities   = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_times = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_times = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_complexities = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
         window_gini_communications = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
     }
-
     std::vector<float> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
 
     double compute_time_with_lb = 0.0;
@@ -208,12 +214,14 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
 
     auto saved_domains = domain_boundaries;
     mem_data = *mesh_data;
-    while(time_step_index < (nframes*npframe)) {
-        if((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0)
+    while (time_step_index < (nframes * npframe)) {
+        if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0)
             if (!with_lb) { // NO LB PART
                 with_lb = true;
-                if(start_with_lb) {
-                    if(rank==0) std::cout << "LB= "<< compute_time_with_lb << "; NoLB= "<<compute_time_without_lb<<std::endl;
+                if (start_with_lb) {
+                    if (rank == 0)
+                        std::cout << "LB= " << compute_time_with_lb << "; NoLB= " << compute_time_without_lb
+                                  << std::endl;
                     metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
                                                              compute_time_without_lb - compute_time_with_lb,
                                                              features, rank, params);
@@ -221,17 +229,21 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
                     compute_time_without_lb = 0.0;
                     mem_data = *mesh_data;
                 }
-                if(!start_with_lb){
+                if (!start_with_lb) {
                     time_step_index -= DELTA_LB_CALL;
                     domain_boundaries = saved_domains;
                     *mesh_data = mem_data;
                 }
 
-                if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " with load balancing"<<std::endl;
+                if (rank == 0)
+                    std::cout << " Compute time for: " << time_step_index << " to " << (time_step_index + DELTA_LB_CALL)
+                              << " with load balancing" << std::endl;
             } else { // LB PART
                 with_lb = false;
-                if(!start_with_lb) {
-                    if(rank==0) std::cout << "LB= "<< compute_time_with_lb << "; NoLB= "<<compute_time_without_lb<<std::endl;
+                if (!start_with_lb) {
+                    if (rank == 0)
+                        std::cout << "LB= " << compute_time_with_lb << "; NoLB= " << compute_time_without_lb
+                                  << std::endl;
                     metric::io::write_load_balancing_reports(dataset, DATASET_FILENAME, time_step_index,
                                                              compute_time_with_lb - compute_time_without_lb,
                                                              features, rank, params);
@@ -240,25 +252,27 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
                     mem_data = *mesh_data;
                     saved_domains = domain_boundaries;
                 }
-                if(start_with_lb) {
+                if (start_with_lb) {
                     time_step_index -= DELTA_LB_CALL;
                     domain_boundaries = saved_domains;
                     *mesh_data = mem_data;
                 }
-                if(rank==0) std::cout << " Compute time for: "<< time_step_index << " to " << (time_step_index+DELTA_LB_CALL)<< " without load balancing"<<std::endl;
+                if (rank == 0)
+                    std::cout << " Compute time for: " << time_step_index << " to " << (time_step_index + DELTA_LB_CALL)
+                              << " without load balancing" << std::endl;
             }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         MPI_Barrier(comm);
         double start = MPI_Wtime();
         if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && with_lb) {
-            if(start_with_lb) features = dataset_entry;
+            if (start_with_lb) features = dataset_entry;
             zoltan_fn_init(load_balancer, mesh_data);
             Zoltan_LB_Partition(load_balancer, &changes, &numGidEntries, &numLidEntries,
                                 &numImport, &importGlobalGids, &importLocalGids, &importProcs, &importToPart,
                                 &numExport, &exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
-            if(changes) {
-                for(int part = 0; part < nproc; ++part) { // algorithm specific ...
+            if (changes) {
+                for (int part = 0; part < nproc; ++part) { // algorithm specific ...
                     Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
                     auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin,
                                                                                 xmax, ymax, zmax, params->simsize);
@@ -270,16 +284,17 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
             Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
             Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
         } else if ((time_step_index % DELTA_LB_CALL) == 0 && time_step_index > 0 && !with_lb) {
-            if(!start_with_lb) features = dataset_entry;
+            if (!start_with_lb) features = dataset_entry;
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
         } else load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
 
         MPI_Barrier(comm);
         int received = 0, sent = 0;
-        remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+        remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm,
+                                                                received, sent, lsub);
 
         // update local ids
-        for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
+        for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
         lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
         float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
 
@@ -295,7 +310,7 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
         MPI_Gather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, 0, comm);
         double true_iteration_time = *std::max_element(times.begin(), times.end());
 
-        if(with_lb) compute_time_with_lb += true_iteration_time;
+        if (with_lb) compute_time_with_lb += true_iteration_time;
         else compute_time_without_lb += true_iteration_time;
 
         dataset_entry = metric::compute_metrics(window_times, window_gini_times,
@@ -305,18 +320,17 @@ void generate_dataset(MESH_DATA<N>* mesh_data,
         time_step_index++;
     }
 
-    if(rank==0) if(dataset.is_open()) dataset.close();
-    if(rank==0) if(frame_file.is_open()) frame_file.close();
+    if (rank == 0) if (dataset.is_open()) dataset.close();
+    if (rank == 0) if (frame_file.is_open()) frame_file.close();
 }
 
 template<int N>
-void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
-                    MESH_DATA<N>* mesh_data,
-                    Zoltan_Struct* load_balancer,
-                    const sim_param_t* params,
-                    const MPI_Comm comm = MPI_COMM_WORLD)
-{
-    int nproc,rank;
+void zoltan_run_box_dataset(FILE *fp,          // Output file (at 0)
+                            MESH_DATA<N> *mesh_data,
+                            Zoltan_Struct *load_balancer,
+                            const sim_param_t *params,
+                            const MPI_Comm comm = MPI_COMM_WORLD) {
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream dataset;
@@ -325,15 +339,14 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     const int npframe = params->npframe;
 
 
-
-    const std::string DATASET_FILENAME = "dataset-rcb-"+std::to_string(params->seed)+
-                                          "-"+std::to_string(params->world_size)+
-                                          "-"+std::to_string(params->npart)+
-                                          "-"+std::to_string((params->T0))+
-                                          "-"+std::to_string((params->G))+
-                                          "-"+std::to_string((params->simsize))+
-                                          "-"+std::to_string((params->eps_lj))+
-                                          "-"+std::to_string((params->sig_lj));
+    const std::string DATASET_FILENAME = "dataset-rcb-" + std::to_string(params->seed) +
+                                         "-" + std::to_string(params->world_size) +
+                                         "-" + std::to_string(params->npart) +
+                                         "-" + std::to_string((params->T0)) +
+                                         "-" + std::to_string((params->G)) +
+                                         "-" + std::to_string((params->simsize)) +
+                                         "-" + std::to_string((params->eps_lj)) +
+                                         "-" + std::to_string((params->sig_lj));
     int dim;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
     int M = std::ceil(params->simsize / rm); // number of cell in a row
@@ -351,20 +364,21 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
-    for(int part = 0; part < nproc; ++part) {
+    for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                    params->simsize);
         domain_boundaries[part] = domain;
     }
-    std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications ;
+    std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::vector<elements::Element<N>> remote_el;
 
     if (rank == 0) { // Write report and outputs ...
-        window_gini_times     = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
-        window_times          = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
-        window_gini_complexities     = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_times = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_times = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_complexities = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
         window_gini_communications = std::make_shared<SlidingWindow<double>>(WINDOW_SIZE);
     }
 
@@ -374,11 +388,11 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
     double compute_time_after_lb = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
-            if((params->one_shot_lb_call + DELTA_LB_CALL) == (i+frame*npframe) ) {
-                if(rank == 0) {
-                    std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and "
-                              <<  (i+frame*npframe)<<": "<< compute_time_after_lb << " ms. "
-                              << ", metrics: "<< total_metric_computation_time << std::endl;
+            if ((params->one_shot_lb_call + DELTA_LB_CALL) == (i + frame * npframe)) {
+                if (rank == 0) {
+                    std::cout << " Time within " << ((i + frame * npframe) - DELTA_LB_CALL) << " and "
+                              << (i + frame * npframe) << ": " << compute_time_after_lb << " ms. "
+                              << ", metrics: " << total_metric_computation_time << std::endl;
                     dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
                     dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
                     write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
@@ -389,29 +403,30 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             }
             MPI_Barrier(comm);
             double start = MPI_Wtime();
-            if ((params->one_shot_lb_call == (i+frame*npframe) ) && (i+frame*npframe) > 0) {
+            if ((params->one_shot_lb_call == (i + frame * npframe)) && (i + frame * npframe) > 0) {
                 compute_time_after_lb = 0.0;
                 zoltan_fn_init(load_balancer, mesh_data);
                 Zoltan_LB_Partition(load_balancer,           /* input (all remaining fields are output) */
-                                         &changes,           /* 1 if partitioning was changed, 0 otherwise */
-                                         &numGidEntries,     /* Number of integers used for a global ID */
-                                         &numLidEntries,     /* Number of integers used for a local ID */
-                                         &numImport,         /* Number of vertices to be sent to me */
-                                         &importGlobalGids,  /* Global IDs of vertices to be sent to me */
-                                         &importLocalGids,   /* Local IDs of vertices to be sent to me */
-                                         &importProcs,       /* Process rank for source of each incoming vertex */
-                                         &importToPart,      /* New partition for each incoming vertex */
-                                         &numExport,         /* Number of vertices I must send to other processes*/
-                                         &exportGlobalGids,  /* Global IDs of the vertices I must send */
-                                         &exportLocalGids,   /* Local IDs of the vertices I must send */
-                                         &exportProcs,       /* Process to which I send each of the vertices */
-                                         &exportToPart);     /* Partition to which each vertex will belong */
-                if(changes) for(int part = 0; part < nproc; ++part) { // algorithm specific ...
-                    Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-                    auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin,
-                                                                                xmax, ymax, zmax, params->simsize);
-                    domain_boundaries[part] = domain;
-                }
+                                    &changes,           /* 1 if partitioning was changed, 0 otherwise */
+                                    &numGidEntries,     /* Number of integers used for a global ID */
+                                    &numLidEntries,     /* Number of integers used for a local ID */
+                                    &numImport,         /* Number of vertices to be sent to me */
+                                    &importGlobalGids,  /* Global IDs of vertices to be sent to me */
+                                    &importLocalGids,   /* Local IDs of vertices to be sent to me */
+                                    &importProcs,       /* Process rank for source of each incoming vertex */
+                                    &importToPart,      /* New partition for each incoming vertex */
+                                    &numExport,         /* Number of vertices I must send to other processes*/
+                                    &exportGlobalGids,  /* Global IDs of the vertices I must send */
+                                    &exportLocalGids,   /* Local IDs of the vertices I must send */
+                                    &exportProcs,       /* Process to which I send each of the vertices */
+                                    &exportToPart);     /* Partition to which each vertex will belong */
+                if (changes)
+                    for (int part = 0; part < nproc; ++part) { // algorithm specific ...
+                        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+                        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin,
+                                                                                    xmax, ymax, zmax, params->simsize);
+                        domain_boundaries[part] = domain;
+                    }
                 load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                              exportGlobalGids, datatype, MPI_COMM_WORLD);
 
@@ -420,13 +435,15 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             } else load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             int received = 0, sent = 0;
-            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm,
+                                                                    received, sent, lsub);
 
             // update local ids
-            for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
+            for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
 
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist,
+                                                                     params);
 
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els);
@@ -440,7 +457,8 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             double true_iteration_time = *std::max_element(times.begin(), times.end());
             compute_time_after_lb += true_iteration_time;
 
-            if((i+frame*npframe) > params->one_shot_lb_call - (WINDOW_SIZE) && (i+frame*npframe) < params->one_shot_lb_call) {
+            if ((i + frame * npframe) > params->one_shot_lb_call - (WINDOW_SIZE) &&
+                (i + frame * npframe) < params->one_shot_lb_call) {
                 dataset_entry = metric::compute_metrics(window_times, window_gini_times,
                                                         window_gini_complexities, window_gini_communications,
                                                         true_iteration_time, times,
@@ -448,12 +466,12 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
             } // end of metric computation
         } // end of time-steps
     } // end of frames
-    if(rank==0) dataset.close();
+    if (rank == 0) dataset.close();
 
-    if(rank == 0) {
-        std::cout << " Time within "<< params->one_shot_lb_call << " and "
-                  <<  params->npframe*params->nframes <<": "<< compute_time_after_lb << " ms. "
-                  << ", metrics: "<< total_metric_computation_time << std::endl;
+    if (rank == 0) {
+        std::cout << " Time within " << params->one_shot_lb_call << " and "
+                  << params->npframe * params->nframes << ": " << compute_time_after_lb << " ms. "
+                  << ", metrics: " << total_metric_computation_time << std::endl;
         dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
         dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
         write_report_data_bin<float>(dataset, params->one_shot_lb_call, dataset_entry, rank);
@@ -463,27 +481,25 @@ void zoltan_run_box_dataset(FILE* fp,          // Output file (at 0)
 }
 
 
-
 template<int N>
-void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
-                            MESH_DATA<N>* mesh_data,
-                            Zoltan_Struct* load_balancer,
-                            const sim_param_t* params,
-                            const MPI_Comm comm = MPI_COMM_WORLD)
-{
-    int nproc,rank;
+void compute_dataset_base_gain(FILE *fp,          // Output file (at 0)
+                               MESH_DATA<N> *mesh_data,
+                               Zoltan_Struct *load_balancer,
+                               const sim_param_t *params,
+                               const MPI_Comm comm = MPI_COMM_WORLD) {
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream dataset;
-    const std::string DATASET_FILENAME = "dataset-base-times-rcb-"+std::to_string(params->seed)+
-                                         "-"+std::to_string(params->world_size)+
-                                         "-"+std::to_string(params->npart)+
-                                         "-"+std::to_string((params->T0))+
-                                         "-"+std::to_string((params->G))+
-                                         "-"+std::to_string((params->simsize))+
-                                         "-"+std::to_string((params->eps_lj))+
-                                         "-"+std::to_string((params->sig_lj));
-    if(rank==0) dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
+    const std::string DATASET_FILENAME = "dataset-base-times-rcb-" + std::to_string(params->seed) +
+                                         "-" + std::to_string(params->world_size) +
+                                         "-" + std::to_string(params->npart) +
+                                         "-" + std::to_string((params->T0)) +
+                                         "-" + std::to_string((params->G)) +
+                                         "-" + std::to_string((params->simsize)) +
+                                         "-" + std::to_string((params->eps_lj)) +
+                                         "-" + std::to_string((params->sig_lj));
+    if (rank == 0) dataset.open(DATASET_FILENAME, std::ofstream::out | std::ofstream::app | std::ofstream::binary);
 
     const double dt = params->dt;
     const int nframes = params->nframes;
@@ -492,11 +508,11 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     int dim;
     double xmin, ymin, zmin, xmax, ymax, zmax;
     // END OF ZOLTAN VARIABLES
-    std::unique_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications ;
+    std::unique_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
     if (rank == 0) { // Write report and outputs ...
-        window_gini_times          = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
-        window_times               = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
-        window_gini_complexities   = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_times = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_times = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
+        window_gini_complexities = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
         window_gini_communications = std::make_unique<SlidingWindow<double>>(WINDOW_SIZE);
     }
     std::vector<float> dataset_entry(N_FEATURES + N_LABEL);
@@ -505,9 +521,10 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
-    for(int part = 0; part < nproc; ++part) {
+    for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                    params->simsize);
         domain_boundaries[part] = domain;
     }
 
@@ -520,11 +537,12 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
     double compute_time_after_lb = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
-            if((i+frame*npframe) % DELTA_LB_CALL == 0 && (i+frame*npframe) > 0 && rank == 0) {
-                std::cout << " Time within "<< ((i+frame*npframe)-DELTA_LB_CALL) << " and " <<  (i+frame*npframe)<< " is " << compute_time_after_lb << " ms" << std::endl;
+            if ((i + frame * npframe) % DELTA_LB_CALL == 0 && (i + frame * npframe) > 0 && rank == 0) {
+                std::cout << " Time within " << ((i + frame * npframe) - DELTA_LB_CALL) << " and "
+                          << (i + frame * npframe) << " is " << compute_time_after_lb << " ms" << std::endl;
                 dataset_entry[dataset_entry.size() - 1] = compute_time_after_lb;
                 //write_metric_data_bin(dataset, (i+frame*npframe) - DELTA_LB_CALL, dataset_entry, rank);
-                write_report_data_bin<float>(dataset, (i+frame*npframe) - DELTA_LB_CALL, dataset_entry, rank);
+                write_report_data_bin<float>(dataset, (i + frame * npframe) - DELTA_LB_CALL, dataset_entry, rank);
                 compute_time_after_lb = 0.0;
             }
             MPI_Barrier(comm);
@@ -532,11 +550,13 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             int received = 0, sent = 0;
-            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm,
+                                                                    received, sent, lsub);
             // update local ids
-            for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
+            for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist,
+                                                                     params);
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els);
             apply_reflect(mesh_data->els, params->simsize);
@@ -548,7 +568,7 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
             compute_time_after_lb += true_iteration_time;
 
             std::vector<float> communications(nproc);
-            float fsent = (float) (sent+received);
+            float fsent = (float) (sent + received);
             MPI_Gather(&fsent, 1, MPI_FLOAT, &communications.front(), 1, MPI_FLOAT, 0, comm);
 
             std::vector<float> complexities(nproc);
@@ -556,8 +576,8 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
 
             if (rank == 0) {
                 float gini_times = (float) metric::load_balancing::compute_gini_index<double>(times);
-                float gini_complexities  = metric::load_balancing::compute_gini_index(complexities);
-                float gini_communications  = metric::load_balancing::compute_gini_index(communications);
+                float gini_complexities = metric::load_balancing::compute_gini_index(complexities);
+                float gini_communications = metric::load_balancing::compute_gini_index(communications);
 
                 float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
                 float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
@@ -569,40 +589,53 @@ void compute_dataset_base_gain(FILE* fp,          // Output file (at 0)
                 window_gini_communications->add(gini_communications);
 
                 // Generate y from 0 to 1 and store in a vector
-                std::vector<float> it(window_gini_times->data_container.size()); std::iota(it.begin(), it.end(), 0);
+                std::vector<float> it(window_gini_times->data_container.size());
+                std::iota(it.begin(), it.end(), 0);
 
-                float slope_gini_times = statistic::linear_regression<float>(it, window_gini_times->data_container).first;
-                float macd_gini_times = metric::load_dynamic::compute_macd_ema<float>(window_gini_times->data_container, 12, 26,  2.0/(window_gini_times->data_container.size()+1));
+                float slope_gini_times = statistic::linear_regression<float>(it,
+                                                                             window_gini_times->data_container).first;
+                float macd_gini_times = metric::load_dynamic::compute_macd_ema<float>(window_gini_times->data_container,
+                                                                                      12, 26, 2.0 /
+                                                                                              (window_gini_times->data_container.size() +
+                                                                                               1));
 
-                float slope_gini_complexity = statistic::linear_regression<float>(it, window_gini_complexities->data_container).first;
-                float macd_gini_complexity = metric::load_dynamic::compute_macd_ema<float>(window_gini_complexities->data_container, 12, 26,  1.0/(window_gini_complexities->data_container.size()+1));
+                float slope_gini_complexity = statistic::linear_regression<float>(it,
+                                                                                  window_gini_complexities->data_container).first;
+                float macd_gini_complexity = metric::load_dynamic::compute_macd_ema<float>(
+                        window_gini_complexities->data_container, 12, 26,
+                        1.0 / (window_gini_complexities->data_container.size() + 1));
 
-                float slope_gini_communications = statistic::linear_regression<float>(it, window_gini_communications->data_container).first;
-                float macd_gini_communications = metric::load_dynamic::compute_macd_ema<float>(window_gini_communications->data_container, 12, 26,  1.0/(window_gini_complexities->data_container.size()+1));
+                float slope_gini_communications = statistic::linear_regression<float>(it,
+                                                                                      window_gini_communications->data_container).first;
+                float macd_gini_communications = metric::load_dynamic::compute_macd_ema<float>(
+                        window_gini_communications->data_container, 12, 26,
+                        1.0 / (window_gini_complexities->data_container.size() + 1));
 
                 float slope_times = statistic::linear_regression<float>(it, window_times->data_container).first;
-                float macd_times  = metric::load_dynamic::compute_macd_ema<float>(window_times->data_container, 12, 26,  1.0/(window_times->data_container.size()+1));
+                float macd_times = metric::load_dynamic::compute_macd_ema<float>(window_times->data_container, 12, 26,
+                                                                                 1.0 /
+                                                                                 (window_times->data_container.size() +
+                                                                                  1));
 
                 dataset_entry = {
                         gini_times, gini_complexities, gini_communications,
                         skewness_times, skewness_complexities, skewness_communications,
                         slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
-                        macd_gini_times,  macd_gini_complexity,  macd_times, macd_gini_communications, 0.0
+                        macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
                 };
             }
         } // end of time-steps
     } // end of frames
-    if(rank == 0) dataset.close();
+    if (rank == 0) dataset.close();
 }
 
 template<int N>
-void zoltan_run_box(FILE* fp,          // Output file (at 0)
-                    MESH_DATA<N>* mesh_data,
-                    Zoltan_Struct* load_balancer,
-                    const sim_param_t* params,
-                    const MPI_Comm comm = MPI_COMM_WORLD)
-{
-    int nproc,rank;
+void zoltan_run_box(FILE *fp,          // Output file (at 0)
+                    MESH_DATA<N> *mesh_data,
+                    Zoltan_Struct *load_balancer,
+                    const sim_param_t *params,
+                    const MPI_Comm comm = MPI_COMM_WORLD) {
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream lb_file, metric_file, frame_file;
@@ -625,9 +658,10 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     // get boundaries of all domains
-    for(int part = 0; part < nproc; ++part) {
+    for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                    params->simsize);
         domain_boundaries[part] = domain;
     }
 
@@ -640,23 +674,26 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
 
     std::vector<elements::Element<N>> recv_buf(params->npart);
     auto date = get_date_as_string();
-    if(params->record) load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
+    if (params->record)
+        load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf,
+                                           datatype.elements_datatype, comm);
     if (rank == 0) { // Write report and outputs ...
-        lb_file.open("LIr_"+std::to_string(params->world_size)+
-                     "-"+std::to_string(params->npart)+
-                     "-"+std::to_string((params->nframes*params->npframe))+
-                     "-"+std::to_string((int)(params->T0))+
-                     "-"+std::to_string((params->G))+
-                     "-"+std::to_string((params->eps_lj))+
-                     "-"+std::to_string((params->sig_lj))+
-                     "-"+std::to_string((params->one_shot_lb_call))+
-                     "_"+date+".data", std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+        lb_file.open("LIr_" + std::to_string(params->world_size) +
+                     "-" + std::to_string(params->npart) +
+                     "-" + std::to_string((params->nframes * params->npframe)) +
+                     "-" + std::to_string((int) (params->T0)) +
+                     "-" + std::to_string((params->G)) +
+                     "-" + std::to_string((params->eps_lj)) +
+                     "-" + std::to_string((params->sig_lj)) +
+                     "-" + std::to_string((params->one_shot_lb_call)) +
+                     "_" + date + ".data", std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
         write_report_header_bin(lb_file, params, rank);     // write header
 
-        metric_file.open(params->uuid+"-"+date+".metrics",  std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+        metric_file.open(params->uuid + "-" + date + ".metrics",
+                         std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
         write_report_header_bin(metric_file, params, rank, rank); // write the same header
 
-        if(params->record) {
+        if (params->record) {
             //write_header(fp, params->npart, params->simsize);
             //write_frame_data(fp, params->npart, &recv_buf[0]);
             frame_file.open("run_cpp.out", std::ofstream::out | std::ofstream::trunc);
@@ -672,7 +709,8 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             MPI_Barrier(comm);
             // double start = MPI_Wtime();
             // Load balance criteria...
-            if (params->one_shot_lb_call == (i+frame*npframe) || (params->lb_interval > 0 && ((i+frame*npframe) % params->lb_interval) == 0)) {
+            if (params->one_shot_lb_call == (i + frame * npframe) ||
+                (params->lb_interval > 0 && ((i + frame * npframe) % params->lb_interval) == 0)) {
                 zoltan_fn_init(load_balancer, mesh_data);
                 Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
                                     &changes,           /* 1 if partitioning was changed, 0 otherwise */
@@ -688,11 +726,13 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
                                     &exportLocalGids,   /* Local IDs of the vertices I must send */
                                     &exportProcs,       /* Process to which I send each of the vertices */
                                     &exportToPart);     /* Partition to which each vertex will belong */
-                if(changes) for(int part = 0; part < nproc; ++part) {
-                    Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-                    auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
-                    domain_boundaries[part] = domain;
-                }
+                if (changes)
+                    for (int part = 0; part < nproc; ++part) {
+                        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+                        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                                    params->simsize);
+                        domain_boundaries[part] = domain;
+                    }
                 load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                              exportGlobalGids, datatype, MPI_COMM_WORLD);
                 Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
@@ -700,10 +740,11 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
             }
 
             int received = 0, sent = 0;
-            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm,
+                                                                    received, sent, lsub);
 
             // update local ids
-            for(size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
+            for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
 
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
 
@@ -719,14 +760,14 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
         // Send metrics
 
         // Write metrics to report file
-        if(params->record)
+        if (params->record)
             load_balancing::gather_elements_on(nproc, rank, params->npart,
                                                mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
         MPI_Barrier(comm);
         if (rank == 0) {
             double end = MPI_Wtime();
             double time_spent = (end - begin);
-            if(params->record) {
+            if (params->record) {
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
                 //write_frame_data(fp, params->npart, &recv_buf[0]);
             }
@@ -736,7 +777,7 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
     }
 
     MPI_Barrier(comm);
-    if(rank == 0){
+    if (rank == 0) {
         double diff = (MPI_Wtime() - start_sim) / 1e-3;
         write_report_total_time_bin<float>(lb_file, diff, rank);
         lb_file.close();
@@ -746,15 +787,14 @@ void zoltan_run_box(FILE* fp,          // Output file (at 0)
 }
 
 template<int N>
-std::vector<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> astar_runner(
-        MESH_DATA<N>* mesh_data,
-        Zoltan_Struct* load_balancer,
-        int edge_length,
+std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> astar_runner(
+        MESH_DATA<N> *mesh_data,
+        Zoltan_Struct *load_balancer,
         float optimal_step_time,
-        const sim_param_t* params,
+        const sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD) {
 
-    int nproc,rank;
+    int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     const int nframes = params->nframes;
@@ -764,79 +804,127 @@ std::vector<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometr
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     Domain domain_boundaries(nproc);
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
-    std::priority_queue<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> queue;
 
-    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(0, 0, true, 0, 0, 0, mesh_data, nullptr, domain_boundaries),
-                    solution;
-    std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
+    std::priority_queue<
+            std::shared_ptr<Node<MESH_DATA<N>, Domain> >,
+            std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain> > >,
+            Compare<MESH_DATA<N>, Domain> > queue;
+
+    std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
+    window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
+    window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
+    window_gini_complexities = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
+    window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
+    std::vector<float> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
+    std::vector<double> times(nproc);
+
+    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data,
+                                                                                                            domain_boundaries),
+            solution;
+    current_node->metrics_before_decision = dataset_entry;
+    current_node->last_metric = dataset_entry;
+
+    std::list<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
     //solution.push_front(current_node);
     int it = 0;
-    float time = 0, start, child_cost, true_child_cost;
-    const int total_iteration = nframes*npframe;
-    while(it < nframes*npframe) {
-        auto children = current_node->get_children();
+    double time = 0, start, child_cost, true_child_cost;
+    const int total_iteration = nframes * npframe;
 
+
+
+    while (it < nframes * npframe) {
+        auto children = current_node->get_children();
         mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
+
+        double it_start, true_iteration_time, my_iteration_time;
+        child_cost = 0;
         MPI_Barrier(comm);
-
-        start = MPI_Wtime();
-        zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-        for(int i = 0; i < npframe; i++) {
+        for (int i = 0; i < npframe; i++) {
+            it_start = MPI_Wtime();
+            if (i == 0)
+                zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+            if (i > 0)
+                load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                                                                       params, comm);
             MPI_Barrier(comm);
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
-            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
-        }
-        child_cost = MPI_Wtime() - start;
-        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_FLOAT, MPI_MAX, comm);
+            my_iteration_time = MPI_Wtime() - it_start;
+            MPI_Barrier(comm);
+            MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+            true_iteration_time = *std::max_element(times.begin(), times.end());
+            int complexity = std::get<0>(computation_info), received = std::get<1>(
+                    computation_info), sent = std::get<2>(computation_info);
+            dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                        window_gini_complexities, window_gini_communications,
+                                                        true_iteration_time, times, sent, received, complexity, comm);
+            child_cost += true_iteration_time;
 
-        children.first->iteration      = it+npframe;
-        children.first->node_cost      = true_child_cost;
-        children.first->heuristic_cost = (total_iteration - (children.first->iteration)) * optimal_step_time;
-        children.second->domain        = domain_boundaries;
+        }
+        MPI_Barrier(comm);
+        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
+
+        children.first->end_it = it + npframe;
+        children.first->node_cost = true_child_cost;
+        children.first->heuristic_cost = (total_iteration - (children.first->end_it)) * optimal_step_time;
+        children.first->domain = domain_boundaries;
+        children.first->path_cost += true_child_cost;
+        children.first->last_metric = dataset_entry;
 
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
-
+        child_cost = 0;
         MPI_Barrier(comm);
-        start = MPI_Wtime();
-
-        for(int i = 0; i < npframe; i++) {
+        for (int i = 0; i < npframe; i++) {
+            it_start = MPI_Wtime();
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                                                                       params, comm);
+            my_iteration_time = MPI_Wtime() - it_start;
+            MPI_Barrier(comm);
+            MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+            true_iteration_time = *std::max_element(times.begin(), times.end());
+            int complexity = std::get<0>(computation_info), received = std::get<1>(
+                    computation_info), sent = std::get<2>(computation_info);
 
+            dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                        window_gini_complexities, window_gini_communications,
+                                                        true_iteration_time, times,
+                                                        sent, received, complexity, comm);
+
+            child_cost += true_iteration_time;
         }
+        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
-        child_cost = MPI_Wtime() - start;
-
-        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_FLOAT, MPI_MAX, comm);
-
-        children.second->iteration      = it+npframe;
-        children.second->node_cost      = true_child_cost;
-        children.second->heuristic_cost = true_child_cost + (total_iteration - (children.second->iteration+npframe)) * optimal_step_time;
-        children.second->domain         = domain_boundaries;
+        children.second->end_it = it + npframe;
+        children.second->node_cost = true_child_cost;
+        children.second->heuristic_cost =
+                true_child_cost + (total_iteration - (children.second->end_it + npframe)) * optimal_step_time;
+        children.second->domain = domain_boundaries;
+        children.second->path_cost += true_child_cost;
+        children.second->last_metric = dataset_entry;
 
         queue.push(children.first);
         queue.push(children.second);
+        current_node = queue.top();
+        queue.pop();
 
-        current_node = queue.top(); queue.pop();
-
-        if(current_node->iteration >= nframes*npframe) {
+        if (current_node->end_it >= nframes * npframe) {
             solution = current_node;
         }
 
-        it = current_node->iteration;
+        it = current_node->end_it;
         MPI_Barrier(comm);
-        std::cout << "end" << std::endl;
-    }
-    if(!rank) std::cout <<"full finished boii" << std::endl;
-    //retrieve best path
-    while(solution->idx > 0) {
-        solution_path.push_back(solution);
-        solution = solution->parent;
     }
 
+    if (!rank) std::cout << solution->cost() << " seconds" << std::endl;
+    //retrieve best path
+    while (solution->idx > 0) {
+        solution_path.push_front(solution);
+        solution = solution->parent;
+    }
     return solution_path;
 }
+
 #endif //NBMPI_BOXRUNNER_HPP
