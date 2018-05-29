@@ -880,17 +880,24 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             if (i > 0)
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
-                                                                       params, comm);
-            my_iteration_time = MPI_Wtime() - it_start;
-            MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-            true_iteration_time = *std::max_element(times.begin(), times.end());
-            int complexity = std::get<0>(computation_info), received = std::get<1>(
-                    computation_info), sent = std::get<2>(computation_info);
-            dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                        window_gini_complexities, window_gini_communications,
-                                                        true_iteration_time, times, sent, received, complexity, comm);
-            child_cost += true_iteration_time;
+            std::tuple<int, int, int> computation_info;
+            try{
+                computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                                                                           params, comm);
+                my_iteration_time = MPI_Wtime() - it_start;
+                MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+                true_iteration_time = *std::max_element(times.begin(), times.end());
+                int complexity = std::get<0>(computation_info), received = std::get<1>(
+                        computation_info), sent = std::get<2>(computation_info);
+                dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                            window_gini_complexities, window_gini_communications,
+                                                            true_iteration_time, times, sent, received, complexity, comm);
+                child_cost += true_iteration_time;
+            } catch (const std::runtime_error& error){
+                std::cout << "Panic! ";
+                std::cout << children.first << std::endl;
+                throw new std::runtime_error("particle out domain");
+            }
 
         }
         MPI_Barrier(comm);
@@ -911,20 +918,24 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             it_start = MPI_Wtime();
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
-                                                                       params, comm);
-            my_iteration_time = MPI_Wtime() - it_start;
-            MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-            true_iteration_time = *std::max_element(times.begin(), times.end());
-            int complexity = std::get<0>(computation_info), received = std::get<1>(
-                    computation_info), sent = std::get<2>(computation_info);
-
-            dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                        window_gini_complexities, window_gini_communications,
-                                                        true_iteration_time, times,
-                                                        sent, received, complexity, comm);
-
-            child_cost += true_iteration_time;
+            std::tuple<int, int, int> computation_info;
+            try{
+                computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                                                                      params, comm);
+                my_iteration_time = MPI_Wtime() - it_start;
+                MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+                true_iteration_time = *std::max_element(times.begin(), times.end());
+                int complexity = std::get<0>(computation_info), received = std::get<1>(
+                        computation_info), sent = std::get<2>(computation_info);
+                dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                            window_gini_complexities, window_gini_communications,
+                                                            true_iteration_time, times, sent, received, complexity, comm);
+                child_cost += true_iteration_time;
+            } catch (const std::runtime_error& error){
+                std::cout << "Panic! ";
+                std::cout << children.second << std::endl;
+                throw new std::runtime_error("particle out domain");
+            }
         }
         MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 

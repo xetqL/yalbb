@@ -12,6 +12,7 @@
 #include <limits>
 #include <deque>
 #include <numeric>
+#include <iostream>
 
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_statistics.h>
