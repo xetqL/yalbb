@@ -879,11 +879,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
             if (i > 0)
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
                                                                        params, comm);
-            MPI_Barrier(comm);
             my_iteration_time = MPI_Wtime() - it_start;
-            MPI_Barrier(comm);
             MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             true_iteration_time = *std::max_element(times.begin(), times.end());
             int complexity = std::get<0>(computation_info), received = std::get<1>(
@@ -915,7 +914,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
                                                                        params, comm);
             my_iteration_time = MPI_Wtime() - it_start;
-            MPI_Barrier(comm);
             MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             true_iteration_time = *std::max_element(times.begin(), times.end());
             int complexity = std::get<0>(computation_info), received = std::get<1>(
