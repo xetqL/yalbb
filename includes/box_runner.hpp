@@ -854,7 +854,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
         auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype, params,
                                                                foreman_comm);
-        optimal_step_time = MPI_Wtime() - it_start;
+        optimal_step_time = (MPI_Wtime() - it_start) / nproc;
     }
     MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
