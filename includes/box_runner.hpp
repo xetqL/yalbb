@@ -790,7 +790,6 @@ template<int N>
 std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> astar_runner(
         MESH_DATA<N> *mesh_data,
         Zoltan_Struct *load_balancer,
-        float optimal_step_time,
         const sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD) {
 
@@ -799,6 +798,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Comm_size(comm, &nproc);
     const int nframes = params->nframes;
     const int npframe = params->npframe;
+    double it_start, true_iteration_time, my_iteration_time;
+
     using Domain = std::vector<partitioning::geometric::Domain<N>>;
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
@@ -830,14 +831,46 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     double time = 0, start, child_cost, true_child_cost;
     const int total_iteration = nframes * npframe;
 
+    //Compute the optimal time per step////////////////////////////////////////////////////////////////////////////////// Get the group of processes in MPI_COMM_WORLD
+    MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
 
+    int ranks[1] = {0};
+// Construct a group containing all of the prime ranks in world_group
+    MPI_Group foreman_group;
+    MPI_Group_incl(world_group, 1, ranks, &foreman_group);
+// Create a new communicator based on the group
+    MPI_Comm foreman_comm;
+    MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
+    MESH_DATA<N> tmp_data;
+    Domain tmp_domain_boundary = {{
+            std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
+    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, tmp_data.els,
+                                       datatype.elements_datatype, comm);
+    MESH_DATA<N> *p_tmp_data = &tmp_data;
+    double optimal_step_time;
+    if (rank == 0) {
+        it_start = MPI_Wtime();
+        load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
+        auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype, params,
+                                                               foreman_comm);
+        optimal_step_time = MPI_Wtime() - it_start;
+    }
+    MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    if(rank==0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;
+
+    MPI_Barrier(comm);
+    MPI_Group_free(&foreman_group);
+    MPI_Group_free(&world_group);
+    if(rank==0) MPI_Comm_free(&foreman_comm);
 
     while (it < nframes * npframe) {
         auto children = current_node->get_children();
         mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
 
-        double it_start, true_iteration_time, my_iteration_time;
         child_cost = 0;
         MPI_Barrier(comm);
         for (int i = 0; i < npframe; i++) {

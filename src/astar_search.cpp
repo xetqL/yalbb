@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
-    auto res = astar_runner<DIMENSION>(&mesh_data, zz, 0, &params, MPI_COMM_WORLD);
+    auto res = astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
     std::ofstream dataset;
     const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
                                          "-" + std::to_string(params.world_size) +
