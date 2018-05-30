@@ -23,7 +23,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
             path_cost,
             heuristic_cost;      // estimated cost to the solution
     std::vector<float> metrics_before_decision, last_metric;
-    MESH_DATA* mesh_data;    // particles informations
+    MESH_DATA mesh_data;    // particles informations
     Domain domain;
 
     inline double get_total_path_cost() const {
@@ -35,7 +35,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
     }
 
     Node (int idx, int it, bool decision, double node_cost, double heuristic,
-          MESH_DATA* mesh_data, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
+          MESH_DATA mesh_data, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
         idx(idx),
         start_it(it),
         end_it(it),
@@ -48,7 +48,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
         mesh_data(mesh_data),
         domain(domain) {}
 
-    Node(MESH_DATA* mesh_data, Domain domain):
+    Node(MESH_DATA mesh_data, Domain domain):
             idx(0), start_it(0), end_it(0), parent(nullptr), decision(true),
             node_cost(0), path_cost(0), heuristic_cost(0),
             mesh_data(mesh_data),  domain(domain){}

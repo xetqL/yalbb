@@ -788,7 +788,7 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
 
 template<int N>
 std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> astar_runner(
-        MESH_DATA<N> *mesh_data,
+        MESH_DATA<N> *p_mesh_data,
         Zoltan_Struct *load_balancer,
         const sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD) {
@@ -799,7 +799,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     const int nframes = params->nframes;
     const int npframe = params->npframe;
     double it_start, true_iteration_time, my_iteration_time;
-
+    MESH_DATA<N> mesh_data = *p_mesh_data;
     using Domain = std::vector<partitioning::geometric::Domain<N>>;
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
@@ -845,7 +845,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MESH_DATA<N> tmp_data;
     Domain tmp_domain_boundary = {{
             std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
-    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, tmp_data.els,
+    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
     double optimal_step_time;
@@ -868,7 +868,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     while (it < nframes * npframe) {
         auto children = current_node->get_children();
-        mesh_data = children.first->mesh_data;
+        mesh_data = children.first->mesh_data; //TODO: It is a shallow copy not a deep copy!!! fix this!
         domain_boundaries = children.first->domain;
 
         child_cost = 0;
@@ -876,13 +876,13 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         for (int i = 0; i < npframe; i++) {
             it_start = MPI_Wtime();
             if (i == 0)
-                zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+                zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
             if (i > 0)
-                load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+                load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             std::tuple<int, int, int> computation_info;
             try{
-                computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                            params, comm);
                 my_iteration_time = MPI_Wtime() - it_start;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
@@ -903,6 +903,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         MPI_Barrier(comm);
         MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
+        children.first->mesh_data = mesh_data;
         children.first->end_it = it + npframe;
         children.first->node_cost = true_child_cost;
         children.first->heuristic_cost = (total_iteration - (children.first->end_it)) * optimal_step_time;
@@ -916,11 +917,11 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         MPI_Barrier(comm);
         for (int i = 0; i < npframe; i++) {
             it_start = MPI_Wtime();
-            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
             std::tuple<int, int, int> computation_info;
             try{
-                computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                       params, comm);
                 my_iteration_time = MPI_Wtime() - it_start;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
@@ -939,6 +940,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         }
         MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
+        children.second->mesh_data = mesh_data;
         children.second->end_it = it + npframe;
         children.second->node_cost = true_child_cost;
         children.second->heuristic_cost =
