@@ -865,9 +865,11 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Group_free(&foreman_group);
     MPI_Group_free(&world_group);
     if(rank==0) MPI_Comm_free(&foreman_comm);
-
+    int number_of_visited_node = 0;
     while (it < nframes * npframe) {
         auto children = current_node->get_children();
+        number_of_visited_node++;
+
         mesh_data = children.first->mesh_data; //TODO: It is a shallow copy not a deep copy!!! fix this!
         domain_boundaries = children.first->domain;
 

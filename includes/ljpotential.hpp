@@ -352,7 +352,7 @@ inline std::tuple<int, int, int> compute_one_step(
         const std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
         const partitioning::CommunicationDatatype& datatype,
         const sim_param_t* params,
-        const MPI_Comm comm){
+        const MPI_Comm comm) throw() {
 
     int received, sent;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
@@ -365,8 +365,11 @@ inline std::tuple<int, int, int> compute_one_step(
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
-
-    lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+    try{
+        lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+    }catch(const std::runtime_error& e){
+        std::cout << "error thrown. Particle is out of domain..." << std::endl;
+    }
 
     int cmplx = lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
 
