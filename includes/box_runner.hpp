@@ -845,7 +845,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MESH_DATA<N> tmp_data;
     Domain tmp_domain_boundary = {{
             std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
-    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
+    /*load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
     double optimal_step_time;
@@ -859,7 +859,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    if(rank==0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;
+    if(rank==0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;*/
 
     MPI_Barrier(comm);
     MPI_Group_free(&foreman_group);
@@ -870,7 +870,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         auto children = current_node->get_children();
         number_of_visited_node++;
 
-        mesh_data = children.first->mesh_data; //TODO: It is a shallow copy not a deep copy!!! fix this!
+        mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
 
         child_cost = 0;
@@ -933,7 +933,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                             window_gini_complexities, window_gini_communications,
                                                             true_iteration_time, times, sent, received, complexity, comm);
                 child_cost += true_iteration_time;
-            } catch (const std::string& error){
+            } catch (const std::runtime_error error){
                 std::cout << "Panic! ";
                 std::cout << children.second << std::endl;
                 throw new std::runtime_error("particle out domain");
