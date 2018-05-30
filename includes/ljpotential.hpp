@@ -65,7 +65,7 @@ void create_cell_linkedlist(
         cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
 
         if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0)
-            throw std::runtime_error("Particle "+std::to_string(cpt) + " is out of domain "+std::to_string(cell_of_particle));
+            throw std::string("Particle "+std::to_string(cpt) + " is out of domain "+std::to_string(cell_of_particle));
         if( plist.find(cell_of_particle) != plist.end())
             plist[cell_of_particle]->push_back(particle);
         else{
@@ -367,8 +367,9 @@ inline std::tuple<int, int, int> compute_one_step(
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
     try{
         lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-    }catch(const std::runtime_error& e){
+    }catch(const std::string& e){
         std::cout << "error thrown. Particle is out of domain..." << std::endl;
+        throw std::string(e);
     }
 
     int cmplx = lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
