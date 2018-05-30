@@ -804,6 +804,17 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     Domain domain_boundaries(nproc);
+    {
+        int dim;
+        double xmin, ymin, zmin, xmax, ymax, zmax;
+        // get boundaries of all domains
+        for (int part = 0; part < nproc; ++part) {
+            Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                        params->simsize);
+            domain_boundaries[part] = domain;
+        }
+    }
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::priority_queue<
@@ -847,7 +858,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     Domain tmp_domain_boundary = {{
             std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
-    /*load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
+    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
     if (rank == 0) {
@@ -860,7 +871,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    if(rank==0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;*/
+    if(rank==0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;
 
     MPI_Barrier(comm);
     MPI_Group_free(&foreman_group);
