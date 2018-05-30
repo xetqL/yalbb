@@ -843,12 +843,13 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Comm foreman_comm;
     MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
     MESH_DATA<N> tmp_data;
+    double optimal_step_time = 0;
+
     Domain tmp_domain_boundary = {{
             std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
     /*load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
-    double optimal_step_time;
     if (rank == 0) {
         it_start = MPI_Wtime();
         load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
