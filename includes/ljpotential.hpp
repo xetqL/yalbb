@@ -49,12 +49,12 @@ void create_cell_linkedlist(
 }
 
 template <int N, class MapType>
-void create_cell_linkedlist(
+int create_cell_linkedlist(
         const int nsub, /* number of subdomain per row*/
         const double lsub, /* width of subdomain */
         const std::vector<elements::Element<N>> &local_elements, /* particle location */
         const std::vector<elements::Element<N>> &remote_elements, /* particle location */
-        MapType &plist) throw() {
+        MapType &plist) {
     int cell_of_particle;
 
     plist.clear();
@@ -65,7 +65,7 @@ void create_cell_linkedlist(
         cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
 
         if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0)
-            throw std::string("Particle "+std::to_string(cpt) + " is out of domain "+std::to_string(cell_of_particle));
+            return 400;
         if( plist.find(cell_of_particle) != plist.end())
             plist[cell_of_particle]->push_back(particle);
         else{
@@ -73,6 +73,7 @@ void create_cell_linkedlist(
             plist[cell_of_particle]->push_back(particle);
         }
     }
+    return 0;
 }
 
 template<int N>
@@ -352,7 +353,7 @@ inline std::tuple<int, int, int> compute_one_step(
         const std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
         const partitioning::CommunicationDatatype& datatype,
         const sim_param_t* params,
-        const MPI_Comm comm) throw() {
+        const MPI_Comm comm) {
 
     int received, sent;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
@@ -365,11 +366,11 @@ inline std::tuple<int, int, int> compute_one_step(
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
-    try{
-        lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-    }catch(const std::string& e){
-        std::cout << "error thrown. Particle is out of domain..." << std::endl;
-        throw std::string(e);
+
+    int err = lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+
+    if(err) {
+        throw std::runtime_error("Particle out of domain");
     }
 
     int cmplx = lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);

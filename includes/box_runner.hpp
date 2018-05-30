@@ -895,12 +895,11 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                             window_gini_complexities, window_gini_communications,
                                                             true_iteration_time, times, sent, received, complexity, comm);
                 child_cost += true_iteration_time;
-            } catch (const std::string& error){
+            } catch (const std::runtime_error e){
                 std::cout << "Panic! ";
                 std::cout << children.first << std::endl;
-                throw std::runtime_error("particle out domain");
+                throw;
             }
-
         }
         MPI_Barrier(comm);
         MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
