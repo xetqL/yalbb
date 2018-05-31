@@ -282,9 +282,9 @@ namespace elements {
         }
     }
 
+
     template<int N>
     partitioning::CommunicationDatatype register_datatype() {
-
         MPI_Datatype element_datatype,
                 vec_datatype,
                 range_datatype,

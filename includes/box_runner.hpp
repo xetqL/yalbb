@@ -910,9 +910,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             } catch (const std::runtime_error e){
                 std::cout << "Panic! ";
                 std::cout << children.first << std::endl;
-                throw;
+                throw new std::runtime_error("particle out domain");
             }
         }
+
         MPI_Barrier(comm);
         MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
