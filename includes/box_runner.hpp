@@ -677,31 +677,12 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
     if (params->record)
         load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf,
                                            datatype.elements_datatype, comm);
-    if (rank == 0) { // Write report and outputs ...
-        lb_file.open("LIr_" + std::to_string(params->world_size) +
-                     "-" + std::to_string(params->npart) +
-                     "-" + std::to_string((params->nframes * params->npframe)) +
-                     "-" + std::to_string((int) (params->T0)) +
-                     "-" + std::to_string((params->G)) +
-                     "-" + std::to_string((params->eps_lj)) +
-                     "-" + std::to_string((params->sig_lj)) +
-                     "-" + std::to_string((params->one_shot_lb_call)) +
-                     "_" + date + ".data", std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-        write_report_header_bin(lb_file, params, rank);     // write header
-
-        metric_file.open(params->uuid + "-" + date + ".metrics",
-                         std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
-        write_report_header_bin(metric_file, params, rank, rank); // write the same header
-
-        if (params->record) {
-            //write_header(fp, params->npart, params->simsize);
-            //write_frame_data(fp, params->npart, &recv_buf[0]);
-            frame_file.open("run_cpp.out", std::ofstream::out | std::ofstream::trunc);
-            frame_formater.write_header(frame_file, params->npframe, params->simsize);
-            write_frame_data(frame_file, recv_buf, frame_formater, params);
-        }
-
+    if (params->record && !rank) {
+        frame_file.open("run_cpp.out", std::ofstream::out | std::ofstream::trunc);
+        frame_formater.write_header(frame_file, params->npframe, params->simsize);
+        write_frame_data(frame_file, recv_buf, frame_formater, params);
     }
+
     std::vector<elements::Element<N>> remote_el;
     double begin = MPI_Wtime();
     for (int frame = 0; frame < nframes; ++frame) {
@@ -710,54 +691,12 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
             // double start = MPI_Wtime();
             // Load balance criteria...
             if (params->one_shot_lb_call == (i + frame * npframe) ||
-                (params->lb_interval > 0 && ((i + frame * npframe) % params->lb_interval) == 0)) {
-                zoltan_fn_init(load_balancer, mesh_data);
-                Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
-                                    &changes,           /* 1 if partitioning was changed, 0 otherwise */
-                                    &numGidEntries,     /* Number of integers used for a global ID */
-                                    &numLidEntries,     /* Number of integers used for a local ID */
-                                    &numImport,         /* Number of vertices to be sent to me */
-                                    &importGlobalGids,  /* Global IDs of vertices to be sent to me */
-                                    &importLocalGids,   /* Local IDs of vertices to be sent to me */
-                                    &importProcs,       /* Process rank for source of each incoming vertex */
-                                    &importToPart,      /* New partition for each incoming vertex */
-                                    &numExport,         /* Number of vertices I must send to other processes*/
-                                    &exportGlobalGids,  /* Global IDs of the vertices I must send */
-                                    &exportLocalGids,   /* Local IDs of the vertices I must send */
-                                    &exportProcs,       /* Process to which I send each of the vertices */
-                                    &exportToPart);     /* Partition to which each vertex will belong */
-                if (changes)
-                    for (int part = 0; part < nproc; ++part) {
-                        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-                        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
-                                                                                    params->simsize);
-                        domain_boundaries[part] = domain;
-                    }
-                load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
-                                                             exportGlobalGids, datatype, MPI_COMM_WORLD);
-                Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
-                Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
-            }
+                (params->lb_interval > 0 && ((i + frame * npframe) % params->lb_interval) == 0))
+                zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
 
-            int received = 0, sent = 0;
-            remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm,
-                                                                    received, sent, lsub);
-
-            // update local ids
-            for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
-
-            lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-
-            lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
-
-            leapfrog2(dt, mesh_data->els);
-            leapfrog1(dt, mesh_data->els);
-            apply_reflect(mesh_data->els, params->simsize);
-
+            lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
             load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
-
         }
-        // Send metrics
 
         // Write metrics to report file
         if (params->record)
@@ -769,7 +708,6 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
             double time_spent = (end - begin);
             if (params->record) {
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
-                //write_frame_data(fp, params->npart, &recv_buf[0]);
             }
             printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
             begin = MPI_Wtime();
@@ -777,13 +715,8 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
     }
 
     MPI_Barrier(comm);
-    if (rank == 0) {
-        double diff = (MPI_Wtime() - start_sim) / 1e-3;
-        write_report_total_time_bin<float>(lb_file, diff, rank);
-        lb_file.close();
+    if (rank == 0)
         frame_file.close();
-        metric_file.close();
-    }
 }
 
 template<int N>
@@ -842,7 +775,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     double time = 0, start, child_cost, true_child_cost;
     const int total_iteration = nframes * npframe;
 
-    //Compute the optimal time per step////////////////////////////////////////////////////////////////////////////////// Get the group of processes in MPI_COMM_WORLD
+// Compute the optimal time per step
+// Get the group of processes in MPI_COMM_WORLD
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
 
