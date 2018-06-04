@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(nbmpi)
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 
 find_package(MPI REQUIRED)
 find_package(GSL REQUIRED)
@@ -26,6 +26,16 @@ link_directories(${BOOST_LIBRARY_DIRECTORY})
 # Tests
 ########################################################################################################################
 ## Space Partitioning
+
+OPTION(DEBUG
+        "Build the project using debugging code"
+        OFF)
+IF(DEFINE_DEBUG)
+    MESSAGE("Adding Debug flag...")
+    ADD_DEFINITIONS(-DDEBUG)
+    SET(CMAKE_BUILD_TYPE Debug)
+    MESSAGE("Build type is " ${CMAKE_BUILD_TYPE})
+ENDIF(DEFINE_DEBUG)
 
 add_executable(build_tests_space_partitioning
         Makefile
