@@ -1,7 +1,23 @@
 cmake_minimum_required(VERSION 3.5)
 project(nbmpi)
 
-set(CMAKE_BUILD_TYPE Release)
+
+if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    MESSAGE("Compile with debug flag")
+    ADD_DEFINITIONS(-DDEBUG)
+else()
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if (ASTAR_IMPL STREQUAL STD)
+    MESSAGE("Compile with A* standard implementation")
+    ADD_DEFINITIONS(-DASTAR_STD_IMPL)
+endif()
+
+if (ASTAR_IMPL STREQUAL MEM)
+    MESSAGE("Compile with A* memory implementation")
+    ADD_DEFINITIONS(-DASTAR_MEM_IMPL)
+endif ()
 
 find_package(MPI REQUIRED)
 find_package(GSL REQUIRED)
@@ -27,22 +43,12 @@ link_directories(${BOOST_LIBRARY_DIRECTORY})
 ########################################################################################################################
 ## Space Partitioning
 
-OPTION(DEBUG
-        "Build the project using debugging code"
-        OFF)
-IF(DEFINE_DEBUG)
-    MESSAGE("Adding Debug flag...")
-    ADD_DEFINITIONS(-DDEBUG)
-    SET(CMAKE_BUILD_TYPE Debug)
-    MESSAGE("Build type is " ${CMAKE_BUILD_TYPE})
-ENDIF(DEFINE_DEBUG)
-
 add_executable(build_tests_space_partitioning
-        Makefile
-        ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp
-        ${INCLUDE_DIRECTORY}/utils.hpp
-        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
-        includes/spatial_elements.hpp)
+    Makefile
+    ${TEST_SOURCE_DIRECTORY}/test_spatial_partitioning.cpp
+    ${INCLUDE_DIRECTORY}/utils.hpp
+    ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+    includes/spatial_elements.hpp)
 
 set_target_properties(build_tests_space_partitioning
         PROPERTIES

@@ -7,7 +7,6 @@
 #include <random>
 
 #include <zoltan.h>
-
 #include "../includes/box_runner.hpp"
 
 int main(int argc, char **argv) {
@@ -100,8 +99,16 @@ int main(int argc, char **argv) {
 
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
-
+#ifdef ASTAR_MEM_IMPL //hotfix memory optimization
+    if(!rank) std::cout << "IDA* + Custom memory opt. implementation of A*" << std::endl;
+    auto res = astar_memory_opt_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+#else
+#ifdef ASTAR_STD_IMPL
+    if(!rank) std::cout << "Standard implementation of A*" << std::endl;
     auto res = astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+#endif
+#endif
+
     std::ofstream dataset;
     const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
                                          "-" + std::to_string(params.world_size) +
