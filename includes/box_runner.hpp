@@ -954,6 +954,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             domain_boundaries[part] = domain;
         }
     }
+    Domain start_domain_boundaries = domain_boundaries;
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::priority_queue<
@@ -970,8 +971,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     std::vector<double> times(nproc);
 
-    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node =
-            std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data, domain_boundaries), solution;
+    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node, solution;
 
     current_node->metrics_before_decision = dataset_entry;
     current_node->last_metric = dataset_entry;
@@ -1027,6 +1027,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 std::shared_ptr<Node<MESH_DATA<N>, Domain> >,
                 std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain> > >,
                 Compare<MESH_DATA<N>, Domain> >();
+        current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(*p_mesh_data, start_domain_boundaries);
         it = 0;
         while (it < nframes * npframe) {
 
