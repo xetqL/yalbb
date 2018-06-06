@@ -973,13 +973,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node, solution;
 
-    current_node->metrics_before_decision = dataset_entry;
-    current_node->last_metric = dataset_entry;
-
     std::list<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
     int it = 0;
     double time = 0, start, child_cost, true_child_cost;
-    const int total_iteration = nframes * npframe;
+
     // Compute the optimal time per step
     // Get the group of processes in MPI_COMM_WORLD
     MPI_Group world_group;
@@ -992,27 +989,35 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Comm foreman_comm;
     MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
     MESH_DATA<N> tmp_data;
-    double optimal_step_time = 0;
 
     Domain tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
     load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
+    std::vector<double> optimal_frame_time_lookup_table(nframes);
     if (rank == 0) {
-        it_start = MPI_Wtime();
-        load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
-        auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
-                                                                   params,
-                                                                   foreman_comm);
-        optimal_step_time = (MPI_Wtime() - it_start) / nproc;
+
+        for(int frame = 0; frame < nframes; frame++){
+            double frame_time = 0;
+            for(int step = 0; step < npframe; step++){
+                it_start = MPI_Wtime();
+                //load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
+                auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
+                                                                           params,
+                                                                           foreman_comm);
+                frame_time  += (MPI_Wtime() - it_start);
+            }
+
+            optimal_frame_time_lookup_table[frame] = frame_time / nproc;
+        }
     }
 
-    MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
+    MPI_Bcast(&optimal_frame_time_lookup_table.front(), nframes, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    if (rank == 0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;
-
-    float shallowest_possible_solution = optimal_step_time * (nframes * 1.3 * npframe);
+    double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
+    if (rank == 0) std::cout << "Optimal time: " << (total_optimal_time) << std::endl;
+    double shallowest_possible_solution = total_optimal_time * 1.5;
 
     MPI_Barrier(comm);
 
@@ -1028,15 +1033,23 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain> > >,
                 Compare<MESH_DATA<N>, Domain> >();
         current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(*p_mesh_data, start_domain_boundaries);
+        std::fill(dataset_entry.begin(), dataset_entry.end(), 0);
+        current_node->metrics_before_decision = dataset_entry;
+        current_node->last_metric    = dataset_entry;
         it = 0;
-        while (it < nframes * npframe) {
 
+        while (it < nframes * npframe) {
+            int number_of_frames_computed;
             auto children = current_node->get_children();
             number_of_visited_node++;
-            if (!rank) {
+#ifdef DEBUG
+            if(!rank){
                 std::cout << "Number of visited node: " << number_of_visited_node;
-                std::cout << ", Number of node in queue: " << queue.size() << std::endl;
+                std::cout << ", Number of node in queue: " << queue.size();
+                std::cout << ", Current iteration: " << it<<std::endl;
+                std::cout << current_node << std::endl;
             }
+#endif
             mesh_data = particles_states[it];
             domain_boundaries = children.first->domain;
             load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
@@ -1053,8 +1066,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 std::tuple<int, int, int> computation_info;
                 try {
                     computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries,
-                                                                          datatype,
-                                                                          params, comm);
+                                                                          datatype, params, comm);
                     my_iteration_time = MPI_Wtime() - it_start;
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
@@ -1079,7 +1091,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
             children.first->end_it = it + npframe;
             children.first->node_cost = true_child_cost;
-            children.first->heuristic_cost = (total_iteration - (children.first->end_it)) * optimal_step_time;
+            number_of_frames_computed  = (children.first->end_it / npframe);
+            children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);
             children.first->domain = domain_boundaries;
             children.first->path_cost += true_child_cost;
             children.first->last_metric = dataset_entry;
@@ -1122,8 +1135,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
             children.second->end_it = it + npframe;
             children.second->node_cost = true_child_cost;
+            number_of_frames_computed  = (children.first->end_it / npframe) + 1;
             children.second->heuristic_cost =
-                    true_child_cost + (total_iteration - (children.second->end_it + npframe)) * optimal_step_time;
+                    true_child_cost + std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);
             children.second->domain = domain_boundaries;
             children.second->path_cost += true_child_cost;
             children.second->last_metric = dataset_entry;
@@ -1138,22 +1152,20 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
             if (current_node->end_it >= nframes * npframe) {
                 solution = current_node;
-                solution_found = true;
+                if (!rank) std::cout << solution->cost() << " seconds" << std::endl;
+                //retrieve best path
+                while (solution->parent.get() != nullptr) {
+                    solution_path.push_front(solution);
+                    solution = solution->parent;
+                }
+                return solution_path;
             }
 
             it = current_node->end_it;
             MPI_Barrier(comm);
         }
-        shallowest_possible_solution += (optimal_step_time * npframe * 5);
+        shallowest_possible_solution += (total_optimal_time * 0.3);
     }
-
-    if (!rank) std::cout << solution->cost() << " seconds" << std::endl;
-    //retrieve best path
-    while (solution->idx > 0) {
-        solution_path.push_front(solution);
-        solution = solution->parent;
-    }
-    return solution_path;
 }
 
 #endif //NBMPI_BOXRUNNER_HPP
