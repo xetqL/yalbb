@@ -152,6 +152,64 @@ R<typename Sub::value_type> flatten(Top const& all)
 }
 }
 namespace statistic {
+template<class RealType>
+std::tuple<RealType, RealType, RealType> sph2cart(RealType azimuth, RealType elevation, RealType r){
+    RealType x = r * std::cos(elevation) * std::cos(azimuth);
+    RealType y = r * std::cos(elevation) * std::sin(azimuth);
+    RealType z = r * std::sin(elevation);
+    return std::make_tuple(x,y,z);
+}
+
+template<int N, class RealType>
+class UniformSphericalDistribution {
+    const RealType sphere_size, spherex, spherey, spherez;
+public:
+    UniformSphericalDistribution(RealType sphere_size, RealType spherex, RealType spherey, RealType spherez):
+            sphere_size(sphere_size), spherex(spherex), spherey(spherey), spherez(spherez) {}
+
+    std::array<RealType, N> operator()(std::mt19937& gen) {
+        std::uniform_real_distribution<RealType> udist(0, 1);
+        RealType rval = 2.0 * udist(gen) - 1;
+        RealType elevation = std::asin(rval);
+        RealType azimuth = 2.0 * M_PI * udist(gen);
+        RealType radii = (sphere_size/2.0) * (std::pow(udist(gen), 1.0/3.0));
+        auto p = sph2cart(azimuth, elevation, rval);
+        if(N > 2) return {(std::get<0>(p)+spherex), std::get<1>(p)+spherey, std::get<2>(p)+spherez};
+        else return {std::get<0>(p)+spherex, std::get<1>(p)+spherey};
+    }
+};
+
+template<int N, class RealType>
+class NormalSphericalDistribution {
+    const RealType sphere_size, spherex, spherey, spherez;
+public:
+    NormalSphericalDistribution(RealType sphere_size, RealType spherex, RealType spherey, RealType spherez):
+            sphere_size(sphere_size), spherex(spherex), spherey(spherey), spherez(spherez) {}
+
+    std::array<RealType, N> operator()(std::mt19937& gen) {
+        std::normal_distribution<RealType> ndistx(spherex, sphere_size/2.0); // could do better
+        std::normal_distribution<RealType> ndisty(spherey, sphere_size/2.0); // could do better
+        if(N>2){
+            RealType x,y,z;
+            do {
+                std::normal_distribution<RealType> ndistz(spherez, sphere_size/2.0); // could do better
+                x = ndistx(gen);
+                y = ndisty(gen);
+                z = ndistz(gen);
+            } while( (spherex-x)*(spherex-x) + (spherey-y)*(spherey-y) + (spherez-z)*(spherez-z) <= (sphere_size*sphere_size/4.0) );
+            return {x, y, z};
+        }else{
+            RealType x,y;
+            do {
+                x = ndistx(gen);
+                y = ndisty(gen);
+            } while((spherex-x)*(spherex-x) + (spherey-y)*(spherey-y) <= (sphere_size*sphere_size/4.0) );
+            return {x, y};
+        }
+    }
+};
+
+
 /**
  * From http://www.tangentex.com/RegLin.htm
  * @tparam ContainerA

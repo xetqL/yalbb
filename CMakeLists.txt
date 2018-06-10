@@ -12,11 +12,15 @@ endif()
 if (ASTAR_IMPL STREQUAL STD)
     MESSAGE("Compile with A* standard implementation")
     ADD_DEFINITIONS(-DASTAR_STD_IMPL)
-endif()
-
-if (ASTAR_IMPL STREQUAL MEM)
-    MESSAGE("Compile with A* memory implementation")
-    ADD_DEFINITIONS(-DASTAR_MEM_IMPL)
+elseif (ASTAR_IMPL STREQUAL IDA)
+    MESSAGE("Compile with IDA* implementation")
+    ADD_DEFINITIONS(-DIDASTAR_IMPL)
+elseif(ASTAR_IMPL STREQUAL IDAOPT)
+    MESSAGE("Compile with IDA* optimized implementation")
+    ADD_DEFINITIONS(-DIDASTAR_OPT_IMPL)
+else()
+    MESSAGE("Compile with A* standard implementation")
+    ADD_DEFINITIONS(-DASTAR_STD_IMPL)
 endif ()
 
 find_package(MPI REQUIRED)
@@ -217,7 +221,7 @@ add_executable(astar
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/astar_search.cpp)
+        src/astar_search.cpp includes/initial_conditions.hpp)
 target_include_directories(astar
         PRIVATE
         ${MPI_C_INCLUDE_PATH}

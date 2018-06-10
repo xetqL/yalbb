@@ -5,6 +5,7 @@
 #include <zoltan.h>
 
 #include "../includes/box_runner.hpp"
+#include "../includes/initial_conditions.hpp"
 
 int main(int argc, char** argv) {
     constexpr int DIMENSION = 3;
@@ -47,7 +48,20 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
-    init_mesh_data<DIMENSION>(rank, nproc, mesh_data, &params);
+    if(rank == 0){
+        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(mesh_data.els),
+                                                                                  params.sig_lj*params.sig_lj,
+                                                                                  params.T0,
+                                                                                  0, 0, 0,
+                                                                                  params.simsize,
+                                                                                  params.simsize,
+                                                                                  params.simsize);
+        //initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION> elements_generator;
+        initial_condition::lennard_jones::RandomElementsInClustersGenerator<DIMENSION> elements_generator(6, params.npart / 2, params.seed, 1000);
+
+        elements_generator.generate_elements(mesh_data.els, params.npart, &condition);
+        std::cout << elements_generator.number_of_clusters_generated << " clusters generated and "<< mesh_data.els.size() << " part." << std::endl;
+    }
 
     auto zz = zoltan_create_wrapper();
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);

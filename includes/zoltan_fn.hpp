@@ -16,10 +16,6 @@
 #include <vector>
 #include <zoltan.h>
 
-template<int N>
-struct MESH_DATA {
-    std::vector<elements::Element<N>> els;
-};
 
 template<int N>
 void init_mesh_data(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* params) {
@@ -29,7 +25,7 @@ void init_mesh_data(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* 
 
         //std::random_device rd; //Will be used to obtain a seed for the random number engine
         std::mt19937 gen(params->seed); //Standard mersenne_twister_engine seeded with rd()
-        std::uniform_real_distribution<double> udist(0.0, params->simsize);
+        std::uniform_real_distribution<elements::ElementRealType> udist(0.0, params->simsize);
         //std::normal_distribution<double> ndist(params->simsize/2, 0.5);
 
         std::vector<elements::Element<N>> elements(params->npart);
@@ -37,43 +33,6 @@ void init_mesh_data(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* 
         elements::Element<N>::create_random_n(elements, udist, gen, [=](auto point, auto other){
             return elements::distance2<N>(point, other) >= min_r2;
         });
-
-        elements::init_particles_random_v(elements, params->T0);
-        mesh_data.els = elements;
-    } else {}
-}
-
-template<int N>
-void init_mesh_data_in_sphere(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* params) {
-
-    if (rank == 0) {
-        double min_r2 = params->sig_lj*params->sig_lj;
-
-        //std::random_device rd; //Will be used to obtain a seed for the random number engine
-        std::mt19937 gen(params->seed); //Standard mersenne_twister_engine seeded with rd()
-        std::uniform_real_distribution<double> udist(min_r2, min_r2 + min_r2*0.1);
-        //std::normal_distribution<double> ndist(params->simsize/2, 0.5);
-
-        std::vector<elements::Element<N>> elements(params->npart);
-
-        float sphere_center = params->simsize / 2.0f;
-        float sphere_radius = params->simsize / 6.0f;
-        float encompassing_square_x1 = params->simsize / 6.0f;
-        float encompassing_square_x2 = params->simsize - params->simsize / 6.0f;
-        float encompassing_square_y1 = params->simsize / 6.0f;
-        float encompassing_square_y2 = params->simsize - params->simsize / 6.0f;
-        float encompassing_square_z1 = params->simsize / 6.0f;
-        float encompassing_square_z2 = params->simsize - params->simsize / 6.0f;
-
-        for(float part_x = encompassing_square_x1; part_x < encompassing_square_x2; part_x += udist(gen)){
-            for(float part_y = encompassing_square_y1; part_y < encompassing_square_y2; part_y += udist(gen)){
-                if(N == 3){
-                    for(float part_z = encompassing_square_z1; part_z < encompassing_square_z2; part_z += udist(gen)){
-
-                    }
-                }
-            }
-        }
 
         elements::init_particles_random_v(elements, params->T0);
         mesh_data.els = elements;

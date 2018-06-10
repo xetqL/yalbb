@@ -8,6 +8,7 @@
 
 #include <zoltan.h>
 #include "../includes/box_runner.hpp"
+#include "../includes/initial_conditions.hpp"
 
 int main(int argc, char **argv) {
     constexpr int DIMENSION = 3;
@@ -65,9 +66,23 @@ int main(int argc, char **argv) {
     }
 
     MESH_DATA<DIMENSION> _mesh_data;
-    init_mesh_data<DIMENSION>(rank, nproc, _mesh_data, &params);
+    if(rank == 0){
+        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(_mesh_data.els),
+                                                                                  params.sig_lj*params.sig_lj,
+                                                                                  params.T0,
+                                                                                  0, 0, 0,
+                                                                                  params.simsize,
+                                                                                  params.simsize,
+                                                                                  params.simsize);
+        //initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION> elements_generator;
+        initial_condition::lennard_jones::RandomElementsInClustersGenerator<DIMENSION> elements_generator(6, params.npart / 2, params.seed, 100000);
+
+        elements_generator.generate_elements(_mesh_data.els, params.npart, &condition);
+
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
+
     MESH_DATA<DIMENSION> mesh_data = _mesh_data;
 
     auto zz = zoltan_create_wrapper();
@@ -99,16 +114,18 @@ int main(int argc, char **argv) {
 
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
-#ifdef ASTAR_MEM_IMPL //hotfix memory optimization
+#ifdef IDASTAR_IMPL
     if(!rank) std::cout << "IDA* + Custom memory opt. implementation of A*" << std::endl;
-    auto res = astar_memory_opt_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+    auto res = IDAstar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
 #else
-#ifdef ASTAR_STD_IMPL
+#ifdef ASTAR_IMPL
     if(!rank) std::cout << "Standard implementation of A*" << std::endl;
-    auto res = astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+    auto res = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+#else
+    if(!rank) std::cout << "Standard implementation of A*" << std::endl;
+    auto res = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
 #endif
 #endif
-
     std::ofstream dataset;
     const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
                                          "-" + std::to_string(params.world_size) +
