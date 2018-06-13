@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <iostream>
 
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
@@ -150,6 +151,7 @@ R<typename Sub::value_type> flatten(Top const& all)
         std::copy(begin(sub), end(sub), std::inserter(accum, end(accum)));
     return accum;
 }
+
 }
 namespace statistic {
 template<class RealType>
@@ -162,19 +164,33 @@ std::tuple<RealType, RealType, RealType> sph2cart(RealType azimuth, RealType ele
 
 template<int N, class RealType>
 class UniformSphericalDistribution {
-    const RealType sphere_size, spherex, spherey, spherez;
+    const RealType sphere_radius, spherex, spherey, spherez;
 public:
-    UniformSphericalDistribution(RealType sphere_size, RealType spherex, RealType spherey, RealType spherez):
-            sphere_size(sphere_size), spherex(spherex), spherey(spherey), spherez(spherez) {}
+    UniformSphericalDistribution(RealType sphere_radius, RealType spherex, RealType spherey, RealType spherez):
+            sphere_radius(sphere_radius), spherex(spherex), spherey(spherey), spherez(spherez) {}
 
     std::array<RealType, N> operator()(std::mt19937& gen) {
-        std::uniform_real_distribution<RealType> udist(0, 1);
-        RealType rval = 2.0 * udist(gen) - 1;
-        RealType elevation = std::asin(rval);
-        RealType azimuth = 2.0 * M_PI * udist(gen);
-        RealType radii = (sphere_size/2.0) * (std::pow(udist(gen), 1.0/3.0));
-        auto p = sph2cart(azimuth, elevation, rval);
-        if(N > 2) return {(std::get<0>(p)+spherex), std::get<1>(p)+spherey, std::get<2>(p)+spherez};
+        /*
+        r1 = (np.random.uniform(0, 1 , n)*(b**3-a**3)+a**3)**(1/3);
+        phi1 = np.arccos(-1 + 2*np.random.uniform(0, 1, n));
+        th1 = 2*pi*np.random.uniform(0, 1, n);
+        x = r1*np.sin(phi1)*np.sin(th1) + X;
+        y = r1*np.sin(phi1)*np.cos(th1) + Y;
+        z = r1*np.cos(phi1) + Z;
+        */
+        RealType a = sphere_radius, b = 0.0;
+        std::uniform_real_distribution<RealType> udist(0.0, 1.0);
+
+        RealType r1 = std::pow((udist(gen) * (std::pow(b, 3) - std::pow(a, 3)) + std::pow(a, 3)), 1.0/3.0);
+        RealType ph1 = std::acos(-1.0 + 2.0 * udist(gen));
+        RealType th1 = 2.0 * M_PI * udist(gen);
+
+        auto p = std::make_tuple<RealType, RealType, RealType>(
+                r1*std::sin(ph1) * std::sin(th1),
+                r1*std::sin(ph1) * std::cos(th1),
+                r1*std::cos(ph1)
+        );
+        if(N > 2) return {(std::get<0>(p))+spherex, std::get<1>(p)+spherey, std::get<2>(p)+spherez};
         else return {std::get<0>(p)+spherex, std::get<1>(p)+spherey};
     }
 };
@@ -187,25 +203,30 @@ public:
             sphere_size(sphere_size), spherex(spherex), spherey(spherey), spherez(spherez) {}
 
     std::array<RealType, N> operator()(std::mt19937& gen) {
+        std::array<RealType, N> res;
         std::normal_distribution<RealType> ndistx(spherex, sphere_size/2.0); // could do better
         std::normal_distribution<RealType> ndisty(spherey, sphere_size/2.0); // could do better
-        if(N>2){
+        if(N == 3) {
             RealType x,y,z;
             do {
                 std::normal_distribution<RealType> ndistz(spherez, sphere_size/2.0); // could do better
                 x = ndistx(gen);
                 y = ndisty(gen);
                 z = ndistz(gen);
+                res[0] = x;
+                res[1] = y;
+                res[2] = z;
             } while( (spherex-x)*(spherex-x) + (spherey-y)*(spherey-y) + (spherez-z)*(spherez-z) <= (sphere_size*sphere_size/4.0) );
-            return {x, y, z};
-        }else{
+        } else {
             RealType x,y;
             do {
                 x = ndistx(gen);
                 y = ndisty(gen);
+                res[0] = x;
+                res[1] = y;
             } while((spherex-x)*(spherex-x) + (spherey-y)*(spherey-y) <= (sphere_size*sphere_size/4.0) );
-            return {x, y};
         }
+        return res;
     }
 };
 

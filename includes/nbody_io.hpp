@@ -173,8 +173,33 @@ private:
     }
 };
 
-template<int N, class FrameFormater>
-void write_frame_data(std::ofstream &stream, std::vector<elements::Element<N>>& els, FrameFormater& formatter, const sim_param_t* params) {
+struct SimpleCSVFormatter {
+    const char separator;
+    SimpleCSVFormatter(char separator) : separator(separator){}
+
+    template<int N>
+    inline void write_data(std::ofstream &stream, elements::Element<N>& el){
+        stream << el.position[0] << separator << el.position[1];
+        if(N > 2) stream << separator <<  el.position[2];
+        stream << std::endl;
+    }
+    inline void write_header(std::ofstream &stream, const int n, float simsize){
+        configure_stream(stream);
+    }
+    template<int N>
+    inline void write_frame_header(std::ofstream &stream, std::vector<elements::Element<N>>& els, const sim_param_t* params){
+        stream << "x coord" << separator << "y coord";
+        if(N > 2) stream << separator << "z coord";
+        stream << std::endl;
+    }
+private:
+    inline void configure_stream(std::ofstream &stream, int precision = 6){
+        stream << std::fixed << std::setprecision(6);
+    }
+};
+
+template<int N, class FrameFormatter>
+void write_frame_data(std::ofstream &stream, std::vector<elements::Element<N>>& els, FrameFormatter& formatter, const sim_param_t* params) {
     formatter.write_frame_header(stream, els, params);
     for(elements::Element<N> &el : els ) {
         formatter.write_data(stream, el);

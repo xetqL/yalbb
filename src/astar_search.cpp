@@ -68,6 +68,7 @@ int main(int argc, char **argv) {
     MESH_DATA<DIMENSION> _mesh_data;
     if(rank == 0){
         initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(_mesh_data.els),
+                                                                                  params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
                                                                                   params.T0,
                                                                                   0, 0, 0,
@@ -75,10 +76,12 @@ int main(int argc, char **argv) {
                                                                                   params.simsize,
                                                                                   params.simsize);
         //initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION> elements_generator;
-        initial_condition::lennard_jones::RandomElementsInClustersGenerator<DIMENSION> elements_generator(6, params.npart / 2, params.seed, 100000);
-
+        constexpr int NB_CLUSTERS = 6;
+        std::array<int, NB_CLUSTERS> clusters;
+        std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
+        initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>
+                elements_generator(clusters, params.seed, 100000);
         elements_generator.generate_elements(_mesh_data.els, params.npart, &condition);
-
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
