@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
                                                                                   params.simsize,
                                                                                   params.simsize,
                                                                                   params.simsize);
-        //initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION> elements_generator;
         constexpr int NB_CLUSTERS = 6;
+
         std::array<int, NB_CLUSTERS> clusters;
         std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
         initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>

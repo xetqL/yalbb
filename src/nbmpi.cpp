@@ -63,7 +63,8 @@ int main(int argc, char** argv) {
         std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
         initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>
                 elements_generator(clusters, params.seed, 100000);
-        elements_generator.generate_elements(mesh_data.els, params.npart, &condition);    }
+        elements_generator.generate_elements(mesh_data.els, params.npart, &condition);
+    }
 
     auto zz = zoltan_create_wrapper();
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
