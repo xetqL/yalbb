@@ -1026,7 +1026,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
     if (rank == 0) std::cout << "Optimal time: " << (total_optimal_time) << std::endl;
-    double shallowest_possible_solution = total_optimal_time * 3.0;
+    double shallowest_possible_solution = total_optimal_time * 5.0;
 
     MPI_Barrier(comm);
 
