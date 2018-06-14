@@ -16,6 +16,7 @@
 
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_statistics.h>
+#include <mpi.h>
 #include "report.hpp"
 #include "utils.hpp"
 
@@ -45,7 +46,7 @@ namespace metric {
 
 class FeatureContainer {
 public:
-    virtual std::vector<float> get_features() = 0;
+    virtual std::vector<double> get_features() = 0;
 
     virtual int get_target() = 0;
 };
@@ -237,7 +238,7 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
                                                                                                                 1));
         return {
                 gini_times, gini_complexities, gini_communications,
-                skewness_times, skewness_complexities, skewness_communications,
+                //skewness_times, skewness_complexities, skewness_communications,
                 slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
                 macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
         };
@@ -245,62 +246,69 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
     return {};
 }
 
-std::vector<float>
-all_compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
-                    std::shared_ptr<SlidingWindow<double>> &window_gini_times,
-                    std::shared_ptr<SlidingWindow<double>> &window_gini_complexities,
-                    std::shared_ptr<SlidingWindow<double>> &window_gini_communications,
-                    float true_iteration_time, std::vector<double> times,
-                    int sent, int received, float complexity, MPI_Comm comm) {
+template<class RealType>
+std::vector<RealType>
+all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
+                    std::shared_ptr<SlidingWindow<RealType>> window_gini_times,
+                    std::shared_ptr<SlidingWindow<RealType>> window_gini_complexities,
+                    std::shared_ptr<SlidingWindow<RealType>> window_gini_communications,
+                    RealType true_iteration_time, std::vector<RealType> times,
+                    int sent, int received, int complexity, MPI_Comm comm) {
     int nproc = 0;
+    int rank;
     MPI_Comm_size(comm, &nproc);
+    MPI_Comm_rank(comm, &rank);
 
-    std::vector<float> communications(nproc);
-    float fsent = (float) (sent + received);
+    std::vector<RealType> communications(nproc);
+    RealType fsent = (RealType) (sent + received);
+    if(std::is_same<RealType, float>::value)
+        MPI_Allgather(&fsent, 1, MPI_FLOAT, &communications.front(), 1, MPI_FLOAT, comm);
+    else
+        MPI_Allgather(&fsent, 1, MPI_DOUBLE, &communications.front(), 1, MPI_DOUBLE, comm);
 
-    MPI_Allgather(&fsent, 1, MPI_FLOAT, &communications.front(), 1, MPI_FLOAT, comm);
-    std::vector<float> complexities(nproc);
-    MPI_Allgather(&complexity, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, comm);
+    std::vector<RealType> complexities(nproc);
+    RealType cmplx = (RealType) complexity;
+    if(std::is_same<RealType, float>::value)
+        MPI_Allgather(&cmplx, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, comm);
+    else
+        MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
 
-    float gini_times = (float) load_balancing::compute_gini_index<double>(times);
-    float gini_complexities = load_balancing::compute_gini_index(complexities);
-    float gini_communications = load_balancing::compute_gini_index(communications);
-
-    float skewness_times = (float) gsl_stats_skew(&times.front(), 1, times.size());
-    float skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
-    float skewness_communications = gsl_stats_float_skew(&communications.front(), 1, communications.size());
-
+    RealType gini_times = load_balancing::compute_gini_index(times);
+    RealType gini_complexities   = load_balancing::compute_gini_index(complexities);
+    RealType gini_communications = load_balancing::compute_gini_index(communications);
+ /*
+    if(std::is_same<RealType, float>::value) {
+        RealType skewness_times = gsl_stats_skew(&times.front(), 1, times.size());
+        RealType skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
+        RealType skewness_communications = gsl_stats_float_skew(&communications.front(), 1, communications.size());
+    }
+*/
     window_times->add(true_iteration_time);
     window_gini_complexities->add(gini_complexities);
     window_gini_times->add(gini_times);
     window_gini_communications->add(gini_communications);
-
     // Generate y from 0 to 1 and store in a vector
-    std::vector<float> it(window_gini_times->data_container.size());
+    std::vector<RealType> it(window_gini_times->data_container.size());
     std::iota(it.begin(), it.end(), 0);
 
-    float slope_gini_times = statistic::linear_regression<float>(it, window_gini_times->data_container).first;
-    float macd_gini_times = metric::load_dynamic::compute_macd_ema<float>(window_gini_times->data_container, 12, 26,
-                                                                          2.0 /
-                                                                          (window_gini_times->data_container.size() +
-                                                                           1));
-    float slope_gini_complexity = statistic::linear_regression<float>(it,
-                                                                      window_gini_complexities->data_container).first;
-    float macd_gini_complexity = metric::load_dynamic::compute_macd_ema<float>(
+    RealType slope_gini_times = statistic::linear_regression<RealType>(it, window_gini_times->data_container).first;
+    RealType macd_gini_times = metric::load_dynamic::compute_macd_ema(window_gini_times->data_container, 12, 26,
+                                                                      2.0 / (window_gini_times->data_container.size() +
+                                                                      1));
+    RealType slope_gini_complexity = statistic::linear_regression<RealType>(it, window_gini_complexities->data_container).first;
+    RealType macd_gini_complexity = metric::load_dynamic::compute_macd_ema(
             window_gini_complexities->data_container, 12, 26,
             1.0 / (window_gini_complexities->data_container.size() + 1));
-    float slope_gini_communications = statistic::linear_regression<float>(it,
-                                                                          window_gini_communications->data_container).first;
-    float macd_gini_communications = metric::load_dynamic::compute_macd_ema<float>(
+    RealType slope_gini_communications = statistic::linear_regression<RealType>(it, window_gini_communications->data_container).first;
+    RealType macd_gini_communications = metric::load_dynamic::compute_macd_ema(
             window_gini_communications->data_container, 12, 26,
             1.0 / (window_gini_complexities->data_container.size() + 1));
-    float slope_times = statistic::linear_regression<float>(it, window_times->data_container).first;
-    float macd_times = metric::load_dynamic::compute_macd_ema<float>(window_times->data_container, 12, 26, 1.0 /
-                                                                                                           (window_times->data_container.size() +
-                                                                                                            1));
+    RealType slope_times = statistic::linear_regression<RealType>(it, window_times->data_container).first;
+    RealType macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
+                                                                 1.0 / (window_times->data_container.size() + 1));
     return {
             gini_times, gini_complexities, gini_communications,
-            skewness_times, skewness_complexities, skewness_communications,
+            //skewness_times, skewness_complexities, skewness_communications,
             slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
             macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
     };

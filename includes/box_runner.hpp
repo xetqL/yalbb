@@ -762,7 +762,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     window_gini_complexities = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
-    std::vector<float> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
+    std::vector<double> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
     std::vector<double> times(nproc);
 
     std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data,
@@ -921,6 +921,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     //retrieve best path
     while (solution->idx > 0) {
         solution_path.push_front(solution);
+
         solution = solution->parent;
     }
     return solution_path;
@@ -974,7 +975,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     window_gini_complexities = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
-    std::vector<float> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
+    std::vector<double> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
 
     std::vector<double> times(nproc);
 
@@ -1129,6 +1130,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, sent, received, complexity,
                                                                 comm);
+
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error error) {
                     std::cout << "Panic! ";

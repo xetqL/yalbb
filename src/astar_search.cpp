@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
         std::cout << "= Initial conditions: " << std::endl;
         std::cout << "= SIG:" << params.sig_lj << std::endl;
         std::cout << "= EPS:  " << params.eps_lj << std::endl;
-        std::cout << "= Borders: collisions " << params.npart << std::endl;
+        std::cout << "= Borders: collisions " << std::endl;
         std::cout << "= Gravity:  " << params.G << std::endl;
         std::cout << "= Temperature: " << params.T0 << std::endl;
         std::cout << "==============================================" << std::endl;
@@ -76,7 +76,6 @@ int main(int argc, char **argv) {
                                                                                   params.simsize,
                                                                                   params.simsize);
         constexpr int NB_CLUSTERS = 6;
-
         std::array<int, NB_CLUSTERS> clusters;
         std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
         initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>

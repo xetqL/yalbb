@@ -95,7 +95,6 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
 
 Zoltan_Struct* zoltan_create_wrapper() {
     auto zz = Zoltan_Create(MPI_COMM_WORLD);
-
     Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
     Zoltan_Set_Param(zz, "LB_METHOD", "RCB");
     Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");

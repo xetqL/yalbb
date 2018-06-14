@@ -22,7 +22,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
     double  node_cost,
             path_cost,
             heuristic_cost;      // estimated cost to the solution
-    std::vector<float> metrics_before_decision, last_metric;
+    std::vector<double> metrics_before_decision, last_metric;
     MESH_DATA mesh_data;    // particles informations
     Domain domain;
 
@@ -60,7 +60,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
         );
     };
 
-    std::vector<float> get_features() override {
+    std::vector<double> get_features() override {
         return functional::slice(metrics_before_decision, 0, metrics_before_decision.size() - 1);
     }
 
