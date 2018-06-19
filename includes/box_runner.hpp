@@ -802,6 +802,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                    params,
                                                                    foreman_comm);
         optimal_step_time = (MPI_Wtime() - it_start) / nproc;
+
+
     }
     MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -929,7 +931,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
 
 template<int N>
-std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> IDAstar_runner(
+std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometric::Domain<N>>>>> IDAstar_runner(
         const MESH_DATA<N> *p_mesh_data,
         Zoltan_Struct *load_balancer,
         const sim_param_t *params,
@@ -966,9 +968,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::priority_queue<
-            std::shared_ptr<Node<MESH_DATA<N>, Domain> >,
-            std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain> > >,
-            Compare<MESH_DATA<N>, Domain> > queue;
+            std::shared_ptr<NodeWithoutParticles<Domain> >,
+            std::vector<std::shared_ptr<NodeWithoutParticles<Domain> > >,
+            CompareNodeWithoutParticles<Domain> > queue;
 
     std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
     window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
@@ -979,9 +981,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     std::vector<double> times(nproc);
 
-    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node, solution;
+    std::shared_ptr<NodeWithoutParticles<Domain>> current_node, solution;
 
-    std::list<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
+    std::list<std::shared_ptr<NodeWithoutParticles<Domain>>> solution_path;
     int it = 0;
     double child_cost, true_child_cost;
 
@@ -1002,6 +1004,12 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MESH_DATA<N> *p_tmp_data = &tmp_data;
     std::vector<double> optimal_frame_time_lookup_table(nframes);
     if (rank == 0) {
+        SimpleCSVFormatter frame_formater(',');
+        std::ofstream frame_file;
+        if(params->record){
+            std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params->seed);
+            system(mkdir_cmd.c_str());
+        }
 
         for(int frame = 0; frame < nframes; frame++){
 
@@ -1010,11 +1018,15 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 it_start = MPI_Wtime();
                 load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
                 auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
-                                                                           params,
-                                                                           foreman_comm);
+                                                                           params, foreman_comm);
                 frame_time  += (MPI_Wtime() - it_start);
             }
-
+            if(params->record){
+                frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
+                frame_formater.write_header(frame_file, params->npframe, params->simsize);
+                write_frame_data(frame_file, p_tmp_data->els, frame_formater, params);
+                frame_file.close();
+            }
             optimal_frame_time_lookup_table[frame] = frame_time / nproc;
         }
     }
@@ -1036,10 +1048,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     bool solution_found = false;
     while (!solution_found) {
         queue = std::priority_queue<
-                std::shared_ptr<Node<MESH_DATA<N>, Domain> >,
-                std::vector<std::shared_ptr<Node<MESH_DATA<N>, Domain> > >,
-                Compare<MESH_DATA<N>, Domain> >();
-        current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(*p_mesh_data, start_domain_boundaries);
+                std::shared_ptr<NodeWithoutParticles<Domain> >,
+                std::vector<std::shared_ptr<NodeWithoutParticles<Domain> > >,
+                CompareNodeWithoutParticles<Domain> >();
+        current_node = std::make_shared<NodeWithoutParticles<Domain>>(start_domain_boundaries);
         std::fill(dataset_entry.begin(), dataset_entry.end(), 0);
         current_node->metrics_before_decision = dataset_entry;
         current_node->last_metric    = dataset_entry;
@@ -1085,7 +1097,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
-                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el;});
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
 #endif
@@ -1136,7 +1148,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
-                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el;});
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
 #endif
