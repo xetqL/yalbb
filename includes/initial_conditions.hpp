@@ -149,13 +149,13 @@ public:
                 udistz(condition->zmin+z_sz*0.05, condition->zmax-z_sz*0.05);
         std::mt19937 my_gen(seed);
         std::array<int, C> K = clusters;
-        int part_in_cluster;
+        int part_in_cluster = 0;
         elements::ElementRealType cluster_centerx = udistx(my_gen),
-                                    cluster_centery = udistx(my_gen),
-                                    cluster_centerz = udistz(my_gen);
+                                  cluster_centery = udistx(my_gen),
+                                  cluster_centerz = udistz(my_gen);
         while(cluster_id < clusters_to_generate && elements.size() < n) {
 
-            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) / 2;
+            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) / 2.0;
 
             statistic::UniformSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
@@ -177,7 +177,7 @@ public:
             }
             if(trial == max_trial) {
                 std::cout << "increase sphere size of cluster " << cluster_id << ", " << part_in_cluster<< "/"<<clusters[cluster_id] << std::endl;
-                K[cluster_id] *= 1.1;
+                K[cluster_id] *= 1.5;
             } else{
                 part_in_cluster = 0;
                 cluster_centerx = udistx(my_gen);

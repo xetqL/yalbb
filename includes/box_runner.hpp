@@ -983,19 +983,17 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     std::list<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
     int it = 0;
-    double time = 0, start, child_cost, true_child_cost;
+    double child_cost, true_child_cost;
 
     // Compute the optimal time per step
-    // Get the group of processes in MPI_COMM_WORLD
     MPI_Group world_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
     int ranks[1] = {0};
-    // Construct a group containing all of the prime ranks in world_group
     MPI_Group foreman_group;
     MPI_Group_incl(world_group, 1, ranks, &foreman_group);
-    // Create a new communicator based on the group
     MPI_Comm foreman_comm;
     MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
+
     MESH_DATA<N> tmp_data;
 
     Domain tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
@@ -1085,6 +1083,12 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, sent, received, complexity,
                                                                 comm);
+#ifdef DEBUG
+                    if(!rank){
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el;});
+                        std::cout << std::endl;
+                    }
+#endif
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error e) {
                     std::cout << "Panic! ";
@@ -1130,7 +1134,12 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, sent, received, complexity,
                                                                 comm);
-
+#ifdef DEBUG
+                    if(!rank){
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el;});
+                        std::cout << std::endl;
+                    }
+#endif
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error error) {
                     std::cout << "Panic! ";
@@ -1171,11 +1180,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 }
                 return solution_path;
             }
-
             it = current_node->end_it;
             MPI_Barrier(comm);
         }
-        shallowest_possible_solution += (total_optimal_time * 0.3);
+        shallowest_possible_solution *= 1.3;
     }
 }
 #endif //NBMPI_BOXRUNNER_HPP
