@@ -273,13 +273,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
     RealType gini_times = load_balancing::compute_gini_index(times);
     RealType gini_complexities   = load_balancing::compute_gini_index(complexities);
     RealType gini_communications = load_balancing::compute_gini_index(communications);
-/*
-    if(std::is_same<RealType, float>::value) {
-        RealType skewness_times = gsl_stats_skew(&times.front(), 1, times.size());
-        RealType skewness_complexities = gsl_stats_float_skew(&complexities.front(), 1, complexities.size());
-        RealType skewness_communications = gsl_stats_float_skew(&communications.front(), 1, communications.size());
-    }
-*/
+
     window_times->add(true_iteration_time);
     window_gini_complexities->add(gini_complexities);
     window_gini_times->add(gini_times);
@@ -290,19 +284,18 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
 
     RealType slope_gini_times = statistic::linear_regression<RealType>(it, window_gini_times->data_container).first;
     RealType macd_gini_times = metric::load_dynamic::compute_macd_ema(window_gini_times->data_container, 12, 26,
-                                                                      2.0 / (window_gini_times->data_container.size() +
-                                                                      1));
+                                                                      2.0/(window_gini_times->data_container.size()+1));
     RealType slope_gini_complexity = statistic::linear_regression<RealType>(it, window_gini_complexities->data_container).first;
     RealType macd_gini_complexity = metric::load_dynamic::compute_macd_ema(
             window_gini_complexities->data_container, 12, 26,
-            1.0 / (window_gini_complexities->data_container.size() + 1));
+            2.0 / (window_gini_complexities->data_container.size() + 1));
     RealType slope_gini_communications = statistic::linear_regression<RealType>(it, window_gini_communications->data_container).first;
     RealType macd_gini_communications = metric::load_dynamic::compute_macd_ema(
             window_gini_communications->data_container, 12, 26,
-            1.0 / (window_gini_complexities->data_container.size() + 1));
+            2.0 / (window_gini_complexities->data_container.size() + 1));
     RealType slope_times = statistic::linear_regression<RealType>(it, window_times->data_container).first;
     RealType macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
-                                                                 1.0 / (window_times->data_container.size() + 1));
+                                                                 2.0 / (window_times->data_container.size() + 1));
     return {
             gini_times, gini_complexities, gini_communications,
             //skewness_times, skewness_complexities, skewness_communications,
@@ -326,7 +319,6 @@ void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int
         write_report_data_bin<float>(dataset, ts_idx - DELTA_LB_CALL, dataset_entry, rank);
         dataset.close();
     }
-
 }
 template<class FeatureContainer>
 void write_dataset(std::ofstream &dataset, std::string fname,
