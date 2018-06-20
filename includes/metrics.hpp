@@ -267,9 +267,11 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
         MPI_Allgather(&cmplx, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, comm);
     else
         MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
+
 #ifdef DEBUG
-    if(!rank) std::for_each(complexities.begin(), complexities.end(), [](auto const& el){std::cout << el << " ";});
+    if(!rank) {std::cout << std::fixed << std::setprecision(5);  std::for_each(times.begin(), times.end(), [](auto const& el){std::cout << el << " ";});}
 #endif
+
     RealType gini_times = load_balancing::compute_gini_index(times);
     RealType gini_complexities   = load_balancing::compute_gini_index(complexities);
     RealType gini_communications = load_balancing::compute_gini_index(communications);
@@ -298,7 +300,6 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
                                                                  2.0 / (window_times->data_container.size() + 1));
     return {
             gini_times, gini_complexities, gini_communications,
-            //skewness_times, skewness_complexities, skewness_communications,
             slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
             macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
     };

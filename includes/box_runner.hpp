@@ -1065,8 +1065,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
             if(!rank){
                 std::cout << "Number of visited node: " << number_of_visited_node;
                 std::cout << ", Number of node in queue: " << queue.size();
-                std::cout << ", Current iteration: " << it<<std::endl;
-                std::cout << current_node << std::endl;
+                std::cout << ", Current iteration: " << it <<std::endl;
             }
 #endif
             mesh_data = particles_states[it];
@@ -1097,6 +1096,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
+                        std::cout << std::fixed << std::setprecision(3);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
@@ -1148,6 +1148,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
+                        std::cout << std::fixed << std::setprecision(3);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
