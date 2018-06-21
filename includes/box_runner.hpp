@@ -840,8 +840,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         auto children = current_node->get_children();
         number_of_visited_node++;
 #ifdef DEBUG
-        std::cout << "Number of visited node: " << number_of_visited_node;
-        std::cout << ", Number of node in queue: " << queue.size() << std::endl;
+        if(!rank){
+            std::cout << "Number of visited node: " << number_of_visited_node;
+            std::cout << ", Number of node in queue: " << queue.size() << std::endl;
+        }
 #endif
         mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
