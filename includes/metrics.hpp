@@ -269,7 +269,9 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
         MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
 
 #ifdef DEBUG
-    if(!rank) {std::cout << std::fixed << std::setprecision(5);  std::for_each(times.begin(), times.end(), [](auto const& el){std::cout << el << " ";});}
+    if(!rank) {std::cout << std::fixed << std::setprecision(5);  std::for_each(times.begin(), times.end(), [](auto const& el){std::cout << el << " ";});
+        std::cout << std::endl;
+    }
 #endif
 
     RealType gini_times = load_balancing::compute_gini_index(times);
