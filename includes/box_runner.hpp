@@ -870,6 +870,13 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
                                                             true_iteration_time, times, sent, received, complexity, comm);
+#ifdef DEBUG
+                if(!rank){
+                        std::cout << std::fixed << std::setprecision(3);
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
+                        std::cout << std::endl;
+                    }
+#endif
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error e) {
                 std::cout << "Panic! " << children.second->start_it+i << std::endl;
@@ -908,6 +915,14 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
                                                             true_iteration_time, times, sent, received, complexity, comm);
+
+#ifdef DEBUG
+                if(!rank){
+                        std::cout << std::fixed << std::setprecision(3);
+                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
+                        std::cout << std::endl;
+                    }
+#endif
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error error) {
                 std::cout << "Panic! " << children.second->start_it+i << std::endl;
@@ -1108,6 +1123,11 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                     true_iteration_time = *std::max_element(times.begin(), times.end());
                     int complexity = std::get<0>(computation_info), received = std::get<1>(
                             computation_info), sent = std::get<2>(computation_info);
+
+                    dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                                window_gini_complexities, window_gini_communications,
+                                                                true_iteration_time, times, sent, received, complexity,
+                                                                comm);
 #ifdef DEBUG
                     if(!rank){
                         std::cout << std::fixed << std::setprecision(3);
@@ -1115,11 +1135,6 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                         std::cout << std::endl;
                     }
 #endif
-                    dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                                window_gini_complexities, window_gini_communications,
-                                                                true_iteration_time, times, sent, received, complexity,
-                                                                comm);
-
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error e) {
                     std::cout << "Panic! ";
@@ -1161,18 +1176,18 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                     int complexity = std::get<0>(computation_info),
                         received = std::get<1>(computation_info),
                         sent = std::get<2>(computation_info);
+
+                    dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                                window_gini_complexities, window_gini_communications,
+                                                                true_iteration_time, times, sent, received, complexity,
+                                                                comm);
 #ifdef DEBUG
-                    if(!rank) {
+                    if(!rank){
                         std::cout << std::fixed << std::setprecision(3);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
 #endif
-                    dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                                window_gini_complexities, window_gini_communications,
-                                                                true_iteration_time, times, sent, received, complexity,
-                                                                comm);
-
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error error) {
                     std::cout << "Panic! ";
