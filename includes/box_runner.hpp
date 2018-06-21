@@ -765,9 +765,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     std::vector<double> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL);
     std::vector<double> times(nproc);
 
-    std::shared_ptr<Node<MESH_DATA<N>, Domain>> current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data,
-                                                                                                            domain_boundaries),
-            solution;
+    std::shared_ptr<Node<MESH_DATA<N>, Domain>>
+            current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data, domain_boundaries), solution;
     current_node->metrics_before_decision = dataset_entry;
     current_node->last_metric = dataset_entry;
 
@@ -788,33 +787,54 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 // Create a new communicator based on the group
     MPI_Comm foreman_comm;
     MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
+
     MESH_DATA<N> tmp_data;
-    double optimal_step_time = 0;
 
     Domain tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
     load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
     MESH_DATA<N> *p_tmp_data = &tmp_data;
+    std::vector<double> optimal_frame_time_lookup_table(nframes);
     if (rank == 0) {
-        it_start = MPI_Wtime();
-        load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
-        auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
-                                                                   params,
-                                                                   foreman_comm);
-        optimal_step_time = (MPI_Wtime() - it_start) / nproc;
+        SimpleCSVFormatter frame_formater(',');
+        std::ofstream frame_file;
+        if(params->record) {
+            std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params->seed);
+            system(mkdir_cmd.c_str());
+        }
 
-
+        for(int frame = 0; frame < nframes; frame++){
+            double frame_time = 0;
+            for(int step = 0; step < npframe; step++){
+                it_start = MPI_Wtime();
+                load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
+                auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
+                                                                           params, foreman_comm);
+                frame_time  += (MPI_Wtime() - it_start);
+            }
+            if(params->record){
+                frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
+                frame_formater.write_header(frame_file, params->npframe, params->simsize);
+                write_frame_data(frame_file, p_tmp_data->els, frame_formater, params);
+                frame_file.close();
+            }
+            optimal_frame_time_lookup_table[frame] = frame_time / nproc;
+        }
     }
-    MPI_Bcast(&optimal_step_time, 1, MPI_DOUBLE, 0, comm);
+
+    MPI_Bcast(&optimal_frame_time_lookup_table.front(), nframes, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    if (rank == 0) std::cout << "Optimal time: " << (optimal_step_time) << std::endl;
+    double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
+    if (rank == 0) std::cout << "Optimal time: " << (total_optimal_time) << std::endl;
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     MPI_Barrier(comm);
     MPI_Group_free(&foreman_group);
     MPI_Group_free(&world_group);
     if (rank == 0) MPI_Comm_free(&foreman_comm);
-    int number_of_visited_node = 0;
+
+    int number_of_visited_node = 0, number_of_frames_computed;
     while (it < nframes * npframe) {
 
         auto children = current_node->get_children();
@@ -842,16 +862,15 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 my_iteration_time = MPI_Wtime() - it_start;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                 true_iteration_time = *std::max_element(times.begin(), times.end());
-                int complexity = std::get<0>(computation_info), received = std::get<1>(
-                        computation_info), sent = std::get<2>(computation_info);
+                int complexity = std::get<0>(computation_info),
+                    received = std::get<1>(computation_info),
+                    sent = std::get<2>(computation_info);
                 dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, sent, received, complexity,
-                                                            comm);
+                                                            true_iteration_time, times, sent, received, complexity, comm);
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error e) {
-                std::cout << "Panic! ";
-                std::cout << children.first << std::endl;
+                std::cout << "Panic! " << children.second->start_it+i << std::endl;
                 throw new std::runtime_error("particle out domain");
             }
         }
@@ -862,8 +881,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.first->mesh_data = mesh_data;
         children.first->end_it = it + npframe;
         children.first->node_cost = true_child_cost;
-        children.first->heuristic_cost = (total_iteration - (children.first->end_it)) * optimal_step_time;
-        children.first->domain = domain_boundaries;
+        number_of_frames_computed  = (children.first->end_it / npframe);
+        children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
         children.first->path_cost += true_child_cost;
         children.first->last_metric = dataset_entry;
 
@@ -877,21 +896,19 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             MPI_Barrier(comm);
             std::tuple<int, int, int> computation_info;
             try {
-                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                      params, comm);
+                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype, params, comm);
                 my_iteration_time = MPI_Wtime() - it_start;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                 true_iteration_time = *std::max_element(times.begin(), times.end());
-                int complexity = std::get<0>(computation_info), received = std::get<1>(computation_info),
-                        sent = std::get<2>(computation_info);
+                int complexity = std::get<0>(computation_info),
+                    received = std::get<1>(computation_info),
+                    sent = std::get<2>(computation_info);
                 dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, sent, received, complexity,
-                                                            comm);
+                                                            true_iteration_time, times, sent, received, complexity, comm);
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error error) {
-                std::cout << "Panic! ";
-                std::cout << children.second << std::endl;
+                std::cout << "Panic! " << children.second->start_it+i << std::endl;
                 throw new std::runtime_error("particle out domain");
             }
         }
@@ -900,8 +917,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.second->mesh_data = mesh_data;
         children.second->end_it = it + npframe;
         children.second->node_cost = true_child_cost;
+        number_of_frames_computed  = (children.first->end_it / npframe) + 1;
         children.second->heuristic_cost =
-                true_child_cost + (total_iteration - (children.second->end_it + npframe)) * optimal_step_time;
+                true_child_cost + std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);
         children.second->domain = domain_boundaries;
         children.second->path_cost += true_child_cost;
         children.second->last_metric = dataset_entry;
@@ -921,9 +939,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     if (!rank) std::cout << solution->cost() << " seconds" << std::endl;
     //retrieve best path
-    while (solution->idx > 0) {
+    while (solution->parent.get() != nullptr) {
         solution_path.push_front(solution);
-
         solution = solution->parent;
     }
     return solution_path;
@@ -1006,13 +1023,12 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
     if (rank == 0) {
         SimpleCSVFormatter frame_formater(',');
         std::ofstream frame_file;
-        if(params->record){
+        if(params->record) {
             std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params->seed);
             system(mkdir_cmd.c_str());
         }
 
         for(int frame = 0; frame < nframes; frame++){
-
             double frame_time = 0;
             for(int step = 0; step < npframe; step++){
                 it_start = MPI_Wtime();
@@ -1051,12 +1067,12 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                 std::shared_ptr<NodeWithoutParticles<Domain> >,
                 std::vector<std::shared_ptr<NodeWithoutParticles<Domain> > >,
                 CompareNodeWithoutParticles<Domain> >();
+
         current_node = std::make_shared<NodeWithoutParticles<Domain>>(start_domain_boundaries);
         std::fill(dataset_entry.begin(), dataset_entry.end(), 0);
         current_node->metrics_before_decision = dataset_entry;
         current_node->last_metric    = dataset_entry;
         it = 0;
-
         while (it < nframes * npframe) {
             int number_of_frames_computed;
             auto children = current_node->get_children();
@@ -1082,9 +1098,9 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                     load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
                 MPI_Barrier(comm);
                 std::tuple<int, int, int> computation_info;
+
                 try {
-                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries,
-                                                                          datatype, params, comm);
+                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype, params, comm);
                     my_iteration_time = MPI_Wtime() - it_start;
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
@@ -1147,7 +1163,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                                                                 true_iteration_time, times, sent, received, complexity,
                                                                 comm);
 #ifdef DEBUG
-                    if(!rank){
+                    if(!rank) {
                         std::cout << std::fixed << std::setprecision(3);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
