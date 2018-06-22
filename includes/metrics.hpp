@@ -25,6 +25,10 @@
 #define DELTA_LB_CALL 100
 #endif
 
+#ifndef DATASET_SCIENTIFIC_PRECISION
+#define DATASET_SCIENTIFIC_PRECISION 8
+#endif
+
 template<class T>
 struct SlidingWindow {
     std::deque<T> data_container;
@@ -282,6 +286,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
     window_gini_complexities->add(gini_complexities);
     window_gini_times->add(gini_times);
     window_gini_communications->add(gini_communications);
+
     // Generate y from 0 to 1 and store in a vector
     std::vector<RealType> it(window_gini_times->data_container.size());
     std::iota(it.begin(), it.end(), 0);
@@ -323,6 +328,7 @@ void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int
         dataset.close();
     }
 }
+
 template<class FeatureContainer>
 void write_dataset(std::ofstream &dataset, std::string fname,
                                   std::list<std::shared_ptr<FeatureContainer>> fcontainers, int rank,
@@ -331,7 +337,7 @@ void write_dataset(std::ofstream &dataset, std::string fname,
         if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app);
         for (auto const &features_container : fcontainers) {
             for(auto const& feature: features_container->get_features()){
-                dataset << std::fixed << std::setprecision(3) << feature << " ";
+                dataset << std::fixed << std::setprecision(DATASET_SCIENTIFIC_PRECISION) << feature << " ";
             }
             dataset << features_container->get_target() << std::endl;
         }

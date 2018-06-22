@@ -872,10 +872,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                             true_iteration_time, times, sent, received, complexity, comm);
 #ifdef DEBUG
                 if(!rank){
-                        std::cout << std::fixed << std::setprecision(3);
-                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
-                        std::cout << std::endl;
-                    }
+                    std::cout << std::fixed << std::setprecision(3);
+                    std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
+                    std::cout << std::endl;
+                }
 #endif
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error e) {
