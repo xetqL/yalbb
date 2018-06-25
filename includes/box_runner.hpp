@@ -1183,7 +1183,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
-                        std::cout << std::fixed << std::setprecision(3);
+                        std::cout << std::fixed << std::setprecision(DAT);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }
