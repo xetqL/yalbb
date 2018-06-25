@@ -304,7 +304,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
             2.0 / (window_gini_complexities->data_container.size() + 1));
     RealType slope_times = statistic::linear_regression<RealType>(it, window_times->data_container).first;
     RealType macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
-                                                                 2.0 / (window_times->data_container.size() + 1));
+            2.0 / (window_times->data_container.size() + 1));
     return {
             gini_times, gini_complexities, gini_communications,
             slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
