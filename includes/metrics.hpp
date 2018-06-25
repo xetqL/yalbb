@@ -274,7 +274,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
 
 #ifdef DEBUG
     if(!rank) {
-    std::for_each(complexities.begin(), complexities.end(), [](auto const& el){std::cout << (int) el << " ";});
+        std::for_each(complexities.begin(), complexities.end(), [](auto const& el){std::cout << (int) el << " ";});
     }
 #endif
 
