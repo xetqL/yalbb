@@ -136,7 +136,8 @@ int main(int argc, char **argv) {
                                          "-" + std::to_string((params.G)) +
                                          "-" + std::to_string((params.simsize)) +
                                          "-" + std::to_string((params.eps_lj)) +
-                                         "-" + std::to_string((params.sig_lj)) + ".data";
+                                         "-" + std::to_string((params.sig_lj)) +
+                                         "-" + std::to_string(params.dt) + ".data";
     metric::io::write_dataset(dataset, DATASET_FILENAME, res, rank, 0);
 
     MPI_Barrier(MPI_COMM_WORLD);
