@@ -898,7 +898,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.first->last_metric.push_back(dataset_entry.at(0) - children.first->metrics_before_decision.at(0));
         children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
         children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
-        children.first->last_metric.push_back(dataset_entry.at(dataset_entry.size()-1));
 
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
@@ -949,7 +948,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.second->last_metric.push_back(dataset_entry.at(0) - children.second->metrics_before_decision.at(0));
         children.second->last_metric.push_back(dataset_entry.at(1) - children.second->metrics_before_decision.at(1));
         children.second->last_metric.push_back(dataset_entry.at(2) - children.second->metrics_before_decision.at(2));
-        children.second->last_metric.push_back(dataset_entry.at(dataset_entry.size()-1));
 
         queue.push(children.first);
         queue.push(children.second);
