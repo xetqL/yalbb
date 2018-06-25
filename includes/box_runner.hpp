@@ -893,12 +893,12 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         number_of_frames_computed  = (children.first->end_it / npframe);
         children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
         children.first->path_cost += true_child_cost;
-        children.second->last_metric = {};
-        std::copy(dataset_entry.begin(), dataset_entry.end()-1, std::back_inserter(children.second->last_metric));
-        children.second->last_metric.push_back(dataset_entry.at(0) - children.second->metrics_before_decision.at(0));
-        children.second->last_metric.push_back(dataset_entry.at(1) - children.second->metrics_before_decision.at(1));
-        children.second->last_metric.push_back(dataset_entry.at(2) - children.second->metrics_before_decision.at(2));
-        children.second->last_metric.push_back(dataset_entry.at(dataset_entry.size()-1));
+        children.first->last_metric = {};
+        std::copy(dataset_entry.begin(), dataset_entry.end()-1, std::back_inserter(children.first->last_metric));
+        children.first->last_metric.push_back(dataset_entry.at(0) - children.first->metrics_before_decision.at(0));
+        children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
+        children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
+        children.first->last_metric.push_back(dataset_entry.at(dataset_entry.size()-1));
 
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
