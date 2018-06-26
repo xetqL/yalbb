@@ -692,7 +692,7 @@ void zoltan_run_box(FILE *fp,          // Output file (at 0)
             if (params->one_shot_lb_call == (i + frame * npframe) ||
                 (params->lb_interval > 0 && ((i + frame * npframe) % params->lb_interval) == 0))
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-            else load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             MPI_Barrier(comm);
             lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
         }
@@ -824,19 +824,17 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     MPI_Bcast(&optimal_frame_time_lookup_table.front(), nframes, MPI_DOUBLE, 0, comm);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
     if (rank == 0) std::cout << "Optimal time: " << (total_optimal_time) << std::endl;
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     MPI_Barrier(comm);
     MPI_Group_free(&foreman_group);
     MPI_Group_free(&world_group);
+
     if (rank == 0) MPI_Comm_free(&foreman_comm);
 
     int number_of_visited_node = 0, number_of_frames_computed;
     while (it < nframes * npframe) {
-
         auto children = current_node->get_children();
         number_of_visited_node++;
 #ifdef DEBUG

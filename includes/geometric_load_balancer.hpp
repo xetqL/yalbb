@@ -253,6 +253,56 @@ namespace load_balancing {
             MPI_Waitall(cpt, &reqs.front(), MPI_STATUSES_IGNORE);
         }
 
+        template<int N> void zoltan_migrate_particles(
+                std::vector<elements::Element<N>> &data,
+                Zoltan_Struct *load_balancer,
+                const partitioning::CommunicationDatatype datatype,
+                const MPI_Comm LB_COMM) {
+            int wsize; MPI_Comm_size(LB_COMM, &wsize);
+            int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
+
+            std::vector<elements::Element<N>> buffer;
+            std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+
+            size_t data_id = 0;
+            int PE;
+            while (data_id < data.size()) {
+                Zoltan_LB_Point_Assign(load_balancer, &data.at(data_id).position.front(), &PE);
+                if (PE != caller_rank) {
+                    //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+                    //swap iterator values in constant time
+                    std::iter_swap(data.begin() + data_id, data.end() - 1);
+                    //get the value and push it in the "to migrate" vector
+                    data_to_migrate.at(PE).push_back(*(data.end() - 1));
+                    //pop the head of the list in constant time
+                    data.pop_back();
+                } else data_id++; //if the element must stay with me then check the next one
+            }
+
+            std::vector<MPI_Request> reqs(data_to_migrate.size());
+            std::vector<MPI_Status> statuses(data_to_migrate.size());
+
+            int cpt = 0, nb_neighbors = data_to_migrate.size();
+            for(size_t PE = 0; PE < wsize; PE++) {
+                int send_size = data_to_migrate.at(PE).size();
+                MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
+                cpt++;
+            }
+            cpt=0;
+            while(cpt < nb_neighbors) {// receive the data in any order
+                int source_rank, size;
+                MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &statuses[cpt]);
+                source_rank = statuses[cpt].MPI_SOURCE;
+                MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
+                buffer.resize(size);
+                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, &statuses[cpt]);
+                std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
+                cpt++;
+            }
+            MPI_Waitall(cpt, &reqs.front(), &statuses.front());
+
+        }
+
         template<int N>
         void migrate_particles(std::vector<elements::Element<N>> &data,
                                const std::vector<partitioning::geometric::Domain<N>> &domains,
@@ -283,6 +333,7 @@ namespace load_balancing {
                     } else data_id++; //if the element must stay with me then check the next one
                 }
             }
+
             std::vector<MPI_Request> reqs(neighbors.size());
             std::vector<MPI_Status> statuses(neighbors.size());
 

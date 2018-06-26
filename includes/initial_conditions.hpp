@@ -155,7 +155,7 @@ public:
                                   cluster_centerz = udistz(my_gen);
         while(cluster_id < clusters_to_generate && elements.size() < n) {
 
-            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0);
+            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) * 0.9;
 
             statistic::UniformSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
