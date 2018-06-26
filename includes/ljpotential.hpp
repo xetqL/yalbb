@@ -124,6 +124,7 @@ int compute_forces (
                             auto const& force_source = el_list->at(el_idx);
                             if (force_recepter.gid != force_source.gid) {
                                 complexity++;
+                                double start_interaction = MPI_Wtime();
                                 std::array<double, N> delta_dim;
                                 double delta = 0.0;
                                 for(size_t dim = 0; dim < N; ++dim) {

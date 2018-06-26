@@ -859,17 +859,20 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             MPI_Barrier(comm);
             std::tuple<int, int, int> computation_info;
             try {
+                double cpt_step_start_time = MPI_Wtime();
                 computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                       params, comm);
+                int complexity = std::get<0>(computation_info),
+                        received = std::get<1>(computation_info),
+                        sent = std::get<2>(computation_info);
+                double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
                 my_iteration_time = MPI_Wtime() - it_start;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                 true_iteration_time = *std::max_element(times.begin(), times.end());
-                int complexity = std::get<0>(computation_info),
-                    received = std::get<1>(computation_info),
-                    sent = std::get<2>(computation_info);
+
                 dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, sent, received, complexity, comm);
+                                                            true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
 #ifdef DEBUG
                 if(!rank){
                     std::cout << std::fixed << std::setprecision(3);
@@ -894,10 +897,11 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
         children.first->path_cost += true_child_cost;
         children.first->last_metric = {};
-        std::copy(dataset_entry.begin(), dataset_entry.end()-1, std::back_inserter(children.first->last_metric));
+        std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.first->last_metric));
         children.first->last_metric.push_back(dataset_entry.at(0) - children.first->metrics_before_decision.at(0));
         children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
         children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
+        children.first->last_metric.push_back(dataset_entry.at(3) - children.first->metrics_before_decision.at(3));
 
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
@@ -909,16 +913,20 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             MPI_Barrier(comm);
             std::tuple<int, int, int> computation_info;
             try {
-                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype, params, comm);
-                my_iteration_time = MPI_Wtime() - it_start;
+                double cpt_step_start_time = MPI_Wtime();
+                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                      params, comm);
+                int complexity = std::get<0>(computation_info),
+                        received = std::get<1>(computation_info),
+                        sent = std::get<2>(computation_info);
+                double cpt_step_duration_time = MPI_Wtime() - cpt_step_start_time;
+                double mean_interaction_cpt_time = complexity > 0 ? cpt_step_duration_time / (double) complexity : cpt_step_duration_time;
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                 true_iteration_time = *std::max_element(times.begin(), times.end());
-                int complexity = std::get<0>(computation_info),
-                    received = std::get<1>(computation_info),
-                    sent = std::get<2>(computation_info);
-                dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+
+                dataset_entry = metric::all_compute_metrics<double>(window_times, window_gini_times,
                                                             window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, sent, received, complexity, comm);
+                                                            true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
 
 #ifdef DEBUG
                 if(!rank){
@@ -944,19 +952,18 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.second->domain = domain_boundaries;
         children.second->path_cost += true_child_cost;
         children.second->last_metric = {};
-        std::copy(dataset_entry.begin(), dataset_entry.end()-1, std::back_inserter(children.second->last_metric));
+        std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.second->last_metric));
         children.second->last_metric.push_back(dataset_entry.at(0) - children.second->metrics_before_decision.at(0));
         children.second->last_metric.push_back(dataset_entry.at(1) - children.second->metrics_before_decision.at(1));
         children.second->last_metric.push_back(dataset_entry.at(2) - children.second->metrics_before_decision.at(2));
+        children.second->last_metric.push_back(dataset_entry.at(3) - children.second->metrics_before_decision.at(3));
 
         queue.push(children.first);
         queue.push(children.second);
         current_node = queue.top();
         queue.pop();
 
-        if (current_node->end_it >= nframes * npframe) {
-            solution = current_node;
-        }
+        if (current_node->end_it >= nframes * npframe) { solution = current_node; }
 
         it = current_node->end_it;
         MPI_Barrier(comm);
@@ -1125,16 +1132,20 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                 std::tuple<int, int, int> computation_info;
 
                 try {
-                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype, params, comm);
-                    my_iteration_time = MPI_Wtime() - it_start;
+                    double cpt_step_start_time = MPI_Wtime();
+                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                          params, comm);
+                    int complexity = std::get<0>(computation_info),
+                            received = std::get<1>(computation_info),
+                            sent = std::get<2>(computation_info);
+                    double mean_interaction_cpt_time = (MPI_Wtime() - cpt_step_start_time) / complexity;                    my_iteration_time = MPI_Wtime() - it_start;
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
-                    int complexity = std::get<0>(computation_info), received = std::get<1>(
-                            computation_info), sent = std::get<2>(computation_info);
+
 
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
-                                                                true_iteration_time, times, sent, received, complexity,
+                                                                true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity,
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
@@ -1176,22 +1187,25 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                 MPI_Barrier(comm);
                 std::tuple<int, int, int> computation_info;
                 try {
-                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries,
-                                                                          datatype, params, comm);
+                    double cpt_step_start_time = MPI_Wtime();
+                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                          params, comm);
+                    int complexity = std::get<0>(computation_info),
+                            received = std::get<1>(computation_info),
+                            sent = std::get<2>(computation_info);
+                    double mean_interaction_cpt_time = (MPI_Wtime() - cpt_step_start_time) / complexity;
                     my_iteration_time = MPI_Wtime() - it_start;
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
-                    int complexity = std::get<0>(computation_info),
-                        received = std::get<1>(computation_info),
-                        sent = std::get<2>(computation_info);
+
 
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
-                                                                true_iteration_time, times, sent, received, complexity,
+                                                                true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity,
                                                                 comm);
 #ifdef DEBUG
                     if(!rank){
-                        std::cout << std::fixed << std::setprecision(DAT);
+                        std::cout << std::fixed << std::setprecision(8);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }

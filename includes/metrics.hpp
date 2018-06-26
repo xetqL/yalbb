@@ -20,7 +20,6 @@
 #include "report.hpp"
 #include "utils.hpp"
 
-//Authorize definition of this variable through CLI
 #ifndef DELTA_LB_CALL
 #define DELTA_LB_CALL 100
 #endif
@@ -51,7 +50,6 @@ namespace metric {
 class FeatureContainer {
 public:
     virtual std::vector<double> get_features() = 0;
-
     virtual int get_target() = 0;
 };
 
@@ -237,7 +235,6 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
                                                                                                                 1));
         return {
                 gini_times, gini_complexities, gini_communications,
-                //skewness_times, skewness_complexities, skewness_communications,
                 slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
                 macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
         };
@@ -245,13 +242,23 @@ compute_metrics(std::shared_ptr<SlidingWindow<double>> &window_times,
     return {};
 }
 
+template<class RealType, class Container>
+RealType variance(Container c){
+    const size_t s = c.size();
+    RealType var = 0.0, mu = std::accumulate(c.begin(), c.end(), 0) / s;
+    for(size_t i = 0; i < s; ++i){
+        var += std::pow(c[i] - mu, 2);
+    }
+    return var / s;
+};
+
 template<class RealType>
 std::vector<RealType>
 all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
                     std::shared_ptr<SlidingWindow<RealType>> window_gini_times,
                     std::shared_ptr<SlidingWindow<RealType>> window_gini_complexities,
                     std::shared_ptr<SlidingWindow<RealType>> window_gini_communications,
-                    RealType true_iteration_time, std::vector<RealType> times,
+                    RealType true_iteration_time, std::vector<RealType> times, RealType mu_interaction_time,
                     int sent, int received, int complexity, MPI_Comm comm) {
     int nproc = 0;
     int rank;
@@ -271,6 +278,12 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
         MPI_Allgather(&cmplx, 1, MPI_FLOAT, &complexities.front(), 1, MPI_FLOAT, comm);
     else
         MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
+
+    std::vector<RealType> mu_interaction_times(nproc);
+    if(std::is_same<RealType, float>::value)
+        MPI_Allgather(&mu_interaction_time, 1, MPI_FLOAT, &mu_interaction_times.front(), 1, MPI_FLOAT, comm);
+    else
+        MPI_Allgather(&mu_interaction_time, 1, MPI_DOUBLE, &mu_interaction_times.front(), 1, MPI_DOUBLE, comm);
 
 #ifdef DEBUG
     if(!rank) {
@@ -305,10 +318,18 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
     RealType slope_times = statistic::linear_regression<RealType>(it, window_times->data_container).first;
     RealType macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
             2.0 / (window_times->data_container.size() + 1));
+
+    
     return {
-            gini_times, gini_complexities, gini_communications,
-            slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
-            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications, 0.0
+            gini_times, gini_complexities, gini_communications, // LB for times, complexity, and communications
+            *std::max_element(times.begin(), times.end()),
+            //(RealType) gsl_stats_variance(&window_gini_times->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_gini_complexities->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_times->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_gini_communications->data_container.front(), 1, window_gini_times->data_container.size()),
+            (RealType) variance<RealType>(mu_interaction_times),
+            //slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
+            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications
     };
 }
 
@@ -317,6 +338,7 @@ namespace io {
 void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int ts_idx, float gain,
                                   std::vector<float> &dataset_entry, int rank, const sim_param_t *params,
                                   int exec_rank = 0) {
+
     if (rank == exec_rank) {
         int npframe = params->npframe;
         std::cout << " Gain within " << ((ts_idx) - DELTA_LB_CALL) << " and "
@@ -327,12 +349,14 @@ void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int
         write_report_data_bin<float>(dataset, ts_idx - DELTA_LB_CALL, dataset_entry, rank);
         dataset.close();
     }
+
 }
 
 template<class FeatureContainer>
 void write_dataset(std::ofstream &dataset, std::string fname,
                                   std::list<std::shared_ptr<FeatureContainer>> fcontainers, int rank,
                                   int exec_rank = 0) {
+
     if (rank == exec_rank) {
         if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app);
         for (auto const &features_container : fcontainers) {
