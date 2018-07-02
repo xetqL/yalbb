@@ -50,22 +50,23 @@ void create_cell_linkedlist(
 
 template <int N, class MapType>
 int create_cell_linkedlist(
-        const int nsub, /* number of subdomain per row*/
+        const long long nsub, /* number of subdomain per row*/
         const double lsub, /* width of subdomain */
         const std::vector<elements::Element<N>> &local_elements, /* particle location */
         const std::vector<elements::Element<N>> &remote_elements, /* particle location */
         MapType &plist) {
-    int cell_of_particle;
+    long long cell_of_particle;
 
     plist.clear();
     size_t local_size = local_elements.size(),
             remote_size = remote_elements.size();
     for (size_t cpt = 0; cpt < local_size + remote_size; ++cpt) {
         auto const& particle = cpt >= local_size ? remote_elements[cpt-local_size] : local_elements[cpt];
-        cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
 
-        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0)
+        cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
+        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0){
             return 400;
+        }
         if( plist.find(cell_of_particle) != plist.end())
             plist[cell_of_particle]->push_back(particle);
         else{
@@ -78,18 +79,18 @@ int create_cell_linkedlist(
 
 template<int N>
 int compute_forces (
-        const int M, /* Number of subcell in a row  */
-        const float lsub, /* length of a cell */
+        const long long M, /* Number of subcell in a row  */
+        const double lsub, /* length of a cell */
         std::vector<elements::Element<N>> &local_elements,
         const std::vector<elements::Element<N>> &remote_elements,
-        const std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
+        const std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
         const sim_param_t* params) noexcept {
 
-    double g    = (double) params->G;
-    double eps  = (double) params->eps_lj;
-    double sig  = (double) params->sig_lj;
+    auto g    = (double) params->G;
+    auto eps  = (double) params->eps_lj;
+    auto sig  = (double) params->sig_lj;
     double sig2 = sig*sig;
-    int complexity = local_elements.size();
+    size_t complexity = local_elements.size();
     // each particle MUST checks the local particles and the particles from neighboring PE
     std::unordered_map<int, elements::Element<N>> element_map;
 
@@ -98,7 +99,7 @@ int compute_forces (
         el.acceleration.at(N-1) = -g;
     }
 
-    int linearcellidx, nlinearcellidx;
+    long long linearcellidx, nlinearcellidx;
     // process only the particle we are interested in
     for (auto &force_recepter : local_elements) { //O(n)
         // find cell from particle position
@@ -350,31 +351,32 @@ void compute_forces(
 template <int N>
 inline std::tuple<int, int, int> compute_one_step(
         MESH_DATA<N>* mesh_data,
-        std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > >& plklist,
+        std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > >& plklist,
         const std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
         const partitioning::CommunicationDatatype& datatype,
         const sim_param_t* params,
         const MPI_Comm comm) {
 
     int received, sent;
-    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
-    int M = std::ceil(params->simsize / rm); // number of cell in a row
-    float lsub = rm; //cell size
+    double cut_off_radius = 3.2 * params->sig_lj; // cut_off
+    auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
+    double cell_size = cut_off_radius; //cell size
     const double dt = params->dt;
 
-    auto remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, lsub);
+    auto remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, cell_size);
 
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
-    int err = lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+    int err = lennard_jones::create_cell_linkedlist(cell_per_row, cell_size, mesh_data->els, remote_el, plklist);
 
     if(err) {
+        std::cerr << err << std::endl;
         throw std::runtime_error("Particle out of domain");
     }
 
-    int cmplx = lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+    int cmplx = lennard_jones::compute_forces(cell_per_row, cell_size, mesh_data->els, remote_el, plklist, params);
 
     leapfrog2(dt, mesh_data->els);
     leapfrog1(dt, mesh_data->els);

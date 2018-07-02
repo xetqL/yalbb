@@ -33,23 +33,23 @@ inline std::string get_date_as_string() {
 }
 
 template<int N>
-inline int position_to_cell(std::array<double, N> const& position, const double lsub, const int c, const int r = 0) {
-    std::vector<int> weight = {1, c, c*r};
-    int idx = 0;
-    for(int i = 0; i < N; ++i)
-        idx += weight[i] * std::floor(position.at(i) / lsub);
+inline long long position_to_cell(std::array<double, N> const& position, const double lsub, const long long c, const long long r = 0) {
+    const std::vector<long long> weight = {1, c, c*r};
+    long long idx = 0;
+    for(int i = 0; i < N; ++i){
+        idx += weight.at(i) * std::floor(position.at(i) / lsub);
+    }
     return idx;
 }
 
-inline void linear_to_grid(const int index, const int c, const int r, int& x_idx, int& y_idx, int& z_idx){
-     x_idx = (index % (c*r) % c);           // col
-     y_idx = std::floor(index % (c*r) / r); // row
-     z_idx = std::floor(index / (c*r));     // depth
+inline void linear_to_grid(const long long index, const long long c, const long long r, int& x_idx, int& y_idx, int& z_idx){
+    x_idx = (int) (index % (c*r) % c);           // col
+    y_idx = (int) std::floor(index % (c*r) / r); // row
+    z_idx = (int) std::floor(index / (c*r));     // depth
     assert(c==r);
     assert(x_idx < c);
     assert(y_idx < r);
     assert(z_idx < r);
-
 };
 
 namespace functional {

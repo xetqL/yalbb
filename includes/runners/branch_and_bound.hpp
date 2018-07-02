@@ -77,7 +77,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             domain_boundaries[part] = domain;
         }
     }
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
     std::multiset<std::shared_ptr<Node<MESH_DATA<N>, Domain> >, Compare<MESH_DATA<N>, Domain> > queue;
 
     std::shared_ptr<SlidingWindow<double>>
@@ -123,6 +123,10 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         if(params->record) {
             std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params->seed);
             system(mkdir_cmd.c_str());
+            frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(0), std::ofstream::out | std::ofstream::trunc);
+            frame_formater.write_header(frame_file, params->npframe, params->simsize);
+            write_frame_data(frame_file, p_tmp_data->els, frame_formater, params);
+            frame_file.close();
         }
         for(int frame = 0; frame < nframes; frame++){
             double frame_time = 0;
@@ -141,7 +145,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             }
             optimal_frame_time_lookup_table[frame] = frame_time / nproc;
             std::cout << optimal_frame_time_lookup_table[frame] << std::endl;
-
         }
     }
 
