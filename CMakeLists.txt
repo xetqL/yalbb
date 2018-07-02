@@ -113,11 +113,11 @@ add_executable(build
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/box_runner.hpp
+        includes/runners/box_runner.hpp
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
-        includes/metrics.hpp)
+        includes/metrics.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
 
 set_target_properties(build 
         PROPERTIES
@@ -158,12 +158,12 @@ add_executable(dataset
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/box_runner.hpp
+        includes/runners/box_runner.hpp
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/dataset_builder.cpp)
+        src/dataset_builder.cpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
 target_include_directories(dataset
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
@@ -189,12 +189,12 @@ add_executable(full_dataset
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/box_runner.hpp
+        includes/runners/box_runner.hpp
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/full_dataset_builder.cpp)
+        src/full_dataset_builder.cpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
 target_include_directories(full_dataset
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
@@ -220,12 +220,12 @@ add_executable(astar
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/box_runner.hpp
+        includes/runners/box_runner.hpp
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/astar_search.cpp includes/initial_conditions.hpp)
+        src/astar_search.cpp includes/initial_conditions.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp includes/runners/branch_and_bound.hpp)
 target_include_directories(astar
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
@@ -251,12 +251,12 @@ add_executable(basegain
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/box_runner.hpp
+        includes/runners/box_runner.hpp
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/dataset_base_gain.cpp)
+        src/dataset_base_gain.cpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
 target_include_directories(basegain
         PRIVATE
         ${MPI_C_INCLUDE_PATH}

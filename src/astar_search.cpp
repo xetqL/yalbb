@@ -7,7 +7,7 @@
 #include <random>
 
 #include <zoltan.h>
-#include "../includes/box_runner.hpp"
+#include "../includes/runners/branch_and_bound.hpp"
 #include "../includes/initial_conditions.hpp"
 
 int main(int argc, char **argv) {
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     }
 
     MESH_DATA<DIMENSION> _mesh_data;
-    if(rank == 0){
+    if(rank == 0) {
         initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(_mesh_data.els),
                                                                                   params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
@@ -142,6 +142,13 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+#ifdef DEBUG
+    if(!rank){
+        std::cout << "Printing solution ... " << std::endl;
+        std::for_each(res.begin(), res.end(), [=](auto v){std::cout << v << std::endl;});
+    }
+#endif
+    
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
                         &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,

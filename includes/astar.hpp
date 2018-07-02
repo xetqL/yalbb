@@ -2,16 +2,15 @@
 #ifndef NBMPI_ASTAR_HPP
 #define NBMPI_ASTAR_HPP
 
-//
-// Created by xetql on 23.05.18.
-//
-
+#include <set>
 #include <forward_list>
 #include <queue>
 #include <memory>
 #include <future>
 #include "metrics.hpp"
 #include "utils.hpp"
+
+
 template<typename MESH_DATA, typename Domain>
 struct Node : public metric::FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA, Domain>>{
     long long idx = 0;                // index of the node
@@ -42,7 +41,7 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
         parent(p),
         decision(decision),
         node_cost(node_cost),
-        path_cost(parent->path_cost),
+        path_cost(parent->path_cost + parent->node_cost),
         heuristic_cost(heuristic),
         metrics_before_decision(parent->last_metric),
         mesh_data(mesh_data),
@@ -188,5 +187,14 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<NodeWithou
     output << (value->decision ? " Y":" N") << " )" <<std::endl;
     return output;
 }
+template<class Data, class Domain>
+int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compare<Data, Domain> > c, int start_it) {
+
+    for(auto const& node : c){
+        if(node->start_it > start_it) return true;
+    }
+    return false;
+}
+
 
 #endif //NBMPI_ASTAR_HPP

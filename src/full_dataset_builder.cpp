@@ -4,7 +4,7 @@
 
 #include <zoltan.h>
 
-#include "../includes/box_runner.hpp"
+#include "../includes/runners/dataset_generator.hpp"
 
 int main(int argc, char** argv) {
     constexpr int DIMENSION = 3;

@@ -4,8 +4,10 @@
 
 #include <zoltan.h>
 
-#include "../includes/box_runner.hpp"
+#include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
+#include "../includes/nbody_io.hpp"
+#include "../includes/params.hpp"
 
 int main(int argc, char** argv) {
     constexpr int DIMENSION = 3;
@@ -97,7 +99,7 @@ int main(int argc, char** argv) {
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
-    zoltan_run_box<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
+    simulate<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
 

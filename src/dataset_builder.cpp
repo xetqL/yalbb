@@ -4,7 +4,7 @@
 
 #include <zoltan.h>
 
-#include "../includes/box_runner.hpp"
+#include "../includes/runners/dataset_generator.hpp"
 
 #define DATASET_LBCALL_STEP 10
 int main(int argc, char** argv) {
