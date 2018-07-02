@@ -53,8 +53,8 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
             mesh_data(mesh_data),  domain(domain){}
 
     std::pair<std::shared_ptr<Node<MESH_DATA, Domain>>, std::shared_ptr<Node<MESH_DATA, Domain>>> get_children(){
-        return std::make_pair(std::make_shared<Node<MESH_DATA, Domain>>(2*idx+1, end_it, true,  0, 0, mesh_data, this->shared_from_this(), domain),
-                              std::make_shared<Node<MESH_DATA, Domain>>(2*idx+2, end_it, false, 0, 0, mesh_data, this->shared_from_this(), domain)
+        return std::make_pair(std::make_shared<Node<MESH_DATA, Domain>>(0, end_it, true,  0, 0, mesh_data, this->shared_from_this(), domain),
+                              std::make_shared<Node<MESH_DATA, Domain>>(0, end_it, false, 0, 0, mesh_data, this->shared_from_this(), domain)
         );
     };
 
