@@ -199,9 +199,11 @@ namespace load_balancing {
             //Wait that people have sent their particles such that no PE have to know who are its neighbors
             MPI_Barrier(LB_COMM);
             cpt=0;
-            while(cpt < nb_neighbors) {// receive the data in any order
+            int flag = 1;
+            while(flag) {// receive the data in any order
                 int source_rank, size;
-                MPI_Probe(MPI_ANY_SOURCE, 200, LB_COMM, &statuses[cpt]);
+                MPI_Iprobe(MPI_ANY_SOURCE, 200, LB_COMM, &flag, &statuses[cpt]);
+                if(!flag) break;
                 source_rank = statuses[cpt].MPI_SOURCE;
                 MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
                 buffer.resize(size);

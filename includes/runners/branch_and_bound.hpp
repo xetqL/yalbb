@@ -132,7 +132,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             double frame_time = 0;
             for(int step = 0; step < npframe; step++) {
                 it_start = MPI_Wtime();
-                //load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
                 auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
                                                                            params, foreman_comm);
                 frame_time  += (MPI_Wtime() - it_start);
@@ -201,13 +200,13 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
-    #ifdef DEBUG
+#ifdef DEBUG
                    /* if(!rank) {
                         std::cout << std::fixed << std::setprecision(3);
                         std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
                         std::cout << std::endl;
                     }*/
-    #endif
+#endif
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error e) {
                     std::cout << "Panic! " << children.second->start_it+i << std::endl;
@@ -229,7 +228,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
             children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
             children.first->last_metric.push_back(dataset_entry.at(3) - children.first->metrics_before_decision.at(3));
-            }
+            queue.insert(children.first);
+
+        }
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
         child_cost = 0;
@@ -268,7 +269,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 throw new std::runtime_error("particle out domain");
             }
             MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
-            queue.insert(children.first);
         }
 
         children.second->mesh_data = mesh_data;
