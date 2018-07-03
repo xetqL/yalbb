@@ -47,6 +47,55 @@ struct SlidingWindow {
 
 namespace metric {
 
+template<class RealType>
+struct LBMetrics{
+    /*
+     * return {
+            gini_times, gini_complexities, gini_communications, // LB for times, complexity, and communications
+            *std::max_element(times.begin(), times.end()),
+            //(RealType) gsl_stats_variance(&window_gini_times->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_gini_complexities->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_times->data_container.front(), 1, window_gini_times->data_container.size()),
+            //(RealType) gsl_stats_variance(&window_gini_communications->data_container.front(), 1, window_gini_times->data_container.size()),
+            (RealType) variance<RealType>(mu_interaction_times),
+            //slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
+            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications
+    };
+     * */
+    const std::vector<RealType> metrics;
+
+    LBMetrics(const std::vector<RealType> metrics) : metrics(metrics){};
+
+    RealType get_gini_times(){
+        return metrics.at(0);
+    }
+    RealType get_gini_complexities(){
+        return metrics.at(1);
+    }
+    RealType get_gini_communications(){
+        return metrics.at(2);
+    }
+    RealType get_last_time_per_iteration(){
+        return metrics.at(3);
+    }
+    RealType get_variance_avg_time_per_iteration(){
+        return metrics.at(4);
+    }
+    RealType get_macd_gini_times(){
+        return metrics.at(5);
+    }
+    RealType get_macd_gini_complexities(){
+        return metrics.at(6);
+    }
+    RealType get_macd_gini_communications(){
+        return metrics.at(8);
+    }
+    RealType get_macd_times(){
+        return metrics.at(7);
+    }
+
+};
+
 class FeatureContainer {
 public:
     virtual std::vector<double> get_features() = 0;

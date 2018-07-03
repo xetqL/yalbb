@@ -27,12 +27,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    if(params.world_size != (size_t) nproc) {
-        std::cout << "World size does not match the expected world size: World=" << nproc << " Expected=" << params.world_size << std::endl;
-        MPI_Finalize();
-        exit(0);
-    }
-
     if (rank == 0 && params.record) {
         fp = fopen(params.fname, "w");
     }
@@ -45,6 +39,7 @@ int main(int argc, char** argv) {
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
+
     if(rc != ZOLTAN_OK){
         MPI_Finalize();
         exit(0);
@@ -66,6 +61,24 @@ int main(int argc, char** argv) {
         initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>
                 elements_generator(clusters, params.seed, 100000);
         elements_generator.generate_elements(mesh_data.els, params.npart, &condition);
+    }
+
+    if (rank == 0) {
+        std::cout << "==============================================" << std::endl;
+        std::cout << "= Simulation is starting now...                 " << std::endl;
+        std::cout << "= Parameters: " << std::endl;
+        std::cout << "= Particles: " << params.npart << std::endl;
+        std::cout << "= Seed: " << params.seed << std::endl;
+        std::cout << "= PEs: " << params.world_size << std::endl;
+        std::cout << "= Simulation size: " << params.simsize << std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes * params.npframe << std::endl;
+        std::cout << "= Initial conditions: " << std::endl;
+        std::cout << "= SIG:" << params.sig_lj << std::endl;
+        std::cout << "= EPS:  " << params.eps_lj << std::endl;
+        std::cout << "= Borders: collisions " << std::endl;
+        std::cout << "= Gravity:  " << params.G << std::endl;
+        std::cout << "= Temperature: " << params.T0 << std::endl;
+        std::cout << "==============================================" << std::endl;
     }
 
     auto zz = zoltan_create_wrapper();
@@ -99,7 +112,9 @@ int main(int argc, char** argv) {
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
-    simulate<DIMENSION>(fp, &mesh_data, zz, &params, MPI_COMM_WORLD);
+    std::shared_ptr<decision_making::Policy> lb_policy = std::make_shared<decision_making::RandomPolicy>(0.001, params.seed);
+
+    simulate<DIMENSION>(fp, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
 
     MPI_Barrier(MPI_COMM_WORLD);
 

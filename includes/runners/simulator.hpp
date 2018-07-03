@@ -27,14 +27,16 @@
 #include "../graph.hpp"
 #include "../metrics.hpp"
 #include "../zoltan_fn.hpp"
+#include "../decision_makers/strategy.hpp"
 
 
 template<int N>
 void simulate(FILE *fp,          // Output file (at 0)
-                    MESH_DATA<N> *mesh_data,
-                    Zoltan_Struct *load_balancer,
-                    const sim_param_t *params,
-                    const MPI_Comm comm = MPI_COMM_WORLD) {
+            MESH_DATA<N> *mesh_data,
+            Zoltan_Struct *load_balancer,
+            std::shared_ptr<decision_making::Policy> lb_policy,
+            const sim_param_t *params,
+            const MPI_Comm comm = MPI_COMM_WORLD) {
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -52,20 +54,20 @@ void simulate(FILE *fp,          // Output file (at 0)
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
-    // get boundaries of all domains
+    //get boundaries of all domains
     for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
         auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
                                                                     params->simsize);
         domain_boundaries[part] = domain;
     }
-
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
 
     std::vector<elements::Element<N>> recv_buf(params->npart);
     auto date = get_date_as_string();
+
     if (params->record)
         load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf,
                                            datatype.elements_datatype, comm);
@@ -77,16 +79,16 @@ void simulate(FILE *fp,          // Output file (at 0)
         write_frame_data(frame_file, recv_buf, frame_formater, params);
         frame_file.close();
     }
-
+    int nb_lb = 0;
     std::vector<elements::Element<N>> remote_el;
     double begin = MPI_Wtime();
     for (int frame = 0; frame < nframes; ++frame) {
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
-            if (params->one_shot_lb_call == (i + frame * npframe) ||
-                (params->lb_interval > 0 && ((i + frame * npframe) % params->lb_interval) == 0))
+            if (lb_policy->should_load_balance(i + frame * npframe, nullptr /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-            else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
+                nb_lb ++;
+            }else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             MPI_Barrier(comm);
             lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
         }
@@ -111,8 +113,8 @@ void simulate(FILE *fp,          // Output file (at 0)
     }
 
     MPI_Barrier(comm);
-    if (rank == 0)
-        if(frame_file.is_open()) frame_file.close();
+    if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
+    if (rank == 0 && frame_file.is_open()) frame_file.close();
 }
 
 /*

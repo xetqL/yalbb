@@ -187,6 +187,7 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<NodeWithou
     output << (value->decision ? " Y":" N") << " )" <<std::endl;
     return output;
 }
+
 template<class Data, class Domain>
 int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compare<Data, Domain> > c, int start_it) {
 
@@ -195,6 +196,5 @@ int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compar
     }
     return false;
 }
-
 
 #endif //NBMPI_ASTAR_HPP

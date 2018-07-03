@@ -343,7 +343,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
         }
     }
     Domain start_domain_boundaries = domain_boundaries;
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::priority_queue<
             std::shared_ptr<NodeWithoutParticles<Domain> >,
