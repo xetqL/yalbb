@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
                                                                                   params.simsize,
                                                                                   params.simsize,
                                                                                   params.simsize);
-        constexpr int NB_CLUSTERS = 6;
+        constexpr int NB_CLUSTERS = 1;
 
         std::array<int, NB_CLUSTERS> clusters;
         std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
@@ -127,8 +127,6 @@ int main(int argc, char** argv) {
     Zoltan_Destroy(&zz);
 
     if (fp) fclose(fp);
-
-    if (rank == 0) printf("Simulation finished in %f seconds\n", (t2 - t1));
 
     MPI_Finalize();
     return 0;

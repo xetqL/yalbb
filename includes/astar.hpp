@@ -72,13 +72,13 @@ class Compare
 {
 public:
     bool operator() (std::shared_ptr<Node<MESH_DATA, Domain>> a, std::shared_ptr<Node<MESH_DATA, Domain>> b) {
-        return a->cost() > b->cost();
+        return a->cost() < b->cost();
     }
 };
 
 template<typename MESH_DATA, typename Domain>
 bool operator<(const std::shared_ptr<Node<MESH_DATA, Domain>> &n1, const std::shared_ptr<Node<MESH_DATA, Domain>> &n2) {
-    return n1->cost() > n2->cost();
+    return n1->cost() < n2->cost();
 }
 
 template<typename MESH_DATA, typename Domain>

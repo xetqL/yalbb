@@ -81,17 +81,18 @@ void simulate(FILE *fp,          // Output file (at 0)
     }
     int nb_lb = 0;
     std::vector<elements::Element<N>> remote_el;
-    double begin = MPI_Wtime();
     for (int frame = 0; frame < nframes; ++frame) {
+        double begin = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
             if (lb_policy->should_load_balance(i + frame * npframe, nullptr /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
-            }else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
+            } else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             MPI_Barrier(comm);
             lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
         }
+        double end = MPI_Wtime();
 
         // Write metrics to report file
         if (params->record)
@@ -99,7 +100,6 @@ void simulate(FILE *fp,          // Output file (at 0)
                                                mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
         MPI_Barrier(comm);
         if (rank == 0) {
-            double end = MPI_Wtime();
             double time_spent = (end - begin);
             if (params->record) {
                 frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
@@ -108,7 +108,6 @@ void simulate(FILE *fp,          // Output file (at 0)
                 frame_file.close();
             }
             printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
-            begin = MPI_Wtime();
         }
     }
 
