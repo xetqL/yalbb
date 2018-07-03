@@ -185,7 +185,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                 if (i == 0)
                     zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 if (i > 0)
-                    load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, load_balancer, datatype, comm);
+                    load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
 
                 MPI_Barrier(comm);
                 try {
@@ -239,7 +239,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         for (int i = 0; i < npframe; i++) {
             MPI_Barrier(comm);
             it_start = MPI_Wtime();
-            load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, load_balancer, datatype, comm);            MPI_Barrier(comm);
+            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
             try {
                 double cpt_step_start_time = MPI_Wtime();
                 computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
