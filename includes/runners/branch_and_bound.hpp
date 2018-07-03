@@ -152,7 +152,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     MPI_Bcast(&optimal_frame_time_lookup_table.front(), nframes, MPI_DOUBLE, 0, comm);
     double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
-    if (rank == 0) std::cout << "Total time: "<< (total_optimal_time*2) << " Optimal time: " << (total_optimal_time) << std::endl;
+    if (rank == 0) std::cout << "Total time: "<< (total_optimal_time*nproc) << " Optimal time: " << (total_optimal_time) << std::endl;
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     MPI_Barrier(comm);
