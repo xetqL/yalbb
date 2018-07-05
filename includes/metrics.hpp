@@ -403,8 +403,8 @@ void write_load_balancing_reports(std::ofstream &dataset, std::string fname, int
 
 template<class FeatureContainer>
 void write_dataset(std::ofstream &dataset, std::string fname,
-                                  std::list<std::shared_ptr<FeatureContainer>> fcontainers, int rank,
-                                  int exec_rank = 0) {
+                   std::list<std::shared_ptr<FeatureContainer>> fcontainers,
+                   int rank,  double total_time = 0.0, int exec_rank = 0 ) {
 
     if (rank == exec_rank) {
         if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app);
@@ -414,6 +414,7 @@ void write_dataset(std::ofstream &dataset, std::string fname,
             }
             dataset << features_container->get_target() << std::endl;
         }
+        dataset << total_time << std::endl;
         dataset.close();
     }
 

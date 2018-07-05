@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
 #endif
     std::ofstream dataset;
     const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
+                                         "-" + std::to_string(params.nframes) + "x" + std::to_string(params.npframe) +
                                          "-" + std::to_string(params.world_size) +
                                          "-" + std::to_string(params.npart) +
                                          "-" + std::to_string((params.T0)) +
@@ -138,8 +139,15 @@ int main(int argc, char **argv) {
                                          "-" + std::to_string((params.eps_lj)) +
                                          "-" + std::to_string((params.sig_lj)) +
                                          "-" + std::to_string(params.dt) + ".data";
-    metric::io::write_dataset(dataset, DATASET_FILENAME, res, rank, 0);
+    int i = 0;
 
+    for(auto const& solution : res) {
+        double total_time = 0.0;
+        //std::cout << "Solution(" << i << ")" << std::endl;
+        std::for_each(solution.begin(), solution.end(), [&total_time] (auto p_node) {total_time += p_node->node_cost;});
+        metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, total_time);
+        i++;
+    }
     MPI_Barrier(MPI_COMM_WORLD);
 
 #ifdef DEBUG
@@ -149,10 +157,8 @@ int main(int argc, char **argv) {
     }
 #endif
     
-    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
-                        &importProcs, &importToPart);
-    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
-                        &exportProcs, &exportToPart);
+    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
     Zoltan_Destroy(&zz);
 
     if (fp) fclose(fp);

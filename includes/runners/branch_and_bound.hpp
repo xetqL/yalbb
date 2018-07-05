@@ -44,15 +44,16 @@
 #define TICK_FREQ 1 // MPI_Wtick()
 #endif
 
-
+template<int N> using Domain = std::vector<partitioning::geometric::Domain<N> >;
+template<int N> using LBNode = Node<MESH_DATA<N>, Domain<N>>;
+template<int N> using LBSolutionPath = std::list<std::shared_ptr<LBNode<N> > >;
 
 template<int N>
-std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric::Domain<N>>>>> Astar_runner(
+std::vector<LBSolutionPath<N>> Astar_runner(
         MESH_DATA<N> *p_mesh_data,
         Zoltan_Struct *load_balancer,
         const sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD) {
-    using Domain = std::vector<partitioning::geometric::Domain<N>>;
     // MPI Init ...
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -60,12 +61,18 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
 
     const int nframes = params->nframes;
     const int npframe = params->npframe;
+    const int NB_BEST_SOLUTIONS = 5,
+            LAST_ITERATION = nframes * npframe;
+
+    int number_of_visited_node = 0, number_of_frames_computed = 0;
+
     double it_start, true_iteration_time, my_iteration_time;
-    MESH_DATA<N> mesh_data = *p_mesh_data;
+    MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data, *p_tmp_data;
+
     std::vector<bool> has_been_LBexplored(nframes, false);
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
-    Domain domain_boundaries(nproc);
+    Domain<N> domain_boundaries(nproc);
     {
         int dim;
         double xmin, ymin, zmin, xmax, ymax, zmax;
@@ -78,7 +85,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         }
     }
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
-    std::multiset<std::shared_ptr<Node<MESH_DATA<N>, Domain> >, Compare<MESH_DATA<N>, Domain> > queue;
+    std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>, Domain<N>> > queue;
 
     std::shared_ptr<SlidingWindow<double>>
             window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
@@ -86,15 +93,16 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
             window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
 
-    std::vector<double> dataset_entry(N_FEATURES + N_LABEL), features(N_FEATURES + N_LABEL), times(nproc),
+    std::vector<double> dataset_entry(N_FEATURES + N_LABEL),
+            features(N_FEATURES + N_LABEL), times(nproc),
             optimal_frame_time_lookup_table(nframes);
 
-    std::shared_ptr<Node<MESH_DATA<N>, Domain> >
-            current_node = std::make_shared<Node<MESH_DATA<N>, Domain>>(mesh_data, domain_boundaries), solution;
+    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries), solution;
+    std::vector<std::shared_ptr<LBNode<N> > > solutions;
+
     current_node->metrics_before_decision = dataset_entry;
     current_node->last_metric = dataset_entry;
 
-    std::list<std::shared_ptr<Node<MESH_DATA<N>, Domain>>> solution_path;
 
     int it = 0;
     double child_cost, true_child_cost;
@@ -111,15 +119,13 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Comm foreman_comm;
     MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
 
-    MESH_DATA<N> tmp_data;
-
-    Domain tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
+    Domain<N> tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
     load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data.els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
 
-    MESH_DATA<N> *p_tmp_data = &tmp_data;
-
     if (rank == 0) {
+        p_tmp_data = &tmp_data;
+
         SimpleCSVFormatter frame_formater(',');
         std::ofstream frame_file;
         if(params->record) {
@@ -160,23 +166,15 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
     MPI_Group_free(&world_group);
 
     if (rank == 0) MPI_Comm_free(&foreman_comm);
-
-    int number_of_visited_node = 0, number_of_frames_computed = 0;
-    while (it < nframes * npframe) {
+    while (solutions.size() < NB_BEST_SOLUTIONS) {
         auto children = current_node->get_children();
         number_of_visited_node++;
 
-#ifdef DEBUG
-        if(!rank){
-            std::cout << "Number of visited node: " << number_of_visited_node;
-            std::cout << ", Number of node in queue: " << queue.size() << std::endl;
-        }
-#endif
         mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
         std::tuple<int, int, int> computation_info;
 
-        if(!has_been_explored(queue, children.first->start_it)){
+        if(!has_been_explored(queue, children.first->start_it)) {
             child_cost = 0;
             for (int i = 0; i < npframe; i++) {
                 MPI_Barrier(comm);
@@ -188,6 +186,7 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                     load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
 
                 MPI_Barrier(comm);
+
                 try {
                     double cpt_step_start_time = MPI_Wtime();
                     computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
@@ -203,13 +202,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
-#ifdef DEBUG
-                   /* if(!rank) {
-                        std::cout << std::fixed << std::setprecision(3);
-                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
-                        std::cout << std::endl;
-                    }*/
-#endif
                     child_cost += true_iteration_time;
                 } catch (const std::runtime_error e) {
                     std::cout << "Panic! " << children.second->start_it+i << std::endl;
@@ -223,7 +215,9 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
             children.first->end_it = it + npframe;
             children.first->node_cost = true_child_cost;
             number_of_frames_computed  = (children.first->end_it / npframe);
-            children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
+            children.first->heuristic_cost =
+                    children.first->end_it == nframes * npframe ? 0 : std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
+
             children.first->last_metric = {};
             std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.first->last_metric));
             children.first->last_metric.push_back(dataset_entry.at(0) - children.first->metrics_before_decision.at(0));
@@ -257,13 +251,6 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
                                                                     window_gini_complexities, window_gini_communications,
                                                                     true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
 
-#ifdef DEBUG
-               /* if(!rank){
-                        std::cout << std::fixed << std::setprecision(3);
-                        std::for_each(dataset_entry.begin(), dataset_entry.end(), [](auto const& el){std::cout << el << " ";});
-                        std::cout << std::endl;
-                }*/
-#endif
                 child_cost += true_iteration_time;
             } catch (const std::runtime_error error) {
                 std::cout << "Panic! " << children.second->start_it+i << std::endl;
@@ -278,8 +265,8 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.second->end_it = it + npframe;
         children.second->node_cost = true_child_cost;
         number_of_frames_computed  = (children.first->end_it / npframe);
-        children.second->heuristic_cost = children.first->end_it == nframes * npframe ? 0 :
-                true_child_cost + std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);
+        children.second->heuristic_cost =
+                children.first->end_it == nframes * npframe ? 0 : true_child_cost + std::accumulate(optimal_frame_time_lookup_table.begin()+(number_of_frames_computed-1), optimal_frame_time_lookup_table.end(), 0);
         children.second->domain = domain_boundaries;
         children.second->last_metric = {};
         std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.second->last_metric));
@@ -289,24 +276,39 @@ std::list<std::shared_ptr<Node<MESH_DATA<N>, std::vector<partitioning::geometric
         children.second->last_metric.push_back(dataset_entry.at(3) - children.second->metrics_before_decision.at(3));
 
         queue.insert(children.second);
-        current_node = *queue.begin();
-        queue.erase(queue.begin());
 
-        if (current_node->end_it >= nframes * npframe) { solution = current_node; }
+        do{
+            current_node = *queue.begin();                 // Next best node
+            queue.erase(queue.begin());                    // Remove it from the queue
+            if (current_node->end_it >= LAST_ITERATION)    // if it is a solution node
+                solutions.push_back(current_node);         // then add to solution list
+            // while current node is a solution
+        }while(current_node->end_it >= LAST_ITERATION && solutions.size() < NB_BEST_SOLUTIONS);
 
         it = current_node->end_it;
         MPI_Barrier(comm);
+
     }
-    double cost = 0;
-    //retrieve best path
-    while (solution->parent.get() != nullptr) {
-        if(!rank) std::cout << "frame time: " << solution->node_cost << " ? "<<solution->decision<< std::endl;
-        cost += solution->node_cost;
-        solution_path.push_front(solution);
-        solution = solution->parent;
+
+
+    std::vector<LBSolutionPath<N> > best_paths;
+    size_t path_idx = 0;
+    while(path_idx < NB_BEST_SOLUTIONS) {
+        double cost = 0;
+        LBSolutionPath<N> solution_path;
+        auto solution = solutions[path_idx];
+        while (solution->parent.get() != nullptr) { //reconstruct path
+            if(!rank) std::cout << "frame time: " << solution->node_cost << " ? "<<solution->decision<< std::endl;
+            cost += solution->node_cost;
+            solution_path.push_front(solution);
+            solution = solution->parent;
+        }
+        best_paths.push_back(solution_path);
+        if (!rank) std::cout << "Solution("<<path_idx<<"): "<< cost << " seconds " << std::endl;
+        path_idx++;
     }
-    if (!rank) std::cout << cost << " seconds " << std::endl;
-    return solution_path;
+
+    return best_paths;
 }
 
 template<int N>
