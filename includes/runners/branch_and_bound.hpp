@@ -61,7 +61,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     const int nframes = params->nframes;
     const int npframe = params->npframe;
-    const int NB_BEST_SOLUTIONS = 5,
+    const int NB_BEST_SOLUTIONS = (int) params->nb_best_path,
             LAST_ITERATION = nframes * npframe;
 
     int number_of_visited_node = 0, number_of_frames_computed = 0;
@@ -290,7 +290,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     }
 
-
     std::vector<LBSolutionPath<N> > best_paths;
     size_t path_idx = 0;
     while(path_idx < NB_BEST_SOLUTIONS) {
@@ -304,7 +303,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             solution = solution->parent;
         }
         best_paths.push_back(solution_path);
-        if (!rank) std::cout << "Solution("<<path_idx<<"): "<< cost << " seconds " << std::endl;
+        if (!rank) std::cout << "Solution ("<<path_idx<<"): "<< cost << " seconds " << std::endl;
         path_idx++;
     }
 
