@@ -204,9 +204,9 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
                     child_cost += true_iteration_time;
-                } catch (const std::runtime_error e) {
+                } catch (const std::runtime_error& e) {
                     std::cout << "Panic! " << children.second->start_it+i << std::endl;
-                    throw new std::runtime_error("particle out domain");
+                    throw std::runtime_error("particle out domain");
                 }
             }
             MPI_Barrier(comm);
@@ -216,7 +216,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             children.first->end_it = it + npframe;
             children.first->node_cost = true_child_cost;
             number_of_frames_computed  = (children.first->end_it / npframe);
-            children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed, optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
+            children.first->heuristic_cost = 0; //std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed, optimal_frame_time_lookup_table.end(), 0.0);
+            children.first->domain = domain_boundaries;
 
             children.first->last_metric = {};
             std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.first->last_metric));
@@ -266,7 +267,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         children.second->end_it = it + npframe;
         children.second->node_cost = true_child_cost;
         number_of_frames_computed  = (children.first->end_it / npframe);
-        children.second->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed+1, optimal_frame_time_lookup_table.end(), 0);
+
+        children.second->heuristic_cost = 0; //std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed, optimal_frame_time_lookup_table.end(), 0.0);
         children.second->domain = domain_boundaries;
         children.second->last_metric = {};
         std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.second->last_metric));
@@ -277,17 +279,16 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
         queue.insert(children.second);
 
-        do{
+        do {
             current_node = *queue.begin();                 // Next best node
             queue.erase(queue.begin());                    // Remove it from the queue
             if (current_node->end_it >= LAST_ITERATION)    // if it is a solution node
                 solutions.push_back(current_node);         // then add to solution list
             // while current node is a solution
-        }while(current_node->end_it >= LAST_ITERATION && solutions.size() < NB_BEST_SOLUTIONS);
+        } while(current_node->end_it >= LAST_ITERATION && solutions.size() < NB_BEST_SOLUTIONS);
 
         it = current_node->end_it;
         MPI_Barrier(comm);
-
     }
 
     std::vector<LBSolutionPath<N> > best_paths;
