@@ -189,7 +189,6 @@ public:
     }
 };
 
-
 template<int N>
 class UniformRandomElementsGenerator : public RandomElementsGenerator<N> {
     const int max_trial;
@@ -231,6 +230,50 @@ public:
         }
     }
 };
+
+template<int N>
+class CloudWallElementsGenerator : public RandomElementsGenerator<N> {
+    const int cw_pos;
+    const int max_trial;
+public:
+    CloudWallElementsGenerator(int cw_position = 0, const int max_trial = 10000) : cw_pos(cw_position), max_trial(max_trial) {}
+
+    void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
+                           const lennard_jones::RejectionCondition<N>* condition) override {
+        elements.clear();
+        int number_of_element_generated = 0;
+        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
+        std::uniform_real_distribution<elements::ElementRealType>
+                udistx(condition->xmin, condition->xmax),
+                udisty(condition->ymin, condition->ymax),
+                udistz(condition->zmin, condition->zmax);
+
+        statistic::NormalSphericalDistribution<N, elements::ElementRealType>
+                sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
+
+        int trial = 0;
+        while(elements.size() < n) {
+            while(trial < max_trial) {
+                std::array<elements::ElementRealType, N>  element_position;
+                if(N>2)
+                    element_position = {udistx(__gen), udisty(__gen), udistx(__gen)} ;
+                else
+                    element_position = {udistx(__gen), udisty(__gen)};
+                auto element = elements::Element<N>(element_position, sphere_dist_velocity(__gen), elements.size(), elements.size());
+                if(condition->predicate(element)) {
+                    trial = 0;
+                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});
+                    elements.push_back(element);
+                    break;
+                } else{
+                    trial++;
+                }
+            }
+            if(trial == max_trial) break; // when you cant generate new particles with less than max trials stop.
+        }
+    }
+};
+
 
 } // end of namespace lennard_jones
 

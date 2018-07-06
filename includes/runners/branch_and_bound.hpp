@@ -188,6 +188,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                 MPI_Barrier(comm);
 
                 try {
+
                     double cpt_step_start_time = MPI_Wtime();
                     computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                           params, comm);
@@ -215,8 +216,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             children.first->end_it = it + npframe;
             children.first->node_cost = true_child_cost;
             number_of_frames_computed  = (children.first->end_it / npframe);
-            children.first->heuristic_cost = children.first->end_it == nframes * npframe ?
-                    0 : std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed, optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
+            children.first->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed, optimal_frame_time_lookup_table.end(), 0);        children.first->domain = domain_boundaries;
 
             children.first->last_metric = {};
             std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.first->last_metric));
@@ -229,6 +229,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
+
         child_cost = 0;
         for (int i = 0; i < npframe; i++) {
             MPI_Barrier(comm);
@@ -265,8 +266,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         children.second->end_it = it + npframe;
         children.second->node_cost = true_child_cost;
         number_of_frames_computed  = (children.first->end_it / npframe);
-        children.second->heuristic_cost = children.first->end_it == nframes * npframe ?
-                0 : true_child_cost + std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed+1, optimal_frame_time_lookup_table.end(), 0);
+        children.second->heuristic_cost = std::accumulate(optimal_frame_time_lookup_table.begin()+number_of_frames_computed+1, optimal_frame_time_lookup_table.end(), 0);
         children.second->domain = domain_boundaries;
         children.second->last_metric = {};
         std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.second->last_metric));
