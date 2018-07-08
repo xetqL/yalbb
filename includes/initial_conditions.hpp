@@ -128,7 +128,6 @@ class RandomElementsInNClustersGenerator : public RandomElementsGenerator<N> {
     std::array<int, C> clusters;
     const int seed, max_trial;
 public:
-
     RandomElementsInNClustersGenerator(std::array<int, C> clusters, const int seed = __rd(), const int max_trial = 10000) :
             clusters(clusters), seed(seed), max_trial(max_trial) {}
 
@@ -161,7 +160,7 @@ public:
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
             statistic::NormalSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
-            auto cluster_velocity = sphere_dist_velocity(my_gen);
+            std::array<elements::ElementRealType, N> cluster_velocity = part_in_cluster == 0 ? sphere_dist_velocity(my_gen) : cluster_velocity;
             int trial = 0;
 
             while(trial < max_trial && part_in_cluster < clusters[cluster_id] && elements.size() < n) { // stop when you cant generate new particles with less than 10000 trials within a cluster
@@ -232,25 +231,34 @@ public:
 };
 
 template<int N>
-class CloudWallElementsGenerator : public RandomElementsGenerator<N> {
-    const int cw_pos;
+class HalfLoadedRandomElementsGenerator : public RandomElementsGenerator<N> {
+    double division_pos;
+    const bool direction; //true is positive, false is negative
     const int max_trial;
+
 public:
-    CloudWallElementsGenerator(int cw_position = 0, const int max_trial = 10000) : cw_pos(cw_position), max_trial(max_trial) {}
+    HalfLoadedRandomElementsGenerator(double division_position, bool direction, const int max_trial = 10000) :
+            division_pos(division_position), direction(direction), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
+        division_pos = condition->xmax > division_pos ? condition->xmax : division_pos;
         elements.clear();
         int number_of_element_generated = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
-                udistx(condition->xmin, condition->xmax),
+                udistx(0.0, division_pos),
                 udisty(condition->ymin, condition->ymax),
                 udistz(condition->zmin, condition->zmax);
 
         statistic::NormalSphericalDistribution<N, elements::ElementRealType>
                 sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
-
+        std::array<elements::ElementRealType, N>  element_velocity;
+        if(N>2) {
+            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0, 0.0};
+        } else {
+            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0};
+        }
         int trial = 0;
         while(elements.size() < n) {
             while(trial < max_trial) {
@@ -259,7 +267,57 @@ public:
                     element_position = {udistx(__gen), udisty(__gen), udistx(__gen)} ;
                 else
                     element_position = {udistx(__gen), udisty(__gen)};
-                auto element = elements::Element<N>(element_position, sphere_dist_velocity(__gen), elements.size(), elements.size());
+
+                auto element = elements::Element<N>(element_position, element_velocity, elements.size(), elements.size());
+                if(condition->predicate(element)) {
+                    trial = 0;
+                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});
+                    elements.push_back(element);
+                    break;
+                } else{
+                    trial++;
+                }
+            }
+            if(trial == max_trial) break; // when you cant generate new particles with less than max trials stop.
+        }
+    }
+};
+
+template<int N>
+class ParticleWallElementsGenerator : public RandomElementsGenerator<N> {
+    const double pw_pos;
+    const bool direction; //true is positive, false is negative
+    const int max_trial;
+public:
+    ParticleWallElementsGenerator(double pw_position, bool direction, const int max_trial = 10000) :
+            pw_pos(pw_position), direction(direction), max_trial(max_trial) {}
+
+    void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
+                           const lennard_jones::RejectionCondition<N>* condition) override {
+        elements.clear();
+        int number_of_element_generated = 0;
+        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, 2.0 * condition->T0 * condition->T0);
+        std::uniform_real_distribution<elements::ElementRealType>
+                udistx(condition->xmin, condition->xmax),
+                udisty(condition->ymin, condition->ymax),
+                udistz(condition->zmin, condition->zmax);
+
+        int trial = 0;
+        std::array<elements::ElementRealType, N>  element_velocity;
+        if(N>2) {
+            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0, 0.0};
+        } else {
+            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0};
+        }
+        while(elements.size() < n) {
+            while(trial < max_trial) {
+                std::array<elements::ElementRealType, N>  element_position;
+                if(N>2) {
+                    element_position = {pw_pos, udisty(__gen), udistx(__gen)};
+                } else {
+                    element_position = {pw_pos, udisty(__gen)};
+                }
+                auto element = elements::Element<N>(element_position, element_velocity, elements.size(), elements.size());
                 if(condition->predicate(element)) {
                     trial = 0;
                     std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});

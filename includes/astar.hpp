@@ -190,9 +190,8 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<NodeWithou
 
 template<class Data, class Domain>
 int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compare<Data, Domain> > c, int start_it) {
-
-    for(auto const& node : c){
-        if(node->start_it > start_it) return true;
+    for(auto const& node : c) {
+        if(node->start_it >= start_it) return true;
     }
     return false;
 }
