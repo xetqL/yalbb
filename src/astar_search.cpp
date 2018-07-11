@@ -65,9 +65,10 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    MESH_DATA<DIMENSION> _mesh_data;
-    if(rank == 0) {
-        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(_mesh_data.els),
+    MESH_DATA<DIMENSION> mesh_data;
+
+    if(rank == 0){
+        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(mesh_data.els),
                                                                                   params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
                                                                                   params.T0,
@@ -75,17 +76,46 @@ int main(int argc, char **argv) {
                                                                                   params.simsize,
                                                                                   params.simsize,
                                                                                   params.simsize);
-        constexpr int NB_CLUSTERS = 1;
-        std::array<int, NB_CLUSTERS> clusters;
-        std::fill(clusters.begin(), clusters.end(), params.npart / NB_CLUSTERS);
-        initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION, NB_CLUSTERS>
-                elements_generator(clusters, params.seed, 100000);
-        elements_generator.generate_elements(_mesh_data.els, params.npart, &condition);
+        const int MAX_TRIAL = 100000;
+        int NB_CLUSTERS;
+        std::vector<int> clusters;
+        using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<DIMENSION>>, int>;
+        std::queue<ElementGeneratorCfg> elements_generators;
+        switch(params.particle_init_conf) {
+            case 1: //uniformly distributed
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+                break;
+            case 2: //Half full half empty
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                break;
+            case 3: //Wall of particle
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                break;
+            case 4: //cluster(s)
+                NB_CLUSTERS = 1;
+                clusters.resize(NB_CLUSTERS);
+                std::fill(clusters.begin(), clusters.end(), params.npart);
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart));
+                break;
+            case 5: //custom various density
+                NB_CLUSTERS = 2;
+                clusters.resize(NB_CLUSTERS);
+                std::fill(clusters.begin(), clusters.end(), params.npart / 4);
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart / 4));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 10, false, params.seed, MAX_TRIAL), 3*params.npart / 4));
+                break;
+            default:
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+        }
+        while(elements_generators.size() > 0) {
+            ElementGeneratorCfg el_gen = elements_generators.front();
+            el_gen.first->generate_elements(mesh_data.els, el_gen.second, &condition);
+            elements_generators.pop();
+            std::cout << el_gen.second << std::endl;
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-
-    MESH_DATA<DIMENSION> mesh_data = _mesh_data;
 
     auto zz = zoltan_create_wrapper();
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
@@ -143,19 +173,11 @@ int main(int argc, char **argv) {
 
     for(auto const& solution : res) {
         double total_time = 0.0;
-        //std::cout << "Solution(" << i << ")" << std::endl;
         std::for_each(solution.begin(), solution.end(), [&total_time] (auto p_node) {total_time += p_node->node_cost;});
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, total_time);
         i++;
     }
     MPI_Barrier(MPI_COMM_WORLD);
-
-#ifdef DEBUG
-    if(!rank){
-        std::cout << "Printing solution ... " << std::endl;
-        std::for_each(res.begin(), res.end(), [=](auto v){std::cout << v << std::endl;});
-    }
-#endif
     
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);

@@ -85,19 +85,18 @@ public:
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
-        elements.clear();
         int number_of_element_generated = 0;
         int clusters_to_generate = 1;
         int cluster_id = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType> udistx(condition->xmin, condition->xmax),
-                                                                  udisty(condition->ymin, condition->ymax),
-                                                                  udistz(condition->zmin, condition->zmax);
+                udisty(condition->ymin, condition->ymax),
+                udistz(condition->zmin, condition->zmax);
         std::mt19937 my_gen(seed);
         while(cluster_id < clusters_to_generate && elements.size() < n) {
             elements::ElementRealType cluster_centerx = udistx(my_gen),
-                                      cluster_centery = udistx(my_gen),
-                                      cluster_centerz = udistz(my_gen);
+                    cluster_centery = udisty(my_gen),
+                    cluster_centerz = udistz(my_gen);
             statistic::NormalSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(condition->sig * (max_particles_per_cluster), cluster_centerx, cluster_centery, cluster_centerz);
             statistic::NormalSphericalDistribution<N, elements::ElementRealType>
@@ -123,17 +122,16 @@ public:
     }
 };
 
-template<int N, int C>
+template<int N>
 class RandomElementsInNClustersGenerator : public RandomElementsGenerator<N> {
-    std::array<int, C> clusters;
+    std::vector<int> clusters;
     const int seed, max_trial;
 public:
-    RandomElementsInNClustersGenerator(std::array<int, C> clusters, const int seed = __rd(), const int max_trial = 10000) :
+    RandomElementsInNClustersGenerator(std::vector<int> clusters, const int seed = __rd(), const int max_trial = 10000) :
             clusters(clusters), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
-        elements.clear();
         float x_sz = condition->xmax - condition->xmin;
         float y_sz = condition->ymax - condition->ymin;
         float z_sz = condition->zmax - condition->zmin;
@@ -147,22 +145,22 @@ public:
                 udisty(condition->ymin+y_sz*0.05, condition->ymax-y_sz*0.05),
                 udistz(condition->zmin+z_sz*0.05, condition->zmax-z_sz*0.05);
         std::mt19937 my_gen(seed);
-        std::array<int, C> K = clusters;
+        std::vector<int> K = clusters;
         int part_in_cluster = 0;
         elements::ElementRealType cluster_centerx = udistx(my_gen),
-                                  cluster_centery = udistx(my_gen),
-                                  cluster_centerz = udistz(my_gen);
+                cluster_centery = udisty(my_gen),
+                cluster_centerz = udistz(my_gen);
+
+        statistic::NormalSphericalDistribution<N, elements::ElementRealType>
+                sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
+
+        std::array<elements::ElementRealType, N> cluster_velocity = sphere_dist_velocity(my_gen);
+
         while(cluster_id < clusters_to_generate && elements.size() < n) {
-
             elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) * 0.9;
-
             statistic::UniformSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
-            statistic::NormalSphericalDistribution<N, elements::ElementRealType>
-                    sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
-            std::array<elements::ElementRealType, N> cluster_velocity = part_in_cluster == 0 ? sphere_dist_velocity(my_gen) : cluster_velocity;
             int trial = 0;
-
             while(trial < max_trial && part_in_cluster < clusters[cluster_id] && elements.size() < n) { // stop when you cant generate new particles with less than 10000 trials within a cluster
                 auto element = elements::Element<N>(sphere_dist_position(my_gen), sphere_dist_velocity(my_gen), elements.size(), elements.size());
                 if(condition->predicate(element)) {
@@ -171,17 +169,17 @@ public:
                     elements.push_back(element);
                     number_of_element_generated++;
                     part_in_cluster++;
-                } else
-                    trial++;
+                } else trial++;
             }
             if(trial == max_trial) {
-                std::cout << "increase sphere size of cluster " << cluster_id << ", " << part_in_cluster<< "/"<<clusters[cluster_id] << std::endl;
+                std::cerr << "increase sphere size of cluster " << cluster_id << ", " << part_in_cluster<< "/"<<clusters[cluster_id] << std::endl;
                 K[cluster_id] *= 1.5;
             } else{
                 part_in_cluster = 0;
                 cluster_centerx = udistx(my_gen);
                 cluster_centery = udistx(my_gen);
                 cluster_centerz = udistz(my_gen);
+                cluster_velocity = sphere_dist_velocity(my_gen);
                 cluster_id++;
             }
         }
@@ -190,35 +188,36 @@ public:
 
 template<int N>
 class UniformRandomElementsGenerator : public RandomElementsGenerator<N> {
+    int seed;
+
     const int max_trial;
 public:
-    UniformRandomElementsGenerator(const int max_trial = 10000) : max_trial(max_trial) {}
+    UniformRandomElementsGenerator(int seed, const int max_trial = 10000) : seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
-        elements.clear();
         int number_of_element_generated = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType> udistx(condition->xmin, condition->xmax),
-                                                                  udisty(condition->ymin, condition->ymax),
-                                                                  udistz(condition->zmin, condition->zmax);
+                udisty(condition->ymin, condition->ymax),
+                udistz(condition->zmin, condition->zmax);
 
         statistic::NormalSphericalDistribution<N, elements::ElementRealType>
                 sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
-
+        std::mt19937 my_gen(seed);
         int trial = 0;
         while(elements.size() < n) {
             while(trial < max_trial) {
                 std::array<elements::ElementRealType, N>  element_position;
                 if(N>2)
-                    element_position = {udistx(__gen), udisty(__gen), udistx(__gen)} ;
+                    element_position = {udistx(my_gen), udisty(my_gen), udistz(my_gen)} ;
                 else
-                    element_position = {udistx(__gen), udisty(__gen)};
+                    element_position = {udistx(my_gen), udisty(my_gen)};
 
-                auto element = elements::Element<N>(element_position, sphere_dist_velocity(__gen), elements.size(), elements.size());
+                auto element = elements::Element<N>(element_position, sphere_dist_velocity(my_gen), elements.size(), elements.size());
                 if(condition->predicate(element)) {
                     trial = 0;
-                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});
+                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist, &my_gen]{return temp_dist(my_gen);});
                     elements.push_back(element);
                     break;
                 } else{
@@ -234,17 +233,18 @@ template<int N>
 class HalfLoadedRandomElementsGenerator : public RandomElementsGenerator<N> {
     double division_pos;
     const bool direction; //true is positive, false is negative
+    int seed;
     const int max_trial;
 
 public:
-    HalfLoadedRandomElementsGenerator(double division_position, bool direction, const int max_trial = 10000) :
-            division_pos(division_position), direction(direction), max_trial(max_trial) {}
+    HalfLoadedRandomElementsGenerator(double division_position, bool direction, int seed, const int max_trial = 10000) :
+            division_pos(division_position), direction(direction), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
-        division_pos = condition->xmax > division_pos ? condition->xmax : division_pos;
-        elements.clear();
+        //division_pos = condition->xmax < division_pos ? condition->xmax : division_pos;
         int number_of_element_generated = 0;
+        int already_generated = elements.size();
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
                 udistx(0.0, division_pos),
@@ -254,24 +254,25 @@ public:
         statistic::NormalSphericalDistribution<N, elements::ElementRealType>
                 sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
         std::array<elements::ElementRealType, N>  element_velocity;
+        std::mt19937 my_gen(seed);
         if(N>2) {
-            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0, 0.0};
+            element_velocity = {direction ? temp_dist(my_gen) : -temp_dist(my_gen), 0.0, 0.0};
         } else {
-            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0};
+            element_velocity = {direction ? temp_dist(my_gen) : -temp_dist(my_gen), 0.0};
         }
+
         int trial = 0;
-        while(elements.size() < n) {
+        while(elements.size()-already_generated < n) {
             while(trial < max_trial) {
                 std::array<elements::ElementRealType, N>  element_position;
                 if(N>2)
-                    element_position = {udistx(__gen), udisty(__gen), udistx(__gen)} ;
+                    element_position = {udistx(my_gen), udisty(my_gen), udistz(my_gen)} ;
                 else
-                    element_position = {udistx(__gen), udisty(__gen)};
+                    element_position = {udistx(my_gen), udisty(my_gen)};
 
                 auto element = elements::Element<N>(element_position, element_velocity, elements.size(), elements.size());
                 if(condition->predicate(element)) {
                     trial = 0;
-                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});
                     elements.push_back(element);
                     break;
                 } else{
@@ -287,43 +288,43 @@ template<int N>
 class ParticleWallElementsGenerator : public RandomElementsGenerator<N> {
     const double pw_pos;
     const bool direction; //true is positive, false is negative
+    int seed;
     const int max_trial;
 public:
-    ParticleWallElementsGenerator(double pw_position, bool direction, const int max_trial = 10000) :
-            pw_pos(pw_position), direction(direction), max_trial(max_trial) {}
+    ParticleWallElementsGenerator(double pw_position, bool direction, int seed, const int max_trial = 10000) :
+            pw_pos(pw_position), direction(direction), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const lennard_jones::RejectionCondition<N>* condition) override {
-        elements.clear();
         int number_of_element_generated = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, 2.0 * condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
                 udistx(condition->xmin, condition->xmax),
                 udisty(condition->ymin, condition->ymax),
                 udistz(condition->zmin, condition->zmax);
-
+        std::mt19937 my_gen(seed);
         int trial = 0;
         std::array<elements::ElementRealType, N>  element_velocity;
         if(N>2) {
-            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0, 0.0};
+            element_velocity = {direction ? temp_dist(my_gen) : -temp_dist(my_gen), 0.0, 0.0};
         } else {
-            element_velocity = {direction ? temp_dist(__gen) : -temp_dist(__gen), 0.0};
+            element_velocity = {direction ? temp_dist(my_gen) : -temp_dist(my_gen), 0.0};
         }
         while(elements.size() < n) {
             while(trial < max_trial) {
                 std::array<elements::ElementRealType, N>  element_position;
                 if(N>2) {
-                    element_position = {pw_pos, udisty(__gen), udistx(__gen)};
+                    element_position = {pw_pos, udisty(my_gen), udistz(my_gen)};
                 } else {
-                    element_position = {pw_pos, udisty(__gen)};
+                    element_position = {pw_pos, udisty(my_gen)};
                 }
                 auto element = elements::Element<N>(element_position, element_velocity, elements.size(), elements.size());
                 if(condition->predicate(element)) {
                     trial = 0;
-                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist]{return temp_dist(__gen);});
+                    //std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist, &my_gen]{return temp_dist(my_gen);});
                     elements.push_back(element);
                     break;
-                } else{
+                } else {
                     trial++;
                 }
             }
@@ -331,14 +332,12 @@ public:
         }
     }
 };
-
-
 } // end of namespace lennard_jones
 
 template<int N>
 void initialize_mesh_data(int npart, MESH_DATA<N>& mesh_data,
-                    initial_condition::RandomElementsGenerator<N>* elements_generator,
-                    const lennard_jones::RejectionCondition<N>& condition) {
+                          initial_condition::RandomElementsGenerator<N>* elements_generator,
+                          const lennard_jones::RejectionCondition<N>& condition) {
     elements_generator->generate_elements(mesh_data.els, npart, &condition);
 }
 

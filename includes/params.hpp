@@ -31,7 +31,10 @@ typedef struct sim_param_t {
     float simsize; /* Borders of the simulation  */
     bool  record;  /* record the simulation in a binary file */
     int   seed;    /* seed used in the RNG */
-    short computation_method; /* which computation method to use 1 is brute-force, 2 is cell linked list, 3 Fast Multipole Expansion (todo) */
+    int   particle_init_conf = 1;
+    char*   lb_dataset;
+    int   lb_policy = 1;
+    short computation_method;
     unsigned int world_size;
     unsigned int lb_interval;
     int one_shot_lb_call;
@@ -56,22 +59,25 @@ typedef struct sim_param_t {
 static void print_usage() {
     fprintf(stderr,
             "Lennard-Jones n-body simulation\n"
-                    "\t-h: print this message\n"
-                    "\t-o: output file name (run.out)\n"
-                    "\t-n: number of particles (500)\n"
-                    "\t-F: number of frames (400)\n"
-                    "\t-f: steps per frame (100)\n"
-                    "\t-t: time step (1e-4)\n"
-                    "\t-e: epsilon parameter in LJ potential (1)\n"
-                    "\t-s: distance parameter in LJ potential (1e-2)\n"
-                    "\t-S: RNG seed\n"
-                    "\t-g: gravitational field strength (1)\n"
-                    "\t-T: initial temperature (1)\n"
-                    "\t-I: Load balancing call interval (0, never) \n"
-                    "\t-d: simulation dimension (0-1;0-1)\n"
-                    "\t-r: record the simulation (false)\n"
-                    "\t-B: Number of Best path to retrieve (A*)\n"
-                    );
+            "\t-h: print this message\n"
+            "\t-o: output file name (run.out)\n"
+            "\t-n: number of particles (500)\n"
+            "\t-F: number of frames (400)\n"
+            "\t-f: steps per frame (100)\n"
+            "\t-t: time step (1e-4)\n"
+            "\t-e: epsilon parameter in LJ potential (1)\n"
+            "\t-s: distance parameter in LJ potential (1e-2)\n"
+            "\t-S: RNG seed\n"
+            "\t-g: gravitational field strength (1)\n"
+            "\t-T: initial temperature (1)\n"
+            "\t-I: Load balancing call interval (0, never) \n"
+            "\t-d: simulation dimension (0-1;0-1)\n"
+            "\t-r: record the simulation (false)\n"
+            "\t-B: Number of Best path to retrieve (A*)\n"
+            "\t-C: Initial particle configuration 1: Uniform (default), 2:Half, 3:Wall, 4: Cluster\n"
+            "\t-R: LB reproduction file (default: none)\n"
+            "\t-P: LB Policy 1: Random, 2: Threshold, 3: Fixed (-I interval), 4: Reproduce from file\n"
+    );
 }
 
 static void default_params(sim_param_t* params) {
@@ -97,6 +103,7 @@ static void default_params(sim_param_t* params) {
     boost::uuids::random_generator gen;
     boost::uuids::uuid u = gen(); // generate unique id for this simulation
     params->uuid = boost::uuids::to_string(u);
+
 }
 
 /*@T
@@ -109,7 +116,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:";
+    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -127,23 +134,41 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             case 'o':
                 strcpy(params->fname = new char[(strlen(optarg) + 1)], optarg);
                 break;
-            get_bool_arg('r', record);
-            get_int_arg('n', npart);
-            get_int_arg('F', nframes);
-            get_int_arg('f', npframe);
-            get_flt_arg('t', dt);
-            get_flt_arg('e', eps_lj);
-            get_flt_arg('s', sig_lj);
-            get_flt_arg('g', G);
-            get_flt_arg('T', T0);
-            get_flt_arg('I', lb_interval);
-            get_flt_arg('d', simsize);
-            get_int_arg('m', computation_method);
-            get_int_arg('p', world_size);
-            get_int_arg('S', seed);
-            get_int_arg('C', one_shot_lb_call);
+            case 'R':
+                strcpy(params->lb_dataset = new char[(strlen(optarg) + 1)], optarg);
+                break;
+
             get_int_arg('B', nb_best_path);
+
+            get_int_arg('C', particle_init_conf);
+
+            get_flt_arg('d', simsize);
+
+            get_flt_arg('e', eps_lj);
+
+            get_int_arg('f', npframe);
+            get_int_arg('F', nframes);
+
+            get_flt_arg('g', G);
+
+            get_flt_arg('I', lb_interval);
+
             get_bool_arg('L', start_with_lb);
+
+            get_int_arg('m', computation_method);
+
+            get_int_arg('n', npart);
+
+            get_int_arg('p', world_size);
+            get_int_arg('P', lb_policy);
+
+            get_bool_arg('r', record);
+
+            get_flt_arg('s', sig_lj);
+            get_int_arg('S', seed);
+
+            get_flt_arg('t', dt);
+            get_flt_arg('T', T0);
             default:
                 fprintf(stderr, "Unknown option\n");
                 print_usage();
