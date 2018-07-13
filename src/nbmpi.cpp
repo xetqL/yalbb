@@ -160,7 +160,23 @@ int main(int argc, char** argv) {
             lb_policy = std::make_shared<decision_making::RandomPolicy>(0.001, params.seed);
     }
 
-    simulate<DIMENSION>(fp, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
+    auto time_spent = simulate<DIMENSION>(fp, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
+    
+    if(!rank) {
+        std::ofstream result;
+        result.open("result-"+std::to_string(params.seed)
+		+"-"+std::to_string(params.nframes)
+		+"x"+std::to_string(params.npframe)
+		+"-"+std::to_string(params.npart)
+		+"-"+std::to_string(nproc)
+		+"-"+std::to_string(params.particle_init_conf)
+		+"-"+std::to_string(params.lb_policy)
+		+"-"+std::to_string(params.dt)
+		+"-INTERVAL-"+std::to_string(params.lb_interval)
+		+".result", std::ofstream::trunc | std::ofstream::trunc);
+    	result << time_spent << std::endl;
+	result.close();        
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
 

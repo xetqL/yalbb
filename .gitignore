@@ -1,3 +1,4 @@
+*.result
 *.metrics
 *.ovito
 dataset*

@@ -31,7 +31,7 @@
 
 
 template<int N>
-void simulate(FILE *fp,          // Output file (at 0)
+double simulate(FILE *fp,          // Output file (at 0)
             MESH_DATA<N> *mesh_data,
             Zoltan_Struct *load_balancer,
             std::shared_ptr<decision_making::Policy> lb_policy,
@@ -81,6 +81,7 @@ void simulate(FILE *fp,          // Output file (at 0)
     }
     int nb_lb = 0;
     std::vector<elements::Element<N>> remote_el;
+    double total_time = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         double begin = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
@@ -101,7 +102,8 @@ void simulate(FILE *fp,          // Output file (at 0)
         MPI_Barrier(comm);
         if (rank == 0) {
             double time_spent = (end - begin);
-            if (params->record) {
+            total_time += time_spent;
+	    if (params->record) {
                 frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
                 frame_formater.write_header(frame_file, params->npframe, params->simsize);
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
@@ -114,6 +116,7 @@ void simulate(FILE *fp,          // Output file (at 0)
     MPI_Barrier(comm);
     if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
     if (rank == 0 && frame_file.is_open()) frame_file.close();
+    return total_time;
 }
 
 /*
