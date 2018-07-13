@@ -529,7 +529,6 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
 
-
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
                                                                 true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity,

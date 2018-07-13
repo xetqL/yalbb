@@ -82,17 +82,31 @@ double simulate(FILE *fp,          // Output file (at 0)
     int nb_lb = 0;
     std::vector<elements::Element<N>> remote_el;
     double total_time = 0.0;
+    metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
+
     for (int frame = 0; frame < nframes; ++frame) {
         double begin = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
-            if (lb_policy->should_load_balance(i + frame * npframe, nullptr /* should be replaced by the metrics */)){
+            if (lb_policy->should_load_balance(i + frame * npframe, a /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
             } else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
+
             MPI_Barrier(comm);
-            lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+            int complexity = std::get<0>(computation_info),
+                received = std::get<1>(computation_info),
+                sent = std::get<2>(computation_info);
+            std::vector<double> complexities(nproc);
+            double cmplx = (double) complexity;
+            MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
+            double gini_complexities   = metric::load_balancing::compute_gini_index(complexities);
+            delete a;
+            a = new metric::LBMetrics<double>({gini_complexities});
         }
+        delete a;
         double end = MPI_Wtime();
 
         // Write metrics to report file
@@ -103,7 +117,7 @@ double simulate(FILE *fp,          // Output file (at 0)
         if (rank == 0) {
             double time_spent = (end - begin);
             total_time += time_spent;
-	    if (params->record) {
+	        if (params->record) {
                 frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
                 frame_formater.write_header(frame_file, params->npframe, params->simsize);
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
