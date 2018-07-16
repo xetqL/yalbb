@@ -112,6 +112,8 @@ int main(int argc, char** argv) {
     }
 
     auto zz = zoltan_create_wrapper();
+    std::cout << "yo" << std::endl;
+
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
 
     rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
@@ -151,9 +153,19 @@ int main(int argc, char** argv) {
             lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.6);
             break;
         case 3:
+            if( params.lb_interval == 0 ) {
+                std::cerr << "You must provide an interval (-I)" << std::endl;
+                MPI_Finalize();
+                exit(0);
+            }
             lb_policy = std::make_shared<decision_making::PeriodicPolicy>(params.lb_interval);
             break;
         case 4:
+            if( params.lb_dataset == "" ) {
+                std::cerr << "You must provide a reproduction file (-R)" << std::endl;
+                MPI_Finalize();
+                exit(0);
+            }
             lb_policy = std::make_shared<decision_making::InFilePolicy>(std::string(params.lb_dataset), params.npframe);
             break;
         default:

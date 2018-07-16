@@ -83,7 +83,7 @@ double simulate(FILE *fp,          // Output file (at 0)
     std::vector<elements::Element<N>> remote_el;
     double total_time = 0.0;
     metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
-
+    std::cout << "yo";
     for (int frame = 0; frame < nframes; ++frame) {
         double begin = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
@@ -106,7 +106,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             delete a;
             a = new metric::LBMetrics<double>({gini_complexities});
         }
-        delete a;
+
         double end = MPI_Wtime();
 
         // Write metrics to report file
@@ -130,6 +130,7 @@ double simulate(FILE *fp,          // Output file (at 0)
     MPI_Barrier(comm);
     if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
     if (rank == 0 && frame_file.is_open()) frame_file.close();
+    delete a;
     return total_time;
 }
 
