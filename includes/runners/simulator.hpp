@@ -129,7 +129,7 @@ double simulate(FILE *fp,          // Output file (at 0)
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
                 frame_file.close();
             }
-            printf("Frame [%d] completed in %f seconds\n", frame, time_spent);
+            printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
         }
     }
 
