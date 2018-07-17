@@ -83,8 +83,8 @@ double simulate(FILE *fp,          // Output file (at 0)
     std::vector<elements::Element<N>> remote_el;
     double total_time = 0.0;
     metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
-    std::cout << "yo";
     for (int frame = 0; frame < nframes; ++frame) {
+        MPI_Barrier(comm);
         double begin = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
@@ -92,7 +92,6 @@ double simulate(FILE *fp,          // Output file (at 0)
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
             } else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
-
             MPI_Barrier(comm);
 
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);

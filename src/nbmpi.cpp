@@ -112,7 +112,6 @@ int main(int argc, char** argv) {
     }
 
     auto zz = zoltan_create_wrapper();
-    std::cout << "yo" << std::endl;
 
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
 
@@ -187,7 +186,7 @@ int main(int argc, char** argv) {
 		+"-INTERVAL-"+std::to_string(params.lb_interval)
 		+".result", std::ofstream::trunc | std::ofstream::trunc);
     	result << time_spent << std::endl;
-	result.close();        
+	    result.close();
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
