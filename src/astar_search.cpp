@@ -169,13 +169,9 @@ int main(int argc, char **argv) {
                                          "-" + std::to_string((params.eps_lj)) +
                                          "-" + std::to_string((params.sig_lj)) +
                                          "-" + std::to_string(params.dt) + ".data";
-    int i = 0;
-
     for(auto const& solution : res) {
         double total_time = 0.0;
-        std::for_each(solution.begin(), solution.end(), [&total_time] (auto p_node) {total_time += p_node->node_cost;});
-        metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, total_time);
-        i++;
+        metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
     }
     MPI_Barrier(MPI_COMM_WORLD);
     

@@ -63,6 +63,7 @@ double simulate(FILE *fp,          // Output file (at 0)
                                                                     params->simsize);
         domain_boundaries[part] = domain;
     }
+
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
 
     std::vector<elements::Element<N>> recv_buf(params->npart);
@@ -84,9 +85,9 @@ double simulate(FILE *fp,          // Output file (at 0)
     double total_time = 0.0;
     metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
     std::vector<double> times(nproc);
+
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
-
         for (int i = 0; i < npframe; ++i) {
             MPI_Barrier(comm);
             double it_time;
@@ -98,10 +99,11 @@ double simulate(FILE *fp,          // Output file (at 0)
             MPI_Barrier(comm);
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
             double end = MPI_Wtime();
-
             it_time = (end - begin);
+
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             double true_iteration_time = *std::max_element(times.begin(), times.end());
+            if(!rank) std::cout << true_iteration_time << std::endl;
             frame_time += true_iteration_time;
 
             int complexity = std::get<0>(computation_info),

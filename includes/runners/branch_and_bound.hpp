@@ -159,7 +159,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     MPI_Bcast(&optimal_frame_time_lookup_table.front(), nframes, MPI_DOUBLE, 0, comm);
     double total_optimal_time = std::accumulate(optimal_frame_time_lookup_table.begin(), optimal_frame_time_lookup_table.end(), 0.0);
     if (rank == 0) std::cout << "Total time: "<< (total_optimal_time*nproc) << " Optimal time: " << (total_optimal_time) << std::endl;
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     MPI_Barrier(comm);
     MPI_Group_free(&foreman_group);
@@ -469,10 +469,10 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                     int complexity = std::get<0>(computation_info),
                             received = std::get<1>(computation_info),
                             sent = std::get<2>(computation_info);
-                    double mean_interaction_cpt_time = (MPI_Wtime() - cpt_step_start_time) / complexity;                    my_iteration_time = MPI_Wtime() - it_start;
+                    double mean_interaction_cpt_time = (MPI_Wtime() - cpt_step_start_time) / complexity;
+                    my_iteration_time = MPI_Wtime() - it_start;
                     MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                     true_iteration_time = *std::max_element(times.begin(), times.end());
-
 
                     dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                                 window_gini_complexities, window_gini_communications,
