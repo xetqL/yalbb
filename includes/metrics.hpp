@@ -414,7 +414,7 @@ void write_dataset(std::ofstream &dataset, std::string fname,
             }
             dataset << features_container->get_target() << std::endl;
         }
-        dataset << total_time << std::endl;
+        //dataset << total_time << std::endl;
         dataset.close();
     }
 

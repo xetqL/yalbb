@@ -42,29 +42,39 @@ namespace decision_making {
         }
     };
     class InFilePolicy : public Policy {
-        std::queue<bool> decisions;
+
     public:
-        InFilePolicy(std::string filename, int nframes) {
+        std::queue<bool> decisions;
+        int period;
+        InFilePolicy(std::string filename, int nframes, int npframe) {
+            period = npframe;
             /* Read the targets of dataset files and apply decision at each frame */
             decisions = std::queue<bool>();
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
             std::string line;
             std::string buf;
-            while (std::getline(dataset, line)) {
+            int decision_cnt = 0;
+            while (std::getline(dataset, line) && decision_cnt < nframes) {
                 std::stringstream ss(line);       // Insert the string into a stream
                 std::vector<float> tokens; // Create vector to hold our words
                 while (ss >> buf) tokens.push_back(std::stof(buf.c_str()));
                 if(std::any_of(tokens.begin(), tokens.end(), [](auto token){ return token > 0.0;})){
                     decisions.push( *(tokens.end() - 1) > 0 );
+
                 }
+                decision_cnt++;
             }
             dataset.close();
         }
+
         virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
-            auto decision = decisions.front();
-            decisions.pop();
-            return decision;
+            if(it % period == 0 && it > 0) {
+                std::cout << it << " " << decisions.size() << std::endl;
+                auto decision = decisions.front();
+                decisions.pop();
+                return decision;
+            } else return false;
         }
     };
 
@@ -77,6 +87,13 @@ namespace decision_making {
         }
     };
 
+    class NoLBPolicy : public Policy{
+    public:
+        NoLBPolicy() {}
+        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+            return false;
+        }
+    };
 
 } // end of namespace decision_making
 

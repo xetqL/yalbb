@@ -169,9 +169,35 @@ int main(int argc, char **argv) {
                                          "-" + std::to_string((params.eps_lj)) +
                                          "-" + std::to_string((params.sig_lj)) +
                                          "-" + std::to_string(params.dt) + ".data";
+
+    auto sol = res.at(0);
+
+    std::ofstream lb_file, metric_file, frame_file;
+    if(!rank){
+        std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params.seed);
+        system(mkdir_cmd.c_str());
+    }
+    SimpleCSVFormatter frame_formater(',');
+    std::vector<elements::Element<DIMENSION>> recv_buf(params.npart);
+    int i = 0;
+    /*for(auto node : sol) {
+
+        load_balancing::gather_elements_on(nproc, rank, params.npart, node->mesh_data.els, 0, recv_buf,
+                                           datatype.elements_datatype, MPI_COMM_WORLD);
+        if(!rank){
+            frame_file.open("data/time-series/"+std::to_string(params.seed)+"/run_cpp.csv."+std::to_string(i), std::ofstream::out | std::ofstream::trunc);
+            frame_formater.write_header(frame_file, params.npframe, params.simsize);
+            write_frame_data(frame_file, recv_buf, frame_formater, &params);
+            frame_file.close();
+        }
+        i++;
+    }
+*/
+
     for(auto const& solution : res) {
         double total_time = 0.0;
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
+
     }
     MPI_Barrier(MPI_COMM_WORLD);
     

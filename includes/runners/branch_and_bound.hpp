@@ -236,6 +236,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             MPI_Barrier(comm);
             it_start = MPI_Wtime();
             load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
+
             try {
                 double cpt_step_start_time = MPI_Wtime();
                 computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
@@ -246,6 +248,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                     received = std::get<1>(computation_info),
                     sent = std::get<2>(computation_info);
                 double mean_interaction_cpt_time = complexity > 0 ? cpt_step_duration_time / (double) complexity : cpt_step_duration_time;
+
                 MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
                 true_iteration_time = *std::max_element(times.begin(), times.end());
 
@@ -297,7 +300,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
-            if(!rank) std::cout << "frame time: " << solution->node_cost << " ? "<<solution->decision<< std::endl;
+            if(!rank) std::cout << std::setprecision(10) << "frame time: " << solution->node_cost << " ? "<<solution->decision<< std::endl;
             cost += solution->node_cost;
             solution_path.push_front(solution);
             solution = solution->parent;

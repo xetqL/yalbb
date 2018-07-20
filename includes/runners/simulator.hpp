@@ -28,6 +28,7 @@
 #include "../metrics.hpp"
 #include "../zoltan_fn.hpp"
 #include "../decision_makers/strategy.hpp"
+#include "branch_and_bound.hpp"
 
 
 template<int N>
@@ -85,17 +86,48 @@ double simulate(FILE *fp,          // Output file (at 0)
     double total_time = 0.0;
     metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
     std::vector<double> times(nproc);
+    MESH_DATA<N> tmp_data, *p_tmp_data;
 
+// Compute the optimal time per step
+// Get the group of processes in MPI_COMM_WORLD
+    MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+    int ranks[1] = {0};
+// Construct a group containing all of the prime ranks in world_group
+    MPI_Group foreman_group;
+    MPI_Group_incl(world_group, 1, ranks, &foreman_group);
+// Create a new communicator based on the group
+    MPI_Comm foreman_comm;
+    MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
+
+    Domain<N> tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
+    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, tmp_data.els,
+                                       datatype.elements_datatype, comm);
+
+    if (rank == 0) { // burn cpu cycle?
+        for(int frame = 0; frame < 10; frame++) {
+            for(int step = 0; step < 10; step++)
+                auto computation_info = lennard_jones::compute_one_step<N>(&tmp_data, plklist, tmp_domain_boundary,
+                                                                           datatype, params, foreman_comm);
+        }
+    }
+    MPI_Barrier(comm);
+    MPI_Group_free(&foreman_group);
+    MPI_Group_free(&world_group);
+
+    if (rank == 0) MPI_Comm_free(&foreman_comm);
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
-            MPI_Barrier(comm);
             double it_time;
+            MPI_Barrier(comm);
             double begin = MPI_Wtime();
             if (lb_policy->should_load_balance(i + frame * npframe, a /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
-            } else load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
+            } else {
+                load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+            }
             MPI_Barrier(comm);
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
             double end = MPI_Wtime();
@@ -103,7 +135,7 @@ double simulate(FILE *fp,          // Output file (at 0)
 
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             double true_iteration_time = *std::max_element(times.begin(), times.end());
-            if(!rank) std::cout << true_iteration_time << std::endl;
+            //if(!rank) std::cout << true_iteration_time << std::endl;
             frame_time += true_iteration_time;
 
             int complexity = std::get<0>(computation_info),
@@ -116,23 +148,23 @@ double simulate(FILE *fp,          // Output file (at 0)
             delete a;
             a = new metric::LBMetrics<double>({gini_complexities});
         }
-
-
+        if(!rank) printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
+        total_time += frame_time;
+/*
         // Write metrics to report file
         if (params->record)
             load_balancing::gather_elements_on(nproc, rank, params->npart,
                                                mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
         MPI_Barrier(comm);
         if (rank == 0) {
-            total_time += frame_time;
 	        if (params->record) {
                 frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
                 frame_formater.write_header(frame_file, params->npframe, params->simsize);
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
                 frame_file.close();
             }
-            printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
-        }
+
+        }*/
     }
 
     MPI_Barrier(comm);

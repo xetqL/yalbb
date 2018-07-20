@@ -160,15 +160,22 @@ int main(int argc, char** argv) {
             lb_policy = std::make_shared<decision_making::PeriodicPolicy>(params.lb_interval);
             break;
         case 4:
-            if( params.lb_dataset == "" ) {
-                std::cerr << "You must provide a reproduction file (-R)" << std::endl;
-                MPI_Finalize();
-                exit(0);
+            {
+                auto r_file = "lj_dataset-" + std::to_string(params.seed) +
+                                     "-" + std::to_string(params.nframes) + "x" + std::to_string(params.npframe) +
+                                     "-" + std::to_string(params.world_size) +
+                                     "-" + std::to_string(params.npart) +
+                                     "-" + std::to_string((params.T0)) +
+                                     "-" + std::to_string((params.G)) +
+                                     "-" + std::to_string((params.simsize)) +
+                                     "-" + std::to_string((params.eps_lj)) +
+                                     "-" + std::to_string((params.sig_lj)) +
+                                     "-" + std::to_string(params.dt) + ".data";
+                lb_policy = std::make_shared<decision_making::InFilePolicy>(r_file, params.nframes, params.npframe);
+                break;
             }
-            lb_policy = std::make_shared<decision_making::InFilePolicy>(std::string(params.lb_dataset), params.npframe);
-            break;
         default:
-            lb_policy = std::make_shared<decision_making::RandomPolicy>(0.001, params.seed);
+            lb_policy = std::make_shared<decision_making::NoLBPolicy>();
     }
 
     auto time_spent = simulate<DIMENSION>(fp, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
