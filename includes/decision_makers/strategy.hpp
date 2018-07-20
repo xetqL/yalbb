@@ -52,6 +52,7 @@ namespace decision_making {
             decisions = std::queue<bool>();
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
+            if(!dataset.good()) throw std::runtime_error("bad repr. file");
             std::string line;
             std::string buf;
             int decision_cnt = 0;
@@ -70,7 +71,6 @@ namespace decision_making {
 
         virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             if(it % period == 0 && it > 0) {
-                std::cout << it << " " << decisions.size() << std::endl;
                 auto decision = decisions.front();
                 decisions.pop();
                 return decision;
