@@ -32,6 +32,12 @@ inline std::string get_date_as_string() {
     return date;
 }
 
+bool file_exists(const std::string fileName)
+{
+    std::ifstream infile(fileName);
+    return infile.good();
+}
+
 template<int N>
 inline long long position_to_cell(std::array<double, N> const& position, const double lsub, const long long c, const long long r = 0) {
     const std::vector<long long> weight = {1, c, c*r};

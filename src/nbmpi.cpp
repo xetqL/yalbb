@@ -27,6 +27,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    params.world_size = nproc;
+
     if (rank == 0 && params.record) {
         fp = fopen(params.fname, "w");
     }
@@ -35,11 +37,9 @@ int main(int argc, char** argv) {
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
-    double t1 = MPI_Wtime();
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
-
     if(rc != ZOLTAN_OK){
         MPI_Finalize();
         exit(0);

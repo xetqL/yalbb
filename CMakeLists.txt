@@ -130,7 +130,6 @@ target_link_libraries(build
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
@@ -141,9 +140,6 @@ set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE String "zoltan include directory")
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
-        ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY}
 )
 
@@ -167,15 +163,11 @@ add_executable(dataset
 target_include_directories(dataset
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
-        ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 target_link_libraries(dataset
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 add_executable(full_dataset
@@ -198,15 +190,11 @@ add_executable(full_dataset
 target_include_directories(full_dataset
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
-        ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 target_link_libraries(full_dataset
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 add_executable(astar
@@ -225,19 +213,15 @@ add_executable(astar
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/astar_search.cpp includes/initial_conditions.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp includes/runners/branch_and_bound.hpp includes/decision_makers/strategy.hpp)
+        src/astar_search.cpp includes/initial_conditions.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp includes/runners/branch_and_bound.hpp includes/decision_makers/strategy.hpp src/do_all.cpp)
 target_include_directories(astar
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
-        ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 target_link_libraries(astar
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 add_executable(basegain
@@ -260,15 +244,40 @@ add_executable(basegain
 target_include_directories(basegain
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
-        ${LIBRL_INCLUDE_DIRECTORY}
-        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 target_link_libraries(basegain
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
+        ${GSL_LIBRARIES})
+
+add_executable(doall
+        Makefile
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/runners/box_runner.hpp
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp
+        includes/runners/simulator.hpp
+        includes/runners/dataset_generator.hpp
+        src/do_all.cpp )
+target_include_directories(doall
+        PRIVATE
+        ${MPI_C_INCLUDE_PATH}
+        ${ZOLTAN_INCLUDE_DIRECTORY})
+target_link_libraries(doall
+        PRIVATE
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 add_custom_target(tests

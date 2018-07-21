@@ -16,8 +16,10 @@ int main(int argc, char **argv) {
     FILE *fp = NULL;
     int rank, nproc, dim;
     float ver;
+    MESH_DATA<DIMENSION> mesh_data;
 
     MPI_Init(&argc, &argv);
+
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
@@ -38,36 +40,13 @@ int main(int argc, char **argv) {
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
-    params.verbose = false;
-    MESH_DATA<DIMENSION> mesh_data_original;
-
-    if (rank == 0) {
-        std::cout << "==============================================" << std::endl;
-        std::cout << "= Simulation is starting now...                 " << std::endl;
-        std::cout << "= Parameters: " << std::endl;
-        std::cout << "= Particles: " << params.npart << std::endl;
-        std::cout << "= Seed: " << params.seed << std::endl;
-        std::cout << "= PEs: " << params.world_size << std::endl;
-        std::cout << "= Simulation size: " << params.simsize << std::endl;
-        std::cout << "= Number of time-steps: " << params.nframes * params.npframe << std::endl;
-        std::cout << "= Initial conditions: " << std::endl;
-        std::cout << "= SIG:" << params.sig_lj << std::endl;
-        std::cout << "= EPS:  " << params.eps_lj << std::endl;
-        std::cout << "= Borders: collisions " << std::endl;
-        std::cout << "= Gravity:  " << params.G << std::endl;
-        std::cout << "= Temperature: " << params.T0 << std::endl;
-        std::cout << "==============================================" << std::endl;
-    }
-
     int rc = Zoltan_Initialize(argc, argv, &ver);
     if (rc != ZOLTAN_OK) {
         MPI_Finalize();
         exit(0);
     }
 
-    MESH_DATA<DIMENSION> mesh_data;
-
-    if(rank == 0){
+    if(rank == 0) {
         initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(mesh_data.els),
                                                                                   params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
@@ -115,10 +94,28 @@ int main(int argc, char **argv) {
         }
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    if (rank == 0) {
+        std::cout << "==============================================" << std::endl;
+        std::cout << "= Simulation is starting now...                 " << std::endl;
+        std::cout << "= Parameters: " << std::endl;
+        std::cout << "= Particles: " << params.npart << std::endl;
+        std::cout << "= Seed: " << params.seed << std::endl;
+        std::cout << "= PEs: " << params.world_size << std::endl;
+        std::cout << "= Simulation size: " << params.simsize << std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes * params.npframe << std::endl;
+        std::cout << "= Initial conditions: " << std::endl;
+        std::cout << "= SIG:" << params.sig_lj << std::endl;
+        std::cout << "= EPS:  " << params.eps_lj << std::endl;
+        std::cout << "= Borders: collisions " << std::endl;
+        std::cout << "= Gravity:  " << params.G << std::endl;
+        std::cout << "= Temperature: " << params.T0 << std::endl;
+        std::cout << "==============================================" << std::endl;
+    }
 
     auto zz = zoltan_create_wrapper();
+
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
+
     rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                              &changes,           // 1 if partitioning was changed, 0 otherwise
                              &numGidEntries,     // Number of integers used for a global ID
@@ -146,18 +143,10 @@ int main(int argc, char **argv) {
 
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
-#ifdef IDASTAR_IMPL
-    if(!rank) std::cout << "IDA* + Custom memory opt. implementation of A*" << std::endl;
-    auto res = IDAstar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
-#else
-#ifdef ASTAR_IMPL
+
     if(!rank) std::cout << "Standard implementation of A*" << std::endl;
     auto res = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
-#else
-    if(!rank) std::cout << "Standard implementation of A*" << std::endl;
-    auto res = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
-#endif
-#endif
+
     std::ofstream dataset;
     const std::string DATASET_FILENAME = "lj_dataset-" + std::to_string(params.seed) +
                                          "-" + std::to_string(params.nframes) + "x" + std::to_string(params.npframe) +
@@ -180,19 +169,6 @@ int main(int argc, char **argv) {
     SimpleCSVFormatter frame_formater(',');
     std::vector<elements::Element<DIMENSION>> recv_buf(params.npart);
     int i = 0;
-    /*for(auto node : sol) {
-
-        load_balancing::gather_elements_on(nproc, rank, params.npart, node->mesh_data.els, 0, recv_buf,
-                                           datatype.elements_datatype, MPI_COMM_WORLD);
-        if(!rank){
-            frame_file.open("data/time-series/"+std::to_string(params.seed)+"/run_cpp.csv."+std::to_string(i), std::ofstream::out | std::ofstream::trunc);
-            frame_formater.write_header(frame_file, params.npframe, params.simsize);
-            write_frame_data(frame_file, recv_buf, frame_formater, &params);
-            frame_file.close();
-        }
-        i++;
-    }
-*/
 
     for(auto const& solution : res) {
         double total_time = 0.0;
@@ -200,7 +176,7 @@ int main(int argc, char **argv) {
 
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    
+
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
     Zoltan_Destroy(&zz);

@@ -49,23 +49,22 @@ double simulate(FILE *fp,          // Output file (at 0)
 
     SimpleCSVFormatter frame_formater(',');
 
-    // ZOLTAN VARIABLES
-    double xmin, ymin, zmin, xmax, ymax, zmax;
-    // END OF ZOLTAN VARIABLES
-
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
+    {
+        int dim;
+        double xmin, ymin, zmin, xmax, ymax, zmax;
+        // get boundaries of all domains
+        for (int part = 0; part < nproc; ++part) {
+            Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                        params->simsize);
+            domain_boundaries[part] = domain;
+        }
+    }
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
-    //get boundaries of all domains
-    for (int part = 0; part < nproc; ++part) {
-        Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
-                                                                    params->simsize);
-        domain_boundaries[part] = domain;
-    }
-
-    double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+    //double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
 
     std::vector<elements::Element<N>> recv_buf(params->npart);
     auto date = get_date_as_string();
@@ -81,12 +80,12 @@ double simulate(FILE *fp,          // Output file (at 0)
         write_frame_data(frame_file, recv_buf, frame_formater, params);
         frame_file.close();
     }
+
     int nb_lb = 0;
-    std::vector<elements::Element<N>> remote_el;
-    double total_time = 0.0;
+    //std::vector<elements::Element<N>> remote_el;
     metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
     std::vector<double> times(nproc);
-    MESH_DATA<N> tmp_data, *p_tmp_data;
+    MESH_DATA<N> tmp_data;
 
 // Compute the optimal time per step
 // Get the group of processes in MPI_COMM_WORLD
@@ -103,7 +102,6 @@ double simulate(FILE *fp,          // Output file (at 0)
     Domain<N> tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
     load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, tmp_data.els,
                                        datatype.elements_datatype, comm);
-
     if (rank == 0) { // burn cpu cycle?
         for(int frame = 0; frame < 10; frame++) {
             for(int step = 0; step < 10; step++)
@@ -116,23 +114,28 @@ double simulate(FILE *fp,          // Output file (at 0)
     MPI_Group_free(&world_group);
 
     if (rank == 0) MPI_Comm_free(&foreman_comm);
+
+    double total_time = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
             double it_time;
-            MPI_Barrier(comm);
-            double begin = MPI_Wtime();
+
+            MPI_Barrier(comm); //wait for all to do communications
+            double begin = MPI_Wtime(); //start of step
             if (lb_policy->should_load_balance(i + frame * npframe, a /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
             } else {
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             }
-            MPI_Barrier(comm);
+            MPI_Barrier(comm); //everybody've finished communications
+            //everybody computes a step
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
-            double end = MPI_Wtime();
-            it_time = (end - begin);
 
+            double end = MPI_Wtime();// End of step
+            it_time = (end - begin);//compute my own time
+            //everybody share their time
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             double true_iteration_time = *std::max_element(times.begin(), times.end());
             //if(!rank) std::cout << true_iteration_time << std::endl;
@@ -142,13 +145,15 @@ double simulate(FILE *fp,          // Output file (at 0)
                 received = std::get<1>(computation_info),
                 sent   = std::get<2>(computation_info);
             std::vector<double> complexities(nproc);
-            double cmplx = (double) complexity;
+            double cmplx = complexity;
             MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
             double gini_complexities   = metric::load_balancing::compute_gini_index(complexities);
             delete a;
             a = new metric::LBMetrics<double>({gini_complexities});
         }
-        if(!rank) printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
+        if(!rank) {
+            printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
+        }
         total_time += frame_time;
 /*
         // Write metrics to report file

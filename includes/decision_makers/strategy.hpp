@@ -11,7 +11,7 @@
 namespace decision_making {
     class Policy {
     public:
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) = 0;
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) = 0;
     };
 
     class RandomPolicy : public Policy {
@@ -24,7 +24,7 @@ namespace decision_making {
             gen.seed(seed);
         }
 
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             return dist(gen) < lb_probability;
         }
     };
@@ -37,7 +37,7 @@ namespace decision_making {
 
     public:
         ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             return is_greater_than_threshold(mc);
         }
     };
@@ -69,7 +69,7 @@ namespace decision_making {
             dataset.close();
         }
 
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             if(it % period == 0 && it > 0) {
                 auto decision = decisions.front();
                 decisions.pop();
@@ -82,7 +82,7 @@ namespace decision_making {
         const int period;
     public:
         PeriodicPolicy(int period) : period(period){}
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             return (it % period) == 0;
         }
     };
@@ -90,7 +90,7 @@ namespace decision_making {
     class NoLBPolicy : public Policy{
     public:
         NoLBPolicy() {}
-        virtual bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             return false;
         }
     };
