@@ -340,7 +340,6 @@ src/do_all.o: src/do_all.cpp.o
 
 # target to build an object file
 src/do_all.cpp.o:
-	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/do_all.cpp.o
 	$(MAKE) -f CMakeFiles/doall.dir/build.make CMakeFiles/doall.dir/src/do_all.cpp.o
 .PHONY : src/do_all.cpp.o
 
@@ -350,7 +349,6 @@ src/do_all.i: src/do_all.cpp.i
 
 # target to preprocess a source file
 src/do_all.cpp.i:
-	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/do_all.cpp.i
 	$(MAKE) -f CMakeFiles/doall.dir/build.make CMakeFiles/doall.dir/src/do_all.cpp.i
 .PHONY : src/do_all.cpp.i
 
@@ -360,7 +358,6 @@ src/do_all.s: src/do_all.cpp.s
 
 # target to generate assembly for a file
 src/do_all.cpp.s:
-	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/do_all.cpp.s
 	$(MAKE) -f CMakeFiles/doall.dir/build.make CMakeFiles/doall.dir/src/do_all.cpp.s
 .PHONY : src/do_all.cpp.s
 

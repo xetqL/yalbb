@@ -66,7 +66,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     int number_of_visited_node = 0, number_of_frames_computed = 0;
 
-    double it_start;
+    double it_start, true_iteration_time, my_iteration_time;
     MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data, *p_tmp_data;
 
     std::vector<bool> has_been_LBexplored(nframes, false);
@@ -170,46 +170,51 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         auto children = current_node->get_children();
         number_of_visited_node++;
 
-        MPI_Barrier(comm);
         mesh_data = children.first->mesh_data;
         domain_boundaries = children.first->domain;
         std::tuple<int, int, int> computation_info;
+
         if(!has_been_explored(queue, children.first->start_it)) {
-            child_cost = 0.0;
+            if(!rank) std::cout << children.first << std::endl;
+            child_cost = 0;
             for (int i = 0; i < npframe; i++) {
-                double it_time;
                 MPI_Barrier(comm);
-                double begin = MPI_Wtime();
+                it_start = MPI_Wtime();
+
                 if (i == 0)
                     zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-                else if (i > 0)
+                if (i > 0)
                     load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
 
                 MPI_Barrier(comm);
-                double cpt_step_start_time = MPI_Wtime();
-                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                      params, comm);
-                double end = MPI_Wtime();
-                it_time = (end - begin);
-                MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-                double true_iteration_time = *std::max_element(times.begin(), times.end());
-                child_cost += true_iteration_time;
+                try {
 
-                int complexity  = std::get<0>(computation_info),
+                    double cpt_step_start_time = MPI_Wtime();
+                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                          params, comm);
+                    my_iteration_time = MPI_Wtime() - it_start;
+                    int complexity  = std::get<0>(computation_info),
                         received    = std::get<1>(computation_info),
                         sent        = std::get<2>(computation_info);
-                double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
+                    double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
 
-                dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                            window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
+                    MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+                    true_iteration_time = *std::max_element(times.begin(), times.end());
+                    dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                                window_gini_complexities, window_gini_communications,
+                                                                true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
+                    child_cost += true_iteration_time;
+                } catch (const std::runtime_error& e) {
+                    std::cout << "Panic! " << children.second->start_it+i << std::endl;
+                    throw std::runtime_error("particle out domain");
+                }
             }
-
             MPI_Barrier(comm);
+            MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
             children.first->mesh_data = mesh_data;
             children.first->end_it = it + npframe;
-            children.first->node_cost = child_cost;
+            children.first->node_cost = true_child_cost;
             number_of_frames_computed  = (children.first->end_it / npframe);
             children.first->heuristic_cost = 0.0;
             children.first->domain = domain_boundaries;
@@ -220,49 +225,50 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
             children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
             children.first->last_metric.push_back(dataset_entry.at(3) - children.first->metrics_before_decision.at(3));
-            if(!rank) std::cout << children.first << std::endl;
-
             queue.insert(children.first);
         }
 
-        MPI_Barrier(comm);
         mesh_data = children.second->mesh_data;
         domain_boundaries = children.second->domain;
+
         child_cost = 0;
         for (int i = 0; i < npframe; i++) {
-            double it_time;
             MPI_Barrier(comm);
-            double begin = MPI_Wtime();
-            if (i == 0)
-                zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-            else if (i > 0)
-                load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
-
+            it_start = MPI_Wtime();
+            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
             MPI_Barrier(comm);
-            double cpt_step_start_time = MPI_Wtime();
-            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                  params, comm);
-            double end = MPI_Wtime();
-            it_time = (end - begin);
-            MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-            double true_iteration_time = *std::max_element(times.begin(), times.end());
-            child_cost += true_iteration_time;
-            int complexity  = std::get<0>(computation_info),
-                    received    = std::get<1>(computation_info),
-                    sent        = std::get<2>(computation_info);
-            double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
 
-            dataset_entry = metric::all_compute_metrics<double>(window_times, window_gini_times,
-                                                                window_gini_complexities, window_gini_communications,
-                                                                true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
+            try {
+                double cpt_step_start_time = MPI_Wtime();
+                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                      params, comm);
+                double cpt_step_duration_time = MPI_Wtime() - cpt_step_start_time;
+                my_iteration_time = MPI_Wtime() - it_start;
+                int complexity = std::get<0>(computation_info),
+                    received = std::get<1>(computation_info),
+                    sent = std::get<2>(computation_info);
+                double mean_interaction_cpt_time = complexity > 0 ? cpt_step_duration_time / (double) complexity : cpt_step_duration_time;
 
-            child_cost += true_iteration_time;
+                MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+                true_iteration_time = *std::max_element(times.begin(), times.end());
+
+                dataset_entry = metric::all_compute_metrics<double>(window_times, window_gini_times,
+                                                                    window_gini_complexities, window_gini_communications,
+                                                                    true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
+
+                child_cost += true_iteration_time;
+            } catch (const std::runtime_error error) {
+                std::cout << "Panic! " << children.second->start_it+i << std::endl;
+                throw new std::runtime_error("particle out domain");
+            }
         }
+
         MPI_Barrier(comm);
+        MPI_Allreduce(&child_cost, &true_child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
         children.second->mesh_data = mesh_data;
         children.second->end_it = it + npframe;
-        children.second->node_cost = child_cost;
+        children.second->node_cost = true_child_cost;
         number_of_frames_computed  = (children.first->end_it / npframe);
         children.second->heuristic_cost = 0.0;
         children.second->domain = domain_boundaries;

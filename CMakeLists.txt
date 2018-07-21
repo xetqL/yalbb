@@ -213,7 +213,7 @@ add_executable(astar
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/astar_search.cpp includes/initial_conditions.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp includes/runners/branch_and_bound.hpp includes/decision_makers/strategy.hpp src/do_all.cpp)
+        src/astar_search.cpp includes/initial_conditions.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp includes/runners/branch_and_bound.hpp includes/decision_makers/strategy.hpp)
 target_include_directories(astar
         PRIVATE
         ${MPI_C_INCLUDE_PATH}

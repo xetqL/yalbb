@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
+
     if (rc != ZOLTAN_OK) {
         MPI_Finalize();
         exit(0);
@@ -172,9 +173,8 @@ int main(int argc, char **argv) {
     auto astar_optimal_paths = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
 
     std::ofstream dataset;
-    if(!rank && file_exists(DATASET_FILENAME)) {
-        std::remove(DATASET_FILENAME.c_str());
-    }
+    if(!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
+
     for (auto const &solution : astar_optimal_paths)
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank,
                                   (*(std::next(solution.end(), -1)))->cost());
