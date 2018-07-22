@@ -69,21 +69,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     double it_start, true_iteration_time, my_iteration_time;
     MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data, *p_tmp_data;
 
-    std::vector<bool> has_been_LBexplored(nframes, false);
-
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
-    Domain<N> domain_boundaries(nproc);
-    {
-        int dim;
-        double xmin, ymin, zmin, xmax, ymax, zmax;
-        // get boundaries of all domains
-        for (int part = 0; part < nproc; ++part) {
-            Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
-                                                                        params->simsize);
-            domain_boundaries[part] = domain;
-        }
-    }
+    Domain<N> domain_boundaries = retrieve_domain_boundaries<N>(load_balancer, nproc, params);
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
     std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>, Domain<N>> > queue;
 
@@ -140,17 +127,10 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         for(int frame = 0; frame < nframes; frame++){
             double frame_time = 0;
             it_start = MPI_Wtime();
-            for(int step = 0; step < npframe; step++) {
+            for(int step = 0; step < npframe; step++)
                 auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary,
                                                                            datatype, params, foreman_comm);
-            }
             frame_time  = (MPI_Wtime() - it_start);
-            if(params->record){
-                frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
-                frame_formater.write_header(frame_file, params->npframe, params->simsize);
-                write_frame_data(frame_file, p_tmp_data->els, frame_formater, params);
-                frame_file.close();
-            }
             optimal_frame_time_lookup_table[frame] = frame_time / nproc;
             std::cout << optimal_frame_time_lookup_table[frame] << " " << frame_time << std::endl;
         }

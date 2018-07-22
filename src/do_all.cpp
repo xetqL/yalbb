@@ -13,20 +13,7 @@
 #include "../includes/params.hpp"
 
 
-template<int N>
-std::vector<partitioning::geometric::Domain<N>>
-retrieve_domain_boundaries(Zoltan_Struct *zz, int nproc, sim_param_t *params) {
-    int dim;
-    double xmin, ymin, zmin, xmax, ymax, zmax;
-    std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
-    for (int part = 0; part < nproc; ++part) {
-        Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
-                                                                    params->simsize);
-        domain_boundaries[part] = domain;
-    }
-    return domain_boundaries;
-}
+
 
 int main(int argc, char **argv) {
     constexpr int DIMENSION = 3;
@@ -59,6 +46,24 @@ int main(int argc, char **argv) {
                                             "-" + std::to_string((params.sig_lj)) +
                                             "-" + std::to_string(params.dt) +
                                             "_" + std::to_string(params.particle_init_conf);
+
+    if (rank == 0) {
+        std::cout << "==============================================" << std::endl;
+        std::cout << "= Simulation is starting now...                 " << std::endl;
+        std::cout << "= Parameters: " << std::endl;
+        std::cout << "= Particles: " << params.npart << std::endl;
+        std::cout << "= Seed: " << params.seed << std::endl;
+        std::cout << "= PEs: " << params.world_size << std::endl;
+        std::cout << "= Simulation size: " << params.simsize << std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
+        std::cout << "= Initial conditions: " << std::endl;
+        std::cout << "= SIG:" << params.sig_lj << std::endl;
+        std::cout << "= EPS:  " << params.eps_lj << std::endl;
+        std::cout << "= Borders: collisions " << std::endl;
+        std::cout << "= Gravity:  " << params.G << std::endl;
+        std::cout << "= Temperature: " << params.T0 << std::endl;
+        std::cout << "==============================================" << std::endl;
+    }
 
     int changes, numGidEntries, numLidEntries, numImport, numExport;
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;

@@ -160,4 +160,18 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 }
 
+template<int N>
+std::vector<partitioning::geometric::Domain<N>>
+retrieve_domain_boundaries(Zoltan_Struct *zz, int nproc, const sim_param_t *params) {
+    int dim;
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
+    for (int part = 0; part < nproc; ++part) {
+        Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+                                                                    params->simsize);
+        domain_boundaries[part] = domain;
+    }
+    return domain_boundaries;
+}
 #endif //NBMPI_ZOLTAN_FN_HPP
