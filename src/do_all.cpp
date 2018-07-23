@@ -181,10 +181,9 @@ int main(int argc, char **argv) {
     if(!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
 
     for (auto const &solution : astar_optimal_paths)
-        metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank,
-                                  (*(std::next(solution.end(), -1)))->cost());
+        metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
 
-    Zoltan_Destroy(&zz); //destroy A* for zoltan
+    Zoltan_Destroy(&zz); // destroy A* for zoltan
     MPI_Barrier(MPI_COMM_WORLD);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,7 +197,7 @@ int main(int argc, char **argv) {
     if(!rank && file_exists(RESULT_FILENAME)) {
         std::remove(RESULT_FILENAME.c_str());
     }
-    for (unsigned int lb_policy_idx = 1; lb_policy_idx <= 6; ++lb_policy_idx) {
+    for (unsigned int lb_policy_idx = 6; lb_policy_idx >= 1; --lb_policy_idx) {
         mesh_data = original_data; //recover data from the clean copy
         switch (lb_policy_idx) {
             case 1:
@@ -216,6 +215,7 @@ int main(int argc, char **argv) {
             case 5://load the file created above
                 lb_policy = std::make_shared<decision_making::InFilePolicy>(
                         DATASET_FILENAME, params.nframes, params.npframe);
+
                 break;
             default:
                 lb_policy = std::make_shared<decision_making::NoLBPolicy>();
@@ -250,6 +250,7 @@ int main(int argc, char **argv) {
         if(!rank) {
             std::ofstream result;
             result.open(RESULT_FILENAME, std::ofstream::app | std::ofstream::out);
+            std::cout << time_spent << std::endl;
             result << time_spent << std::endl;
             result.close();
         }

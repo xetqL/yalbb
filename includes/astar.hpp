@@ -10,17 +10,21 @@
 #include "metrics.hpp"
 #include "utils.hpp"
 
+enum NodeType {Partitioning, Computing};
+enum NodeLBDecision {LoadBalance, DoNothing};
 
 template<typename MESH_DATA, typename Domain>
 struct Node : public metric::FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA, Domain>>{
-    long long idx = 0;                // index of the node
     int start_it, end_it;
     std::shared_ptr<Node<MESH_DATA, Domain>> parent;
 
-    bool decision;          // Y / N
+    NodeLBDecision decision;          // Y / N boolean
+    NodeType type;
+
     double  node_cost,
             path_cost,
             heuristic_cost;      // estimated cost to the solution
+
     std::vector<double> metrics_before_decision, last_metric;
     MESH_DATA mesh_data;    // particles informations
     Domain domain;
@@ -33,39 +37,59 @@ struct Node : public metric::FeatureContainer, public std::enable_shared_from_th
         return get_total_path_cost() + heuristic_cost;
     }
 
-    Node (int idx, int it, bool decision, double node_cost, double heuristic,
-          MESH_DATA mesh_data, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
-        idx(idx),
-        start_it(it),
-        end_it(it),
-        parent(p),
-        decision(decision),
-        node_cost(node_cost),
-        path_cost(parent->path_cost + parent->node_cost),
-        heuristic_cost(heuristic),
-        metrics_before_decision(parent->last_metric),
-        mesh_data(mesh_data),
-        domain(domain) {}
+    NodeType get_node_type() const {
+        return type;
+    }
 
-    Node(MESH_DATA mesh_data, Domain domain):
-            start_it(0), end_it(0), parent(nullptr), decision(true),
-            node_cost(0), path_cost(0), heuristic_cost(0),
-            mesh_data(mesh_data),  domain(domain){}
-
-    std::pair<std::shared_ptr<Node<MESH_DATA, Domain>>, std::shared_ptr<Node<MESH_DATA, Domain>>> get_children(){
-        return std::make_pair(std::make_shared<Node<MESH_DATA, Domain>>(0, end_it, true,  0, 0, mesh_data, this->shared_from_this(), domain),
-                              std::make_shared<Node<MESH_DATA, Domain>>(0, end_it, false, 0, 0, mesh_data, this->shared_from_this(), domain)
-        );
-    };
+    NodeLBDecision get_decision() const {
+        return decision;
+    }
 
     std::vector<double> get_features() override {
         return functional::slice(metrics_before_decision, 0, metrics_before_decision.size() - 1);
     }
 
     int get_target() override {
-        return decision? 1:0;
+        return decision == NodeLBDecision::LoadBalance ? 1:0;
+    }
+
+    Node (int startit, NodeLBDecision decision, NodeType type,
+          MESH_DATA mesh_data, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
+        start_it(startit),
+        end_it(startit),
+        parent(p),
+        decision(decision),
+        type(type),
+        node_cost(0.0),
+        path_cost(parent->path_cost + parent->node_cost),
+        heuristic_cost(0.0),
+        metrics_before_decision(parent->last_metric),
+        mesh_data(mesh_data),
+        domain(domain) {};
+
+    Node(MESH_DATA mesh_data, Domain domain):
+            start_it(0), end_it(0), parent(nullptr),
+            decision(NodeLBDecision::LoadBalance), type(NodeType::Computing),
+            node_cost(0), path_cost(0), heuristic_cost(0),
+            mesh_data(mesh_data),  domain(domain){}
+
+    std::pair<std::shared_ptr<Node<MESH_DATA, Domain>>, std::shared_ptr<Node<MESH_DATA, Domain>>> get_children(){
+        switch(type) {
+            case NodeType::Partitioning:
+                return std::make_pair(
+                    std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing, mesh_data, this->shared_from_this(), domain),
+                    nullptr
+                );
+            case NodeType::Computing:
+                return std::make_pair(
+                    std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::LoadBalance, NodeType::Partitioning, mesh_data, this->shared_from_this(), domain),
+                    std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::DoNothing, NodeType::Computing, mesh_data, this->shared_from_this(), domain)
+                );
+        }
     }
 };
+
+
 
 template<class MESH_DATA, class Domain>
 class Compare
@@ -82,21 +106,16 @@ bool operator<(const std::shared_ptr<Node<MESH_DATA, Domain>> &n1, const std::sh
 }
 
 template<typename MESH_DATA, typename Domain>
-bool operator==(const std::shared_ptr<Node<MESH_DATA, Domain>> &n1, const std::shared_ptr<Node<MESH_DATA, Domain>> &n2) {
-    return n1->idx == n2->idx;
-}
-
-template<typename MESH_DATA, typename Domain>
 std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<MESH_DATA, Domain>>& value)
 {
-    output << "ID: "           << std::setw(4) << value->idx;
     output << " Iteration: " << std::setw(6) << value->start_it <<  " -> " << std::setw(6) << value->end_it;
     output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->node_cost;
     output << " Features: (";
     for(auto const& feature: value->metrics_before_decision){
         output << std::setw(6) << std::fixed << std::setprecision(3) << feature << ",";
     }
-    output << (value->decision ? " Y":" N") << " )" <<std::endl;
+    output << (value->decision == NodeLBDecision::LoadBalance ? "Y":"N") << " )";
+    output << (value->type == NodeType::Computing ? "Cpt":"Part") << std::endl;
     return output;
 }
 
@@ -181,19 +200,16 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<NodeWithou
     output << " Iteration: " << std::setw(6) << value->start_it <<  " -> " << std::setw(6) << value->end_it;
     output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->node_cost;
     output << " Features: (";
-    for(auto const& feature: value->metrics_before_decision){
+    for(auto const& feature: value->metrics_before_decision)
         output << std::setw(6) << std::fixed << std::setprecision(3) << feature << ",";
-    }
+
     output << (value->decision ? " Y":" N") << " )" <<std::endl;
     return output;
 }
 
 template<class Data, class Domain>
 int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compare<Data, Domain> > c, int start_it) {
-    for(auto const& node : c) {
-        if(node->start_it >= start_it) return true;
-    }
-    return false;
+    return std::any_of(c.cbegin(), c.cend(), [&start_it](auto node){return node->start_it >= start_it;});
 }
 
 #endif //NBMPI_ASTAR_HPP

@@ -87,35 +87,8 @@ double simulate(FILE *fp,          // Output file (at 0)
     std::vector<double> times(nproc);
     MESH_DATA<N> tmp_data;
 
-// Compute the optimal time per step
-// Get the group of processes in MPI_COMM_WORLD
-    MPI_Group world_group;
-    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
-    int ranks[1] = {0};
-// Construct a group containing all of the prime ranks in world_group
-    MPI_Group foreman_group;
-    MPI_Group_incl(world_group, 1, ranks, &foreman_group);
-// Create a new communicator based on the group
-    MPI_Comm foreman_comm;
-    MPI_Comm_create_group(MPI_COMM_WORLD, foreman_group, 0, &foreman_comm);
-
-    Domain<N> tmp_domain_boundary = {{std::make_pair(0.0, params->simsize), std::make_pair(0.0, params->simsize)}};
-    load_balancing::gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, tmp_data.els,
-                                       datatype.elements_datatype, comm);
-    if (rank == 0) { // burn cpu cycle?
-        for(int frame = 0; frame < 10; frame++) {
-            for(int step = 0; step < 10; step++)
-                auto computation_info = lennard_jones::compute_one_step<N>(&tmp_data, plklist, tmp_domain_boundary,
-                                                                           datatype, params, foreman_comm);
-        }
-    }
-    MPI_Barrier(comm);
-    MPI_Group_free(&foreman_group);
-    MPI_Group_free(&world_group);
-
-    if (rank == 0) MPI_Comm_free(&foreman_comm);
-
     double total_time = 0.0;
+    int complexity, received, sent;
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
@@ -129,28 +102,31 @@ double simulate(FILE *fp,          // Output file (at 0)
             } else {
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             }
+
             MPI_Barrier(comm); //everybody've finished communications
             //everybody computes a step
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
 
             double end = MPI_Wtime();// End of step
-            it_time = (end - begin);//compute my own time
+            //compute my own time
+            it_time = (end - begin);
             //everybody share their time
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+
             double true_iteration_time = *std::max_element(times.begin(), times.end());
-            //if(!rank) std::cout << true_iteration_time << std::endl;
+
             frame_time += true_iteration_time;
 
-            int complexity = std::get<0>(computation_info),
-                received = std::get<1>(computation_info),
-                sent   = std::get<2>(computation_info);
+            std::tie(complexity, received, sent) = computation_info;
+
             std::vector<double> complexities(nproc);
             double cmplx = complexity;
             MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
-            double gini_complexities   = metric::load_balancing::compute_gini_index(complexities);
+            double gini_complexities = metric::load_balancing::compute_gini_index(complexities);
             delete a;
             a = new metric::LBMetrics<double>({gini_complexities});
         }
+
         if(!rank) {
             printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
         }

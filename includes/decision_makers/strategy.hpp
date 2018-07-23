@@ -41,6 +41,7 @@ namespace decision_making {
             return is_greater_than_threshold(mc);
         }
     };
+
     class InFilePolicy : public Policy {
 
     public:
@@ -49,28 +50,36 @@ namespace decision_making {
         InFilePolicy(std::string filename, int nframes, int npframe) {
             period = npframe;
             /* Read the targets of dataset files and apply decision at each frame */
-            decisions = std::queue<bool>();
+            decisions = {};
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
             if(!dataset.good()) throw std::runtime_error("bad repr. file");
             std::string line;
             std::string buf;
             int decision_cnt = 0;
-            while (std::getline(dataset, line) && decision_cnt < nframes) {
+            bool clear = false;
+            while (std::getline(dataset, line)) {
+                if(clear) decisions = {};
                 std::stringstream ss(line);       // Insert the string into a stream
                 std::vector<float> tokens; // Create vector to hold our words
                 while (ss >> buf) tokens.push_back(std::stof(buf.c_str()));
-                if(std::any_of(tokens.begin(), tokens.end(), [](auto token){ return token > 0.0;})){
-                    decisions.push( *(tokens.end() - 1) > 0 );
 
+                if(tokens.size() == 1) {
+                    clear = true;
+                    continue;
+                } else {
+                    clear = false;
                 }
-                decision_cnt++;
+
+                decisions.push( *(tokens.end() - 1) > 0 );
+
             }
             dataset.close();
+            std::cout << decisions.size() << std::endl;
         }
 
         virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
-            if(it % period == 0 && it > 0) {
+            if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
                 return decision;
