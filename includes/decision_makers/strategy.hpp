@@ -50,7 +50,7 @@ namespace decision_making {
         InFilePolicy(std::string filename, int nframes, int npframe) {
             period = npframe;
             /* Read the targets of dataset files and apply decision at each frame */
-            decisions = {};
+            decisions = std::queue<bool>();
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
             if(!dataset.good()) throw std::runtime_error("bad repr. file");
@@ -59,7 +59,7 @@ namespace decision_making {
             int decision_cnt = 0;
             bool clear = false;
             while (std::getline(dataset, line)) {
-                if(clear) decisions = {};
+                if(clear) decisions = std::queue<bool>();
                 std::stringstream ss(line);       // Insert the string into a stream
                 std::vector<float> tokens; // Create vector to hold our words
                 while (ss >> buf) tokens.push_back(std::stof(buf.c_str()));
