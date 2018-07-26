@@ -14,6 +14,7 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
+#include <fstream>
 
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\

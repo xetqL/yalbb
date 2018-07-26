@@ -107,12 +107,11 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     std::vector<bool> tried_to_load_balance(nframes, false);
 
-    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries), solution;
+    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries, load_balancer), solution;
     std::vector<std::shared_ptr<LBNode<N> > > solutions;
 
     current_node->metrics_before_decision = dataset_entry;
     current_node->last_metric = dataset_entry;
-
 
     int it = 0;
     double child_cost, true_child_cost;
@@ -122,114 +121,74 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     while (solutions.size() < NB_BEST_SOLUTIONS) {
         auto children = current_node->get_children();
         number_of_visited_node++;
-
-        mesh_data = children.first->mesh_data;
-        domain_boundaries = children.first->domain;
-        child_cost = 0;
-        int frame_id = (int) children.first->start_it / npframe;
-        switch(children.first->get_node_type()) {
-            case NodeType::Partitioning: {
-                MPI_Barrier(comm);
-                double partitioning_start_time = MPI_Wtime();
-                zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
-                double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
-                MPI_Barrier(comm);
-                MPI_Allgather(&my_partitioning_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-                child_cost = *std::max_element(times.begin(), times.end());
-                children.first->last_metric = children.first->metrics_before_decision;
-                children.first->mesh_data = mesh_data;      //update particles
-                children.first->domain = domain_boundaries; //update the partitioning
-                children.first->node_cost = child_cost;     //set how much time it costed
-                children.first->heuristic_cost = 0.0;       //dont know how much it will cost until the solution
-                queue.insert(children.first);
-                //if(!rank) std::cout << children.second << std::endl;
-            }
-                break;
-            case NodeType::Computing:
-                if(!tried_to_load_balance[frame_id]){
-                    tried_to_load_balance[frame_id] = true;
-
-                    std::tuple<int, int, int> computation_info;
-                    std::vector<double> dataset_entry(N_FEATURES + N_LABEL);
-                    for (int i = 0; i < npframe; ++i) {
-                        MPI_Barrier(comm);
-                        it_start = MPI_Wtime();
-                        load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
-                        MPI_Barrier(comm);
-                        double cpt_step_start_time = MPI_Wtime();
-                        computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                              params, comm);
-                        my_iteration_time = MPI_Wtime() - it_start;
-                        std::tie(complexity, received, sent) = computation_info;
-                        double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
-                        MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-                        true_iteration_time = *std::max_element(times.begin(), times.end());
-                        dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                                    window_gini_complexities, window_gini_communications,
-                                                                    true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
-                        child_cost += true_iteration_time;
-                    }
-                    children.first->end_it += npframe;
-
-                    children.first->last_metric = {};
-                    std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.first->last_metric));
-                    children.first->last_metric.push_back(dataset_entry.at(0) - children.first->metrics_before_decision.at(0));
-                    children.first->last_metric.push_back(dataset_entry.at(1) - children.first->metrics_before_decision.at(1));
-                    children.first->last_metric.push_back(dataset_entry.at(2) - children.first->metrics_before_decision.at(2));
-                    children.first->last_metric.push_back(dataset_entry.at(3) - children.first->metrics_before_decision.at(3));
-
-                    children.first->mesh_data = mesh_data;      //update particles
-                    children.first->domain = domain_boundaries; //update the partitioning
-                    children.first->node_cost = child_cost;     //set how much time it costed
-                    children.first->heuristic_cost = 0.0;       //dont know how much it will cost until the solution
-                    queue.insert(children.first);
-                    if(!rank) std::cout << children.first << std::endl;
-
-                }
-                break;
-        }
-        MPI_Barrier(comm);
-
-        if(children.second != nullptr) { //if children.second is nullptr then we are computing a LB-Computing node!
-            std::tuple<int, int, int> computation_info;
-            mesh_data = children.second->mesh_data;
-            domain_boundaries = children.second->domain;
+        for(std::shared_ptr<LBNode<N> >& child : children){
+            if(!child) continue;
+            mesh_data = child->mesh_data;
+            domain_boundaries = child->domain;
             child_cost = 0;
-            for (int i = 0; i < npframe; i++) {
-                MPI_Barrier(comm);
-                it_start = MPI_Wtime();
-                load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
-                MPI_Barrier(comm);
-                double cpt_step_start_time = MPI_Wtime();
-                computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                      params, comm);
-                my_iteration_time = MPI_Wtime() - it_start;
-                std::tie(complexity, received, sent) = computation_info;
-                double mean_interaction_cpt_time = complexity > 0 ? (MPI_Wtime() - cpt_step_start_time) / (double) complexity : 0.0;
-                MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-                true_iteration_time = *std::max_element(times.begin(), times.end());
-                dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
-                                                            window_gini_complexities, window_gini_communications,
-                                                            true_iteration_time, times, mean_interaction_cpt_time, sent, received, complexity, comm);
-                child_cost += true_iteration_time;
+            int frame_id = child->start_it / npframe;
+            switch(child->get_node_type()) {
+                case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
+                    MPI_Barrier(comm);
+                    double partitioning_start_time = MPI_Wtime();
+                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+                    double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
+                    MPI_Barrier(comm);
+
+                    MPI_Allreduce(&my_partitioning_time, &child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
+
+                    child->last_metric = child->metrics_before_decision;
+                    child->mesh_data = mesh_data;      //update particles
+                    child->domain = domain_boundaries; //update the partitioning
+                    child->node_cost = child_cost;     //set how much time it costed
+                    queue.insert(child);
+                    }
+                    break;
+                case NodeType::Computing:
+                    if(child->get_decision() == NodeLBDecision::DoNothing || !tried_to_load_balance[frame_id]){
+                        if (child->get_decision() != NodeLBDecision::DoNothing) {
+                            tried_to_load_balance[frame_id] = true;
+                            remove_unnecessary_nodes(queue, child);
+                        }
+
+                        std::tuple<int, int, int> computation_info;
+                        std::vector<double> dataset_entry(N_FEATURES + N_LABEL);
+
+                        for (int i = 0; i < npframe; ++i) {
+                            MPI_Barrier(comm);
+                            it_start = MPI_Wtime();
+                            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
+                            MPI_Barrier(comm);
+                            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                                                                                  params, comm);
+                            my_iteration_time = MPI_Wtime() - it_start;
+                            std::tie(complexity, received, sent) = computation_info;
+                            MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+                            true_iteration_time = *std::max_element(times.begin(), times.end());
+                            dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                                        window_gini_complexities, window_gini_communications,
+                                                                        true_iteration_time, times, 0.0, sent, received, complexity, comm);
+                            child_cost += true_iteration_time;
+                        }
+                        child->end_it += npframe;
+
+                        child->last_metric = {};
+                        std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(child->last_metric));
+                        child->last_metric.push_back(dataset_entry.at(0) - child->metrics_before_decision.at(0));
+                        child->last_metric.push_back(dataset_entry.at(1) - child->metrics_before_decision.at(1));
+                        child->last_metric.push_back(dataset_entry.at(2) - child->metrics_before_decision.at(2));
+                        child->last_metric.push_back(dataset_entry.at(3) - child->metrics_before_decision.at(3));
+
+                        child->mesh_data = mesh_data;      //update particles
+                        child->domain = domain_boundaries; //update the partitioning
+                        child->node_cost = child_cost;     //set how much time it costed
+                        queue.insert(child);
+
+                        if(!rank) std::cout << child << std::endl;
+                    }
+                    break;
             }
-
             MPI_Barrier(comm);
-
-            children.second->mesh_data = mesh_data;
-            children.second->end_it += npframe;
-            children.second->node_cost = child_cost;
-            children.second->heuristic_cost = 0.0;
-            children.second->domain = domain_boundaries;
-            children.second->last_metric = {};
-            std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(children.second->last_metric));
-            children.second->last_metric.push_back(dataset_entry.at(0) - children.second->metrics_before_decision.at(0));
-            children.second->last_metric.push_back(dataset_entry.at(1) - children.second->metrics_before_decision.at(1));
-            children.second->last_metric.push_back(dataset_entry.at(2) - children.second->metrics_before_decision.at(2));
-            children.second->last_metric.push_back(dataset_entry.at(3) - children.second->metrics_before_decision.at(3));
-            if(!rank) std::cout << children.second << std::endl;
-
-            queue.insert(children.second);
         }
 
         do {
@@ -237,8 +196,9 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             queue.erase(queue.begin());                     // Remove it from the queue
             if (is_a_solution(current_node, LAST_ITERATION))// if it is a solution node
                 solutions.push_back(current_node);          // then add to solution list
-            // while current node is a solution and we search for more...
+        // while current node is a solution and we search for more...
         } while(is_a_solution(current_node, LAST_ITERATION) && solutions.size() < NB_BEST_SOLUTIONS);
+
         MPI_Barrier(comm);
     }
 

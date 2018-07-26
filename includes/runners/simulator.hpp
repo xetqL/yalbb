@@ -28,8 +28,6 @@
 #include "../metrics.hpp"
 #include "../zoltan_fn.hpp"
 #include "../decision_makers/strategy.hpp"
-#include "branch_and_bound.hpp"
-
 
 template<int N>
 double simulate(FILE *fp,          // Output file (at 0)
@@ -42,26 +40,14 @@ double simulate(FILE *fp,          // Output file (at 0)
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
     std::ofstream lb_file, metric_file, frame_file;
-    const double dt = params->dt;
+
     const int nframes = params->nframes;
     const int npframe = params->npframe;
-    int dim;
 
     SimpleCSVFormatter frame_formater(',');
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
-    std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
-    {
-        int dim;
-        double xmin, ymin, zmin, xmax, ymax, zmax;
-        // get boundaries of all domains
-        for (int part = 0; part < nproc; ++part) {
-            Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
-                                                                        params->simsize);
-            domain_boundaries[part] = domain;
-        }
-    }
+    std::vector<partitioning::geometric::Domain<N>> domain_boundaries = retrieve_domain_boundaries<N>(load_balancer, nproc, params);
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     //double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
@@ -77,7 +63,7 @@ double simulate(FILE *fp,          // Output file (at 0)
         system(mkdir_cmd.c_str());
         frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv.0", std::ofstream::out | std::ofstream::trunc);
         frame_formater.write_header(frame_file, params->npframe, params->simsize);
-        write_frame_data(frame_file, recv_buf, frame_formater, params);
+        write_frame_data<N>(frame_file, recv_buf, frame_formater, params);
         frame_file.close();
     }
 
@@ -95,6 +81,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             double it_time;
 
             MPI_Barrier(comm); //wait for all to do communications
+
             double begin = MPI_Wtime(); //start of step
             if (lb_policy->should_load_balance(i + frame * npframe, a /* should be replaced by the metrics */)){
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);

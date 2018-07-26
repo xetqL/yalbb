@@ -5,11 +5,14 @@
 #ifndef NBMPI_NBODY_IO_HPP
 #define NBMPI_NBODY_IO_HPP
 
-#include <vector>
 #include <cstdio>
 #include <cstdint>
 #include <arpa/inet.h>
 #include <vector>
+#include <iostream>     // std::cout, std::fixed, std::scientific
+#include <fstream>
+
+#include "params.hpp"
 
 //TODO: REWRITE THE DATA FRAME WRITER MODULE IN A EASIEST AND C++er WAY. Then, in Python create a viewer.
 
@@ -105,7 +108,7 @@ void write_header(FILE* fp, const int n, double simsize)
  * The scale parameter tells the viewer how big the view box is supposed
  * to be in the coordinate system of the simulation; right now, it is
  * always set to be 1 (i.e. the view box is $[0,1] \times [0,1]$)
- *@c*/
+ *@c
 void write_frame_data(FILE* fp, const int n, float* x)
 {
     for (int i = 0; i < n; ++i) {
@@ -116,14 +119,14 @@ void write_frame_data(FILE* fp, const int n, float* x)
         fwrite(&yi, sizeof(yi), 1, fp);
     }
 }
-
+*/
 /**
  * Please accept this silly solution as it is and do not ask any question.
  * I gave up..
  * @param fp
  * @param n
  * @param els
- */
+
 template<int N>
 void write_frame_data(FILE* fp, int n, elements::Element<N> *els)
 {
@@ -136,7 +139,7 @@ void write_frame_data(FILE* fp, int n, elements::Element<N> *els)
     write_frame_data(fp, n, dont_know_why);
     delete[] dont_know_why;
 }
-
+*/
 void write_header_bin(std::ofstream &stream, const int n, const int dimension, double nscale)
 {
     stream.write(reinterpret_cast<const char*>(&n),        sizeof(int));

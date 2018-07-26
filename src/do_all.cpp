@@ -7,12 +7,11 @@
 
 #include <zoltan.h>
 
-#include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
 #include "../includes/nbody_io.hpp"
 #include "../includes/params.hpp"
-
-
+#include "../includes/runners/branch_and_bound.hpp"
+#include "../includes/runners/simulator.hpp"
 
 
 int main(int argc, char **argv) {
@@ -183,7 +182,6 @@ int main(int argc, char **argv) {
     for (auto const &solution : astar_optimal_paths)
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
 
-    Zoltan_Destroy(&zz); // destroy A* for zoltan
     MPI_Barrier(MPI_COMM_WORLD);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
