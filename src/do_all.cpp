@@ -182,6 +182,7 @@ int main(int argc, char **argv) {
     for (auto const &solution : astar_optimal_paths)
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
 
+    astar_optimal_paths = {};
     MPI_Barrier(MPI_COMM_WORLD);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
