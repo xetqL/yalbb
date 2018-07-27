@@ -196,28 +196,30 @@ int main(int argc, char **argv) {
     if(!rank && file_exists(RESULT_FILENAME)) {
         std::remove(RESULT_FILENAME.c_str());
     }
-    for (unsigned int lb_policy_idx = 6; lb_policy_idx >= 1; --lb_policy_idx) {
+    for (unsigned int lb_policy_idx = 0; lb_policy_idx < 6 ; ++lb_policy_idx) {
         mesh_data = original_data; //recover data from the clean copy
         switch (lb_policy_idx) {
+            case 0:
+                lb_policy = std::make_shared<decision_making::NoLBPolicy>();
+                break;
             case 1:
-                lb_policy = std::make_shared<decision_making::RandomPolicy>(0.1, params.seed);
-                break;
-            case 2://TODO: threshold should be a parameter
-                lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.6);
-                break;
-            case 3:
                 lb_policy = std::make_shared<decision_making::PeriodicPolicy>(25);
                 break;
-            case 4://load the file created above
+            case 2://load the file created above
                 lb_policy = std::make_shared<decision_making::PeriodicPolicy>(100);
+                break;
+            case 3:
+                lb_policy = std::make_shared<decision_making::RandomPolicy>(0.1, params.seed);
+                break;
+            case 4://TODO: threshold should be a parameter
+                lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.6);
                 break;
             case 5://load the file created above
                 lb_policy = std::make_shared<decision_making::InFilePolicy>(
                         DATASET_FILENAME, params.nframes, params.npframe);
-
                 break;
             default:
-                lb_policy = std::make_shared<decision_making::NoLBPolicy>();
+                throw std::runtime_error("unknown lb policy");
         }
 
         zz = zoltan_create_wrapper();
