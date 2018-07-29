@@ -7,10 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <unistd.h>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/random_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
 /*@T
  * \section{System parameters}
  *
@@ -24,6 +22,7 @@ typedef struct sim_param_t {
     int   nframes; /* Number of frames (200)     */
     int   npframe; /* Steps per frame (100)      */
     float dt;      /* Time step (1e-4)           */
+    float frozen_factor;      /* Time step (1e-4)           */
     float eps_lj;  /* Strength for L-J (1)       */
     float sig_lj;  /* Radius for L-J   (1e-2)    */
     float G;       /* Gravitational strength (1) */
@@ -72,6 +71,7 @@ static void print_usage() {
             "\t-T: initial temperature (1)\n"
             "\t-I: Load balancing call interval (0, never) \n"
             "\t-d: simulation dimension (0-1;0-1)\n"
+            "\t-D: Frozen Decrease factor (0.0 default, i.e., do not freeze simulation over time)\n"
             "\t-r: record the simulation (false)\n"
             "\t-B: Number of Best path to retrieve (A*)\n"
             "\t-C: Initial particle configuration 1: Uniform (default), 2:Half, 3:Wall, 4: Cluster\n"
@@ -100,9 +100,10 @@ static void default_params(sim_param_t* params) {
     params->one_shot_lb_call = 0;
     params->nb_best_path = 1;
     params->start_with_lb = false;
-    boost::uuids::random_generator gen;
-    boost::uuids::uuid u = gen(); // generate unique id for this simulation
-    params->uuid = boost::uuids::to_string(u);
+    //boost::uuids::random_generator gen;
+    //boost::uuids::uuid u = gen(); // generate unique id for this simulation
+    //params->uuid = boost::uuids::to_string(u);
+    params->frozen_factor = 1.0;
 
 }
 
@@ -116,7 +117,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:";
+    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:D:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -143,6 +144,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_int_arg('C', particle_init_conf);
 
             get_flt_arg('d', simsize);
+            get_flt_arg('D', frozen_factor);
 
             get_flt_arg('e', eps_lj);
 

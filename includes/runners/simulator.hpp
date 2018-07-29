@@ -118,12 +118,11 @@ double simulate(FILE *fp,          // Output file (at 0)
             printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
         }
         total_time += frame_time;
-/*
+
         // Write metrics to report file
         if (params->record)
             load_balancing::gather_elements_on(nproc, rank, params->npart,
                                                mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
-        MPI_Barrier(comm);
         if (rank == 0) {
 	        if (params->record) {
                 frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
@@ -131,8 +130,7 @@ double simulate(FILE *fp,          // Output file (at 0)
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
                 frame_file.close();
             }
-
-        }*/
+        }
     }
 
     MPI_Barrier(comm);

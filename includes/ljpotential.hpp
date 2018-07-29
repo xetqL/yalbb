@@ -380,6 +380,9 @@ inline std::tuple<int, int, int> compute_one_step(
 
     leapfrog2(dt, mesh_data->els);
     leapfrog1(dt, mesh_data->els);
+    for(auto& p : mesh_data->els)
+        for(int dim = 0; dim < N;++dim) p.velocity[dim] *= params->frozen_factor;
+
     apply_reflect(mesh_data->els, params->simsize);
 
     return std::make_tuple(cmplx, received, sent);
