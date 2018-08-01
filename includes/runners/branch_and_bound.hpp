@@ -209,13 +209,11 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
-            if(!rank && solution->type == NodeType::Computing) std::cout << std::setprecision(10) << "frame time: " << solution->node_cost << " ? "<< (solution->decision==NodeLBDecision::LoadBalance ? "1" : "0") << std::endl;
             cost += solution->node_cost;
             if(solution->type == NodeType::Computing) solution_path.push_front(solution);
             solution = solution->parent;
         }
         best_paths.push_back(solution_path);
-        if (!rank) std::cout << "Solution ("<<path_idx<<"): "<< cost << " seconds " << std::endl;
         path_idx++;
     }
     if(!rank) std::cout << "Visited nodes:"<<number_of_visited_node<<std::endl;

@@ -44,10 +44,10 @@ void leapfrog1(int n, RealType dt, RealType* x, RealType* v, RealType* a) {
 }
 
 template<int N>
-void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements) {
+void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements, double ff = 1.0) {
     for(auto &el : elements){
         for(size_t dim = 0; dim < N; ++dim){
-            el.velocity[dim] += el.acceleration.at(dim) * dt / 2;
+            el.velocity[dim] += ff * el.acceleration.at(dim) * dt / 2;
             el.position[dim] += el.velocity.at(dim) * dt;
         }
     }
@@ -62,10 +62,10 @@ void leapfrog2(int n, RealType dt, RealType* v, RealType* a) {
 }
 
 template<int N>
-void leapfrog2(const double dt, std::vector<elements::Element<N>> &elements) {
+void leapfrog2(const double dt, std::vector<elements::Element<N>> &elements, double ff = 1.0) {
     for(auto &el : elements){
         for(size_t dim = 0; dim < N; ++dim){
-            el.velocity[dim] += el.acceleration.at(dim) * dt / 2;
+            el.velocity[dim] += ff * el.acceleration.at(dim) * dt / 2;
         }
     }
 }

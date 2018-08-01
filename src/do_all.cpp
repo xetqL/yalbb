@@ -35,7 +35,8 @@ int main(int argc, char **argv) {
 
     //Define the output simulation name
     const std::string SIMULATION_STR_NAME = std::to_string(params.seed) +
-                                            "-" + std::to_string(params.nframes) +"x"+ std::to_string(params.npframe) +
+                                            "-" + std::to_string(params.nframes) + "x" +
+                                            std::to_string(params.npframe) +
                                             "-" + std::to_string(params.world_size) +
                                             "-" + std::to_string(params.npart) +
                                             "-" + std::to_string((params.T0)) +
@@ -147,7 +148,7 @@ int main(int argc, char **argv) {
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    const std::string DATASET_FILENAME = SIMULATION_STR_NAME+".dataset";
+    const std::string DATASET_FILENAME = SIMULATION_STR_NAME + ".dataset";
     auto zz = zoltan_create_wrapper();
 
     zoltan_fn_init<DIMENSION>(zz, &mesh_data);
@@ -177,11 +178,19 @@ int main(int argc, char **argv) {
     auto astar_optimal_paths = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
 
     std::ofstream dataset;
-    if(!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
-
-    for (auto const &solution : astar_optimal_paths)
+    if (!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
+    size_t sol_idx = 0;
+    for (auto const& solution : astar_optimal_paths) {
+        if (!rank){
+            std::cout << "Solution ("<<sol_idx<<"):" << std::endl;
+            for(auto const& node : solution){
+                if(node->type == NodeType::Computing)
+                    std::cout << std::setprecision(10) << "frame time: " << node->node_cost << " ? "<< (node->decision==NodeLBDecision::LoadBalance ? "1" : "0") << std::endl;
+            }
+        }
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
-
+        sol_idx++;
+    }
     astar_optimal_paths = {};
     MPI_Barrier(MPI_COMM_WORLD);
 
