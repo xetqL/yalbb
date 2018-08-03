@@ -71,7 +71,7 @@ template<int N>
 std::vector<LBSolutionPath<N>> Astar_runner(
         MESH_DATA<N> *p_mesh_data,
         Zoltan_Struct *load_balancer,
-        const sim_param_t *params,
+        sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD) {
     // MPI Init ...
     int nproc, rank;
@@ -126,7 +126,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             mesh_data = child->mesh_data;
             domain_boundaries = child->domain;
             child_cost = 0;
-            int frame_id = child->start_it / npframe;
+            int frame = 1 + (child->start_it / npframe);
+            int frame_id = (child->start_it / npframe);
             switch(child->get_node_type()) {
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
                     MPI_Barrier(comm);
@@ -160,7 +161,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                             load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
                             MPI_Barrier(comm);
                             computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
-                                                                                  params, comm);
+                                                                                  params, comm, frame);
                             my_iteration_time = MPI_Wtime() - it_start;
                             std::tie(complexity, received, sent) = computation_info;
                             MPI_Allgather(&my_iteration_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);

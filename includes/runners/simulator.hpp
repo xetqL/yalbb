@@ -34,7 +34,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             MESH_DATA<N> *mesh_data,
             Zoltan_Struct *load_balancer,
             std::shared_ptr<decision_making::Policy> lb_policy,
-            const sim_param_t *params,
+            sim_param_t *params,
             const MPI_Comm comm = MPI_COMM_WORLD) {
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -92,7 +92,7 @@ double simulate(FILE *fp,          // Output file (at 0)
 
             MPI_Barrier(comm); //everybody've finished communications
             //everybody computes a step
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm, frame);
 
             double end = MPI_Wtime();// End of step
             //compute my own time

@@ -354,8 +354,9 @@ inline std::tuple<int, int, int> compute_one_step(
         std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > >& plklist,
         const std::vector<partitioning::geometric::Domain<N>>& domain_boundaries,
         const partitioning::CommunicationDatatype& datatype,
-        const sim_param_t* params,
-        const MPI_Comm comm) {
+        sim_param_t* params,
+        const MPI_Comm comm,
+        const int step = -1 /* by default we don't care about the step*/ ) {
 
     int received, sent;
     double cut_off_radius = 3.2 * params->sig_lj; // cut_off
@@ -378,9 +379,23 @@ inline std::tuple<int, int, int> compute_one_step(
 
     int cmplx = lennard_jones::compute_forces(cell_per_row, cell_size, mesh_data->els, remote_el, plklist, params);
 
-    for(auto& p : mesh_data->els)
-        for(int dim = 0; dim < N; ++dim)
-            p.velocity[dim] *= params->frozen_factor;
+    /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     * WE HAVE TO REMOVE THIS AFTER SMALL TESTS!!!!!
+     * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+    if(step >= 0) {
+        //freeze after T/2 !
+        if(step > params->nframes / 2) params->frozen_factor = 0.0;
+        else params->frozen_factor = 1.0;
+
+        for (auto &p : mesh_data->els)
+            for (int dim = 0; dim < N; ++dim) {
+                p.velocity[dim] *= params->frozen_factor;
+                //////////////////////////////////////////////////////////////////////////////
+                p.acceleration[dim] *= 0.0; //cancel all the forces, /!\ to remove after tests
+                //////////////////////////////////////////////////////////////////////////////
+            }
+    }
+    /// IT STOPS HERE
 
     leapfrog2(dt, mesh_data->els);
     leapfrog1(dt, mesh_data->els);

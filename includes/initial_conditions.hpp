@@ -19,6 +19,7 @@ public:
 };
 
 namespace lennard_jones {
+
 template<int N>
 class RejectionCondition : public initial_condition::RejectionCondition<elements::Element<N>> {
     const std::vector<elements::Element<N>>* others;
@@ -46,7 +47,7 @@ public:
             others(others),
             sig(sig), min_r2(min_r2), T0(T0),
             xmin(xmin), ymin(ymin), zmin(zmin),
-            xmax(xmax), ymax(ymax), zmax(zmax){}
+            xmax(xmax), ymax(ymax), zmax(zmax) {}
 
     const bool predicate(const elements::Element<N>& c) const override {
         if (N > 2) {
@@ -64,6 +65,27 @@ public:
             });
     }
 };
+
+template<int N>
+class NoRejectionCondition : public RejectionCondition<N> {
+public:
+    NoRejectionCondition( const std::vector<elements::Element<N>>* others,
+                          const elements::ElementRealType sig,
+                          const elements::ElementRealType min_r2,
+                          const elements::ElementRealType T0,
+                          const elements::ElementRealType xmin,
+                          const elements::ElementRealType ymin,
+                          const elements::ElementRealType zmin,
+                          const elements::ElementRealType xmax,
+                          const elements::ElementRealType ymax,
+                          const elements::ElementRealType zmax) :
+            RejectionCondition<N>(others, sig, min_r2, T0, xmin, ymin, zmin, xmax, ymax, zmax) {}
+
+    const bool predicate(const elements::Element<N>& c) const override {
+        return true;
+    }
+};
+
 } // end of namespace lennard_jones
 
 template<int N>
@@ -139,7 +161,6 @@ public:
         int number_of_element_generated = 0;
         const int clusters_to_generate = clusters.size();
         int cluster_id = 0;
-        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
                 udistx(condition->xmin+x_sz*0.05, condition->xmax-x_sz*0.05),
                 udisty(condition->ymin+y_sz*0.05, condition->ymax-y_sz*0.05),
@@ -157,7 +178,7 @@ public:
         std::array<elements::ElementRealType, N> cluster_velocity = sphere_dist_velocity(my_gen);
 
         while(cluster_id < clusters_to_generate && elements.size() < n) {
-            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) * 0.9;
+            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) / 2.0;
             statistic::UniformSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
             int trial = 0;
@@ -173,7 +194,7 @@ public:
             }
             if(trial == max_trial) {
                 std::cerr << "increase sphere size of cluster " << cluster_id << ", " << part_in_cluster<< "/"<<clusters[cluster_id] << std::endl;
-                K[cluster_id] *= 1.5;
+                K[cluster_id] *= 4;
             } else{
                 part_in_cluster = 0;
                 cluster_centerx = udistx(my_gen);
@@ -245,7 +266,7 @@ public:
         //division_pos = condition->xmax < division_pos ? condition->xmax : division_pos;
         int number_of_element_generated = 0;
         int already_generated = elements.size();
-        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
+        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, 2.0 * condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
                 udistx(0.0, division_pos),
                 udisty(condition->ymin, condition->ymax),
