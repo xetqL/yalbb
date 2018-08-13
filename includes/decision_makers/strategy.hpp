@@ -90,7 +90,7 @@ namespace decision_making {
     class PeriodicPolicy : public Policy{
         const int period;
     public:
-        PeriodicPolicy(int period) : period(period){}
+        PeriodicPolicy(int period) : period(period) {}
         virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
             return (it % period) == 0;
         }
