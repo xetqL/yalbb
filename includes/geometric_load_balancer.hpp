@@ -597,10 +597,43 @@ namespace load_balancing {
                     } else data_id++; //if the element must stay with me then check the next one
                 }
             }
+            auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
+                                                        data_to_migrate.cend(), [](auto data){return !data.empty();});
 
             std::vector<MPI_Request> reqs(neighbors.size());
+            std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
             std::vector<MPI_Status> statuses(neighbors.size());
+// PREPARATION
+            int pe_req_idx = 0;
+            for(const size_t &PE : neighbors) {
+                if(PE == (size_t) caller_rank) continue;
+                int send_size = data_to_migrate.at(PE).size();
+                if (send_size) {
+                    MPI_Issend(&send_size, 1, MPI_INT, PE, 201, LB_COMM, &snd_reqs[pe_req_idx]);
+                    pe_req_idx++;
+                }
+            }
+            std::map<int, int> receive_data_size_lookup;
+            for (size_t PE = 0; PE < wsize; ++PE) {
+                if(PE == (size_t) caller_rank) continue;
+                receive_data_size_lookup[PE] = 0;
+                MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 201, LB_COMM, &rcv_reqs[PE]);
+            }
+            if(!snd_reqs.empty())
+                MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
 
+            MPI_Barrier(LB_COMM);
+
+            snd_reqs.clear();
+            //Clear requests to wrong PEs
+            for(auto& req : rcv_reqs) {
+                int flag;
+                MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+                if(!flag) MPI_Cancel(&req);
+            }
+            rcv_reqs.clear();
+            auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
+                                                      receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
             int cpt = 0, nb_neighbors = neighbors.size();
             for(const size_t &PE : neighbors) {
                 int send_size = data_to_migrate.at(PE).size();
@@ -608,7 +641,7 @@ namespace load_balancing {
                 cpt++;
             }
             cpt=0;
-            while(cpt < nb_neighbors) {// receive the data in any order
+            while(cpt < nb_sending_neighbors) {// receive the data in any order
                 int source_rank, size;
                 MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &statuses[cpt]);
                 source_rank = statuses[cpt].MPI_SOURCE;
