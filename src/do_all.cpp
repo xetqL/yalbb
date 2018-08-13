@@ -235,6 +235,7 @@ int main(int argc, char **argv) {
     }
     for (unsigned int lb_policy_idx = 0; lb_policy_idx < 6 ; ++lb_policy_idx) {
         mesh_data = original_data; //recover data from the clean copy
+
         switch (lb_policy_idx) {
             case 0:
                 lb_policy = std::make_shared<decision_making::NoLBPolicy>();
@@ -260,6 +261,7 @@ int main(int argc, char **argv) {
         }
 
         zz = zoltan_create_wrapper();
+
         zoltan_fn_init<DIMENSION>(zz, &mesh_data);
         Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                             &changes,           // 1 if partitioning was changed, 0 otherwise
