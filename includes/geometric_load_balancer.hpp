@@ -600,8 +600,9 @@ namespace load_balancing {
             auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
                                                         data_to_migrate.cend(), [](auto data){return !data.empty();});
 
-            std::vector<MPI_Request> reqs(neighbors.size());
-            std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
+
+            std::vector<MPI_Request> reqs(nb_receiving_neighbors);
+            std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize-1);
             std::vector<MPI_Status> statuses(neighbors.size());
 // PREPARATION
             int pe_req_idx = 0;
