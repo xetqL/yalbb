@@ -364,7 +364,7 @@ inline std::tuple<int, int, int> compute_one_step(
     double cell_size = cut_off_radius; //cell size
     const double dt = params->dt;
 
-    auto remote_el = load_balancing::geometric::exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, cell_size);
+    auto remote_el = load_balancing::geometric::__exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, cell_size);
 
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
