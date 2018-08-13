@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     if (rank == 0) {
-        initial_condition::lennard_jones::RejectionCondition<DIMENSION>* condition;
+        std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>> condition;
         const int MAX_TRIAL = 100000;
         int NB_CLUSTERS;
         std::vector<int> clusters;
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
         switch (params.particle_init_conf) {
             case 1: //uniformly distributed
 
-                condition = new initial_condition::lennard_jones::RejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
                                 params.seed, MAX_TRIAL), params.npart));
                 break;
             case 2: //Half full half empty
-                condition = new initial_condition::lennard_jones::RejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
                                 params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 3: //Wall of particle
-                condition = new initial_condition::lennard_jones::RejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
                                 params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 4: //cluster(s)
-                condition = new initial_condition::lennard_jones::RejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
                                 clusters, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 5: //custom various density
-                condition = new initial_condition::lennard_jones::RejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
                                 params.simsize / 10, false, params.seed, MAX_TRIAL), 3 * params.npart / 4));
                 break;
             case 6: //custom various density
-                condition = (initial_condition::lennard_jones::RejectionCondition<DIMENSION>*) new initial_condition::lennard_jones::NoRejectionCondition<DIMENSION>(
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
@@ -168,7 +168,6 @@ int main(int argc, char **argv) {
             elements_generators.pop();
             std::cout << el_gen.second << std::endl;
         }
-        delete condition;
     }
     original_data = mesh_data; //copy data elsewhere for future use
 
@@ -213,7 +212,7 @@ int main(int argc, char **argv) {
             std::cout << "Solution ("<<sol_idx<<"):" << std::endl;
             for(auto const& node : solution){
                 if(node->type == NodeType::Computing)
-                    std::cout << std::setprecision(10) << "frame time: " << node->node_cost << " ? "<< (node->decision==NodeLBDecision::LoadBalance ? "1" : "0") << std::endl;
+                    std::cout << std::setprecision(10) << "frame time: " << node->get_node_cost() << " ? "<< (node->decision==NodeLBDecision::LoadBalance ? "1" : "0") << std::endl;
             }
         }
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());

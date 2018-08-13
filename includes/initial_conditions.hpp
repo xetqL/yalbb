@@ -91,7 +91,8 @@ public:
 template<int N>
 class RandomElementsGenerator {
 public:
-    virtual void generate_elements(std::vector<elements::Element<N>>& elements, const int n, const lennard_jones::RejectionCondition<N>* cond) = 0;
+    virtual void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
+                                   const std::shared_ptr<lennard_jones::RejectionCondition<N>> cond) = 0;
 };
 
 namespace lennard_jones {
@@ -106,7 +107,7 @@ public:
             max_particles_per_cluster(max_particles_per_cluster), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
-                           const lennard_jones::RejectionCondition<N>* condition) override {
+                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         int number_of_element_generated = 0;
         int clusters_to_generate = 1;
         int cluster_id = 0;
@@ -153,7 +154,7 @@ public:
             clusters(clusters), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
-                           const lennard_jones::RejectionCondition<N>* condition) override {
+                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         float x_sz = condition->xmax - condition->xmin;
         float y_sz = condition->ymax - condition->ymin;
         float z_sz = condition->zmax - condition->zmin;
@@ -216,7 +217,7 @@ public:
     UniformRandomElementsGenerator(int seed, const int max_trial = 10000) : seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
-                           const lennard_jones::RejectionCondition<N>* condition) override {
+                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         int number_of_element_generated = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType> udistx(condition->xmin, condition->xmax),
@@ -262,7 +263,7 @@ public:
             division_pos(division_position), direction(direction), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
-                           const lennard_jones::RejectionCondition<N>* condition) override {
+                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         //division_pos = condition->xmax < division_pos ? condition->xmax : division_pos;
         int number_of_element_generated = 0;
         int already_generated = elements.size();
@@ -316,7 +317,7 @@ public:
             pw_pos(pw_position), direction(direction), seed(seed), max_trial(max_trial) {}
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
-                           const lennard_jones::RejectionCondition<N>* condition) override {
+                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         int number_of_element_generated = 0;
         std::normal_distribution<elements::ElementRealType> temp_dist(0.0, 2.0 * condition->T0 * condition->T0);
         std::uniform_real_distribution<elements::ElementRealType>
@@ -358,8 +359,8 @@ public:
 template<int N>
 void initialize_mesh_data(int npart, MESH_DATA<N>& mesh_data,
                           initial_condition::RandomElementsGenerator<N>* elements_generator,
-                          const lennard_jones::RejectionCondition<N>& condition) {
-    elements_generator->generate_elements(mesh_data.els, npart, &condition);
+                          const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) {
+    elements_generator->generate_elements(mesh_data.els, npart, condition);
 }
 
 } // end of namespace initial_condition

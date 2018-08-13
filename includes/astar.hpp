@@ -86,9 +86,7 @@ public:
             window_times(std::make_shared<SlidingWindow<double>>(size)),
             window_gini_communications(std::make_shared<SlidingWindow<double>>(size)),*/
             decision(NodeLBDecision::LoadBalance), type(NodeType::Computing),
-            mesh_data(mesh_data),  domain(domain), lb(zz)
-
-    {
+            mesh_data(mesh_data),  domain(domain), lb(zz) {
     }
 
     ~Node() {
@@ -141,7 +139,7 @@ template<typename MESH_DATA, typename Domain>
 std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<MESH_DATA, Domain>>& value)
 {
     output << " Iteration: " << std::setw(6) << value->start_it <<  " -> " << std::setw(6) << value->end_it;
-    output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->node_cost;
+    output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->get_node_cost();
     output << " Features: (";
     for(auto const& feature: value->metrics_before_decision){
         output << std::setw(6) << std::fixed << std::setprecision(3) << feature << ",";

@@ -107,7 +107,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     std::vector<bool> tried_to_load_balance(nframes, false);
 
-    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries, load_balancer), solution;
+    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries, load_balancer, params->npframe), solution;
     std::vector<std::shared_ptr<LBNode<N> > > solutions;
 
     current_node->metrics_before_decision = dataset_entry;
@@ -210,7 +210,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
-            cost += solution->node_cost;
             if(solution->type == NodeType::Computing) solution_path.push_front(solution);
             solution = solution->parent;
         }
