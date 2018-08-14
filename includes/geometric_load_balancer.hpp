@@ -638,7 +638,7 @@ namespace load_balancing {
             auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
                                                         data_to_migrate.cend(), [](auto data){return !data.empty();});
 
-            std::vector<MPI_Request> reqs(neighbors.size());
+            std::vector<MPI_Request> reqs(nb_receiving_neighbors);
             std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
             std::vector<MPI_Status> statuses(neighbors.size());
 // PREPARATION
@@ -675,8 +675,10 @@ namespace load_balancing {
             int cpt = 0, nb_neighbors = neighbors.size();
             for(const size_t &PE : neighbors) {
                 int send_size = data_to_migrate.at(PE).size();
-                MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
-                cpt++;
+                if(send_size){
+                    MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
+                    cpt++;
+                }
             }
             cpt=0;
             while(cpt < nb_sending_neighbors) {// receive the data in any order
