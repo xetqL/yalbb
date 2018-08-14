@@ -439,7 +439,7 @@ namespace load_balancing {
             auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
                                                         data_to_migrate.cend(), [](auto data){return !data.empty();});
 
-            std::vector<MPI_Request> reqs(neighbors.size());
+            std::vector<MPI_Request> reqs(nb_receiving_neighbors);
             std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
             std::vector<MPI_Status> statuses(neighbors.size());
 // PREPARATION
@@ -475,11 +475,13 @@ namespace load_balancing {
 
             int cpt = 0, nb_neighbors = neighbors.size();
             nb_elements_sent = 0;
-            for(const size_t &neighbor_idx : neighbors){   //give all my data to neighbors
+            for(const size_t &neighbor_idx : neighbors) {   //give all my data to neighbors
                 int send_size = data_to_migrate.at(neighbor_idx).size();
                 nb_elements_sent += send_size;
-                MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, datatype.elements_datatype, neighbor_idx, 200, LB_COMM, &reqs[cpt]);
-                cpt++;
+                if(send_size){
+                    MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, datatype.elements_datatype, neighbor_idx, 200, LB_COMM, &reqs[cpt]);
+                    cpt++;
+                }
             }
 
             cpt=0;
@@ -613,10 +615,11 @@ namespace load_balancing {
 
             std::vector<elements::Element<N>> buffer;
             std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+
             if(neighbors.empty())
                 neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.08)).first;
 
-            for(const size_t &PE : neighbors) {
+            for(const size_t& PE : neighbors) {
                 if (PE == (size_t) caller_rank) continue; //do not check with myself
                 // check within the remaining elements which belong to the current PE
                 size_t data_id = 0;
@@ -640,7 +643,7 @@ namespace load_balancing {
             std::vector<MPI_Status> statuses(neighbors.size());
 // PREPARATION
             int pe_req_idx = 0;
-            for(const size_t &PE : neighbors) {
+            for(const size_t& PE : neighbors) {
                 if(PE == (size_t) caller_rank) continue;
                 int send_size = data_to_migrate.at(PE).size();
                 if (send_size) {
@@ -653,6 +656,7 @@ namespace load_balancing {
                 receive_data_size_lookup[PE] = 0;
                 MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 301, LB_COMM, &rcv_reqs[PE]);
             }
+
             if(!snd_reqs.empty())
                 MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
 
