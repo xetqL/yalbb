@@ -473,7 +473,7 @@ namespace load_balancing {
             auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
                                                       receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
 
-            int cpt = 0, nb_neighbors = neighbors.size();
+            int cpt = 0;
             nb_elements_sent = 0;
             for(const size_t &neighbor_idx : neighbors) {   //give all my data to neighbors
                 int send_size = data_to_migrate.at(neighbor_idx).size();
@@ -491,11 +491,12 @@ namespace load_balancing {
                 source_rank = statuses[cpt].MPI_SOURCE;
                 MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
                 buffer.resize(size);
-                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 200, LB_COMM, &statuses[cpt]);
+                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 200, LB_COMM, MPI_STATUS_IGNORE);
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
                 cpt++;
             }
-            MPI_Waitall(reqs.size(), &reqs.front(), &statuses.front()); //less strict than mpi_barrier
+            if(!reqs.empty())
+                MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE); // less strict than mpi_barrier
             nb_elements_recv = remote_data_gathered.size();
             return remote_data_gathered;
         }
@@ -600,7 +601,7 @@ namespace load_balancing {
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
                 cpt++;
             }
-            MPI_Waitall(cpt, &reqs.front(), &statuses.front());
+            MPI_Waitall(cpt, &reqs.front(), MPI_STATUSES_IGNORE);
 
         }
 
@@ -662,17 +663,17 @@ namespace load_balancing {
 
             MPI_Barrier(LB_COMM);
 
-            snd_reqs.clear();
-            //Clear requests to wrong PEs
+            snd_reqs.clear(); // Clear requests to wrong PEs
             for(auto& req : rcv_reqs) {
                 int flag;
                 MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
                 if(!flag) MPI_Cancel(&req);
             }
             rcv_reqs.clear();
+
             auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
                                                       receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
-            int cpt = 0, nb_neighbors = neighbors.size();
+            int cpt = 0;
             for(const size_t &PE : neighbors) {
                 int send_size = data_to_migrate.at(PE).size();
                 if(send_size){
@@ -680,6 +681,7 @@ namespace load_balancing {
                     cpt++;
                 }
             }
+
             cpt=0;
             while(cpt < nb_sending_neighbors) {// receive the data in any order
                 int source_rank, size;
@@ -687,11 +689,13 @@ namespace load_balancing {
                 source_rank = statuses[cpt].MPI_SOURCE;
                 MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
                 buffer.resize(size);
-                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, &statuses[cpt]);
+                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, MPI_STATUS_IGNORE);
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
                 cpt++;
             }
-            MPI_Waitall(cpt, &reqs.front(), &statuses.front());
+
+            if(!reqs.empty())
+                MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
         }
 
         template<int N>
