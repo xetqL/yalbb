@@ -380,7 +380,7 @@ inline std::tuple<int, int, int> compute_one_step(
     int cmplx = lennard_jones::compute_forces(cell_per_row, cell_size, mesh_data->els, remote_el, plklist, params);
 
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     * WE HAVE TO REMOVE THIS AFTER SMALL TESTS!!!!!
+     * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
      * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
     if(step >= 0) {
         //freeze after T/2 !

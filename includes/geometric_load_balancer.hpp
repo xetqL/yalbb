@@ -408,7 +408,47 @@ namespace load_balancing {
         }
 
         template<int N>
-        const std::vector<elements::Element<N>> exchange_data(const std::vector<elements::Element<N>> &data,
+        std::tuple<std::vector<std::vector<elements::Element<N>>>, size_t, size_t> get_next_batch(
+                std::vector<elements::Element<N>> &data,
+                const std::vector<partitioning::geometric::Domain<N>> &domains,
+                const size_t start_at,
+                const size_t batch_size,
+                const MPI_Comm LB_COMM,
+                const bool erase_after_add = false) {
+
+            int wsize; MPI_Comm_size(LB_COMM, &wsize);
+            int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
+            std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+            auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.08)).first;
+            size_t current_batch_size = 0;
+            size_t data_id = start_at;
+            for(const size_t& PE : neighbors) {
+                if (PE == (size_t) caller_rank) continue; //do not check with myself
+                // check within the remaining elements which belong to the current PE
+
+                while (data_id < data.size() && current_batch_size < batch_size) {
+                    if (elements::is_inside<N>(data.at(data_id), domains.at(PE))) {
+                        if(erase_after_add) {
+                            //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+                            //swap iterator values in constant time
+                            std::iter_swap(data.begin() + data_id, data.end() - 1);
+                            //get the value and push it in the "to migrate" vector
+                            data_to_migrate.at(PE).push_back(*(data.end() - 1));
+                            //pop the head of the list in constant time
+                            data.pop_back();
+                        } else {
+                            data_to_migrate.at(PE).push_back(data.at(data_id)); // get the value and push it in the "to migrate" vector
+                        }
+                        current_batch_size++;
+                    } else if(erase_after_add) data_id++; //if the element must stay with me then check the next one
+                    if(!erase_after_add) data_id++;
+                }
+            }
+            return std::make_tuple(data_to_migrate, current_batch_size, data_id);
+        }
+
+        template<int N>
+        const std::vector<elements::Element<N>> exchange_data(std::vector<elements::Element<N>> &data,
                                                               const std::vector<partitioning::geometric::Domain<N>> &domains,
                                                               const partitioning::CommunicationDatatype datatype,
                                                               const MPI_Comm LB_COMM,
@@ -421,82 +461,84 @@ namespace load_balancing {
             std::vector<elements::Element<N>> buffer;
             std::vector<elements::Element<N>> remote_data_gathered;
             // Get the neighbors
-            std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+            size_t batch_size = 0, data_pointer = 0;
+            bool empty_recv_buff = false;
+
+            std::vector<std::vector<elements::Element<N>>> data_to_migrate;
             auto neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains<N>(caller_rank, domains, cell_size)).first;
+            const int nb_of_round = 10;
+            const int next_batch_size = std::ceil(data.size() * wsize / nb_of_round);
 
-            for(const size_t &PE : neighbors) {//size_t PE = 0; PE < wsize; ++PE) {
-                if (PE == (size_t) caller_rank) continue; //do not check with myself
-                //check within the remaining elements which belong to the current PE
-                size_t data_id = 0;
-                while (data_id < data.size()) {
-                    if (elements::distance2<N>(domains.at(PE), data.at(data_id)) <= cell_size) {
-                        data_to_migrate.at(PE).push_back(data.at(data_id)); // get the value and push it in the "to migrate" vector
+            for(int T = 0; T < nb_of_round; T++) {
+
+                std::tie(data_to_migrate, batch_size, data_pointer) = get_next_batch<N>(data, domains, data_pointer, next_batch_size, LB_COMM, false);
+
+                auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
+                                                            data_to_migrate.cend(), [](auto data){return !data.empty();});
+
+                std::vector<MPI_Request> reqs(nb_receiving_neighbors), snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
+                std::vector<MPI_Status> statuses(neighbors.size());
+
+    // PREPARATION
+                int pe_req_idx = 0;
+                for(const size_t &PE : neighbors) {
+                    if(PE == (size_t) caller_rank) continue;
+                    int send_size = data_to_migrate.at(PE).size();
+                    if (send_size) {
+                        MPI_Issend(&send_size, 1, MPI_INT, PE, 201, LB_COMM, &snd_reqs[pe_req_idx]);
+                        pe_req_idx++;
                     }
-                    data_id++; //if the element must stay with me then check the next one
                 }
-            }
-
-            auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
-                                                        data_to_migrate.cend(), [](auto data){return !data.empty();});
-
-            std::vector<MPI_Request> reqs(nb_receiving_neighbors);
-            std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
-            std::vector<MPI_Status> statuses(neighbors.size());
-// PREPARATION
-            int pe_req_idx = 0;
-            for(const size_t &PE : neighbors) {
-                if(PE == (size_t) caller_rank) continue;
-                int send_size = data_to_migrate.at(PE).size();
-                if (send_size) {
-                    MPI_Issend(&send_size, 1, MPI_INT, PE, 201, LB_COMM, &snd_reqs[pe_req_idx]);
-                    pe_req_idx++;
+                std::map<int, int> receive_data_size_lookup;
+                for (size_t PE = 0; PE < wsize; ++PE) {
+                    receive_data_size_lookup[PE] = 0;
+                    MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 201, LB_COMM, &rcv_reqs[PE]);
                 }
-            }
-            std::map<int, int> receive_data_size_lookup;
-            for (size_t PE = 0; PE < wsize; ++PE) {
-                receive_data_size_lookup[PE] = 0;
-                MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 201, LB_COMM, &rcv_reqs[PE]);
-            }
-            if(!snd_reqs.empty())
-                MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
+                if(!snd_reqs.empty())
+                    MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
 
-            MPI_Barrier(LB_COMM);
+                MPI_Barrier(LB_COMM);
 
-            snd_reqs.clear();
-            //Clear requests to wrong PEs
-            for(auto& req : rcv_reqs) {
-                int flag;
-                MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-                if(!flag) MPI_Cancel(&req);
-            }
-            rcv_reqs.clear();
-            auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
-                                                      receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
+                snd_reqs.clear();
+                //Clear requests to wrong PEs
+                for(auto& req : rcv_reqs) {
+                    int flag;
+                    MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+                    if(!flag) MPI_Cancel(&req);
+                }
+                rcv_reqs.clear();
 
-            int cpt = 0;
-            nb_elements_sent = 0;
-            for(const size_t &neighbor_idx : neighbors) {   //give all my data to neighbors
-                int send_size = data_to_migrate.at(neighbor_idx).size();
-                nb_elements_sent += send_size;
-                if(send_size){
-                    MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, datatype.elements_datatype, neighbor_idx, 200, LB_COMM, &reqs[cpt]);
+                auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
+                                                          receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
+                empty_recv_buff = nb_sending_neighbors == 0;
+
+                int cpt = 0;
+                nb_elements_sent = 0;
+                for(const size_t &neighbor_idx : neighbors) {   //give all my data to neighbors
+                    int send_size = data_to_migrate.at(neighbor_idx).size();
+                    nb_elements_sent += send_size;
+                    if(send_size){
+                        MPI_Isend(&data_to_migrate.at(neighbor_idx).front(), send_size, datatype.elements_datatype, neighbor_idx, 200, LB_COMM, &reqs[cpt]);
+                        cpt++;
+                    }
+                }
+
+                cpt=0;
+                while(cpt < nb_sending_neighbors && !empty_recv_buff) {// receive the data in any order
+                    int source_rank, size;
+                    MPI_Probe(MPI_ANY_SOURCE, 200, LB_COMM, &statuses[cpt]);
+                    source_rank = statuses[cpt].MPI_SOURCE;
+                    MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
+                    buffer.resize(size);
+                    MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 200, LB_COMM, MPI_STATUS_IGNORE);
+                    std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
                     cpt++;
                 }
+                if(!reqs.empty())
+                    MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE); // less strict than mpi_barrier
+
             }
 
-            cpt=0;
-            while(cpt < nb_sending_neighbors) {// receive the data in any order
-                int source_rank, size;
-                MPI_Probe(MPI_ANY_SOURCE, 200, LB_COMM, &statuses[cpt]);
-                source_rank = statuses[cpt].MPI_SOURCE;
-                MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
-                buffer.resize(size);
-                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 200, LB_COMM, MPI_STATUS_IGNORE);
-                std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
-                cpt++;
-            }
-            if(!reqs.empty())
-                MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE); // less strict than mpi_barrier
             nb_elements_recv = remote_data_gathered.size();
             return remote_data_gathered;
         }
@@ -605,6 +647,8 @@ namespace load_balancing {
 
         }
 
+
+
         template<int N>
         void migrate_particles(std::vector<elements::Element<N>> &data,
                                const std::vector<partitioning::geometric::Domain<N>> &domains,
@@ -613,89 +657,86 @@ namespace load_balancing {
                                std::vector<size_t> neighbors = std::vector<size_t>()) {
             int wsize; MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
+            size_t batch_size = 0, data_pointer = 0;
+            bool empty_recv_buff = false;
 
             std::vector<elements::Element<N>> buffer;
-            std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+            std::vector<std::vector<elements::Element<N>>> data_to_migrate;
 
             if(neighbors.empty())
                 neighbors = partitioning::utils::unzip(partitioning::geometric::get_neighboring_domains(caller_rank, domains, 0.08)).first;
 
-            for(const size_t& PE : neighbors) {
-                if (PE == (size_t) caller_rank) continue; //do not check with myself
-                // check within the remaining elements which belong to the current PE
-                size_t data_id = 0;
-                while (data_id < data.size()) {
-                    if (elements::is_inside<N>(data.at(data_id), domains.at(PE))) {
-                        //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
-                        //swap iterator values in constant time
-                        std::iter_swap(data.begin() + data_id, data.end() - 1);
-                        //get the value and push it in the "to migrate" vector
-                        data_to_migrate.at(PE).push_back(*(data.end() - 1));
-                        //pop the head of the list in constant time
-                        data.pop_back();
-                    } else data_id++; //if the element must stay with me then check the next one
+            const int nb_of_round = 10;
+            const int next_batch_size = std::ceil(data.size() / nb_of_round);
+            for(int T = 0; T < nb_of_round; T++) {
+
+                std::tie(data_to_migrate, batch_size, data_pointer) = get_next_batch<N>(data, domains, data_pointer, next_batch_size, LB_COMM, true);
+
+                auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
+                                                            data_to_migrate.cend(), [](auto data){return !data.empty();});
+
+                std::vector<MPI_Request> reqs(nb_receiving_neighbors);
+                std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
+                std::vector<MPI_Status> statuses(neighbors.size());
+    // PREPARATION
+                int pe_req_idx = 0;
+                for(const size_t& PE : neighbors) {
+                    if(PE == (size_t) caller_rank) continue;
+                    int send_size = data_to_migrate.at(PE).size();
+                    if (send_size) {
+                        MPI_Issend(&send_size, 1, MPI_INT, PE, 301, LB_COMM, &snd_reqs[pe_req_idx]);
+                        pe_req_idx++;
+                    }
                 }
-            }
-            auto nb_receiving_neighbors = std::count_if(data_to_migrate.cbegin(),
-                                                        data_to_migrate.cend(), [](auto data){return !data.empty();});
-
-            std::vector<MPI_Request> reqs(nb_receiving_neighbors);
-            std::vector<MPI_Request> snd_reqs(nb_receiving_neighbors), rcv_reqs(wsize);
-            std::vector<MPI_Status> statuses(neighbors.size());
-// PREPARATION
-            int pe_req_idx = 0;
-            for(const size_t& PE : neighbors) {
-                if(PE == (size_t) caller_rank) continue;
-                int send_size = data_to_migrate.at(PE).size();
-                if (send_size) {
-                    MPI_Issend(&send_size, 1, MPI_INT, PE, 301, LB_COMM, &snd_reqs[pe_req_idx]);
-                    pe_req_idx++;
+                std::map<int, int> receive_data_size_lookup;
+                for (size_t PE = 0; PE < wsize; ++PE) {
+                    receive_data_size_lookup[PE] = 0;
+                    MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 301, LB_COMM, &rcv_reqs[PE]);
                 }
-            }
-            std::map<int, int> receive_data_size_lookup;
-            for (size_t PE = 0; PE < wsize; ++PE) {
-                receive_data_size_lookup[PE] = 0;
-                MPI_Irecv(&receive_data_size_lookup[PE], 1, MPI_INT, PE, 301, LB_COMM, &rcv_reqs[PE]);
-            }
 
-            if(!snd_reqs.empty())
-                MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
+                if(!snd_reqs.empty())
+                    MPI_Waitall(snd_reqs.size(), &snd_reqs.front(), MPI_STATUSES_IGNORE);
 
-            MPI_Barrier(LB_COMM);
+                MPI_Barrier(LB_COMM);
 
-            snd_reqs.clear(); // Clear requests to wrong PEs
-            for(auto& req : rcv_reqs) {
-                int flag;
-                MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
-                if(!flag) MPI_Cancel(&req);
-            }
-            rcv_reqs.clear();
+                snd_reqs.clear(); // Clear requests to wrong PEs
+                for(auto& req : rcv_reqs) {
+                    int flag;
+                    MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+                    if(!flag) MPI_Cancel(&req);
+                }
+                rcv_reqs.clear();
 
-            auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
-                                                      receive_data_size_lookup.cend(), [](auto pe_data){return pe_data.second > 0;});
-            int cpt = 0;
-            for(const size_t &PE : neighbors) {
-                int send_size = data_to_migrate.at(PE).size();
-                if(send_size){
-                    MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
+                auto nb_sending_neighbors = std::count_if(receive_data_size_lookup.cbegin(),
+                                                          receive_data_size_lookup.cend(),
+                                                          [](auto pe_data){return pe_data.second > 0;});
+
+                empty_recv_buff = nb_sending_neighbors == 0;
+
+                int cpt = 0;
+                for(const size_t &PE : neighbors) {
+                    int send_size = data_to_migrate.at(PE).size();
+                    if(send_size) {
+                        MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 300, LB_COMM, &reqs[cpt]);
+                        cpt++;
+                    }
+                }
+
+                cpt=0;
+                while(cpt < nb_sending_neighbors && !empty_recv_buff) {// receive the data in any order
+                    int source_rank, size;
+                    MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &statuses[cpt]);
+                    source_rank = statuses[cpt].MPI_SOURCE;
+                    MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
+                    buffer.resize(size);
+                    MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, MPI_STATUS_IGNORE);
+                    std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
                     cpt++;
                 }
-            }
 
-            cpt=0;
-            while(cpt < nb_sending_neighbors) {// receive the data in any order
-                int source_rank, size;
-                MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &statuses[cpt]);
-                source_rank = statuses[cpt].MPI_SOURCE;
-                MPI_Get_count(&statuses[cpt], datatype.elements_datatype, &size);
-                buffer.resize(size);
-                MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, MPI_STATUS_IGNORE);
-                std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
-                cpt++;
+                if(!reqs.empty())
+                    MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
             }
-
-            if(!reqs.empty())
-                MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
         }
 
         template<int N>
