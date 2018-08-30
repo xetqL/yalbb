@@ -668,6 +668,7 @@ namespace load_balancing {
 
             const int nb_of_round = 10;
             const int next_batch_size = std::ceil(data.size() / nb_of_round);
+
             for(int T = 0; T < nb_of_round; T++) {
 
                 std::tie(data_to_migrate, batch_size, data_pointer) = get_next_batch<N>(data, domains, data_pointer, next_batch_size, LB_COMM, true);
@@ -688,6 +689,7 @@ namespace load_balancing {
                         pe_req_idx++;
                     }
                 }
+
                 std::map<int, int> receive_data_size_lookup;
                 for (size_t PE = 0; PE < wsize; ++PE) {
                     receive_data_size_lookup[PE] = 0;

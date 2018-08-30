@@ -107,7 +107,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     std::vector<bool> tried_to_load_balance(nframes, false);
 
-    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(mesh_data, domain_boundaries, load_balancer, params->npframe), solution;
+    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(domain_boundaries, load_balancer, params->npframe), solution;
     std::vector<std::shared_ptr<LBNode<N> > > solutions;
 
     current_node->metrics_before_decision = dataset_entry;
@@ -118,28 +118,37 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
     int complexity, received, sent;
 
+    std::vector<MESH_DATA<N>> particle_positions(nframes+1);
+    particle_positions[0] = mesh_data;
+
     while (solutions.size() < NB_BEST_SOLUTIONS) {
         auto children = current_node->get_children();
         number_of_visited_node++;
         for(std::shared_ptr<LBNode<N> >& child : children){
             if(!child) continue;
-            auto mesh_data = &child->mesh_data;
-            auto domain_boundaries = child->domain;
-            child_cost = 0;
             int frame = 1 + (child->start_it / npframe);
-            int frame_id = (child->start_it / npframe);
+            int frame_id =  (child->start_it / npframe);
+
+            auto mesh_data = particle_positions[frame_id]; //get data at this time-step
+            auto domain_boundaries = child->domain;
+
+            //migrate the particles to the good cpu according to partition
+            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
+            MPI_Barrier(comm);
+
+            child_cost = 0;
+
             switch(child->get_node_type()) {
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
                     MPI_Barrier(comm);
                     double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                     double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
                     MPI_Barrier(comm);
 
                     MPI_Allreduce(&my_partitioning_time, &child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                     child->last_metric = child->metrics_before_decision;
-                    //child->mesh_data = mesh_data;      //update particles
                     child->domain = domain_boundaries; //update the partitioning
                     child->set_cost(child_cost);     //set how much time it costed
                     queue.insert(child);
@@ -158,9 +167,9 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                         for (int i = 0; i < npframe; ++i) {
                             MPI_Barrier(comm);
                             it_start = MPI_Wtime();
-                            load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+                            load_balancing::geometric::migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
                             MPI_Barrier(comm);
-                            computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype,
+                            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                                   params, comm, frame);
                             my_iteration_time = MPI_Wtime() - it_start;
                             std::tie(complexity, received, sent) = computation_info;
@@ -172,6 +181,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                             child_cost += true_iteration_time;
                         }
                         child->end_it += npframe;
+                        particle_positions[(child->end_it / npframe)] = mesh_data;
 
                         child->last_metric = {};
                         std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(child->last_metric));
