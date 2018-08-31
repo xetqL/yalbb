@@ -158,9 +158,9 @@ public:
         float x_sz = condition->xmax - condition->xmin;
         float y_sz = condition->ymax - condition->ymin;
         float z_sz = condition->zmax - condition->zmin;
+        const int clusters_to_generate = clusters.size();
 
         int number_of_element_generated = 0;
-        const int clusters_to_generate = clusters.size();
         int cluster_id = 0;
         std::uniform_real_distribution<elements::ElementRealType>
                 udistx(condition->xmin+x_sz*0.05, condition->xmax-x_sz*0.05),
@@ -179,9 +179,10 @@ public:
         std::array<elements::ElementRealType, N> cluster_velocity = sphere_dist_velocity(my_gen);
 
         while(cluster_id < clusters_to_generate && elements.size() < n) {
-            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) / 2.0;
+            elements::ElementRealType sphere_dist_var = condition->sig * std::pow(K[cluster_id], 1.0/3.0) / 0.9;
             statistic::UniformSphericalDistribution<N, elements::ElementRealType>
                     sphere_dist_position(sphere_dist_var, cluster_centerx, cluster_centery, cluster_centerz);
+
             int trial = 0;
             while(trial < max_trial && part_in_cluster < clusters[cluster_id] && elements.size() < n) { // stop when you cant generate new particles with less than 10000 trials within a cluster
                 auto element = elements::Element<N>(sphere_dist_position(my_gen), sphere_dist_velocity(my_gen), elements.size(), elements.size());
