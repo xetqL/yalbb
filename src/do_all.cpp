@@ -263,6 +263,10 @@ int main(int argc, char **argv) {
                 lb_policy = std::make_shared<decision_making::InFilePolicy>(
                         DATASET_FILENAME, params.nframes, params.npframe);
                 break;
+            case 6://neural net policy
+
+                lb_policy = std::make_shared<decision_making::NeuralNetworkPolicy>(DATASET_FILENAME, 0);
+                break;
             default:
                 throw std::runtime_error("unknown lb policy");
         }

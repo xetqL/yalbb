@@ -118,10 +118,15 @@ namespace decision_making {
         arma::mat inputs, targets;
     public:
 
-        NeuralNetworkPolicy(mlpack::optimization::RMSProp& opt, std::string ds_filename, int idx) :
-                optimizer(opt) {
+        NeuralNetworkPolicy(const std::string& ds_filename, int idx) {
             inputs.load(ds_filename+"-features-"+std::to_string(idx)+".mat", arma::raw_ascii);
             targets.load(ds_filename+"-targets-"+std::to_string(idx)+".mat", arma::raw_ascii);
+
+            model.Add<mlpack::ann::Linear<> >(inputs.n_rows, 6);
+            model.Add<mlpack::ann::LeakyReLU<> >();
+            model.Add<mlpack::ann::Linear<> >(6, targets.n_rows);
+            model.Add<mlpack::ann::LeakyReLU<> >();
+
         }
 
         void train() {
