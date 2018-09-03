@@ -2,11 +2,15 @@
 #ifndef NBMPI_ASTAR_HPP
 #define NBMPI_ASTAR_HPP
 
+#include <armadillo>
+
 #include <set>
 #include <forward_list>
 #include <queue>
 #include <memory>
 #include <future>
+#include <list>
+
 #include "utils.hpp"
 #include "feature_container.hpp"
 
@@ -119,7 +123,19 @@ public:
     }
 };
 
-
+template<typename MESH_DATA, typename Domain>
+arma::mat to_armadillo_mat(std::list<std::shared_ptr<Node<MESH_DATA, Domain>>> dataset, int nfeatures) {
+    const size_t ds_size = dataset.size();
+    arma::mat arma_ds((*dataset.begin())->metrics_before_decision.size(), dataset.size());
+    int i = 0;
+    for(auto& line : dataset){
+        arma::mat features(line->get_features());
+        features << line->get_target();
+        arma_ds.insert_rows(i, features);
+        i++;
+    }
+    return arma_ds;
+}
 
 template<class MESH_DATA, class Domain>
 class Compare
