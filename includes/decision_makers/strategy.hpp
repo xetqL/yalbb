@@ -5,6 +5,13 @@
 #ifndef NBMPI_STRATEGY_HPP
 #define NBMPI_STRATEGY_HPP
 
+#include <mlpack/core.hpp>
+#include <mlpack/methods/ann/init_rules/const_init.hpp>
+#include <mlpack/core/optimizers/rmsprop/rmsprop.hpp>
+#include <mlpack/core/optimizers/sgd/update_policies/vanilla_update.hpp>
+#include <mlpack/methods/ann/layer/layer.hpp>
+#include <mlpack/methods/ann/ffn.hpp>
+
 #include <random>
 #include <queue>
 #include "../metrics.hpp"
@@ -108,15 +115,16 @@ namespace decision_making {
         mlpack::ann::FFN<mlpack::ann::MeanSquaredError<>> model;
         mlpack::optimization::RMSProp optimizer;
         std::shared_ptr<arma::mat> ds;
+        arma::mat inputs, targets;
     public:
 
-        NeuralNetworkPolicy(mlpack::optimization::RMSProp& opt) :
+        NeuralNetworkPolicy(mlpack::optimization::RMSProp& opt, std::string ds_filename, int idx) :
                 optimizer(opt) {
+            inputs.load(ds_filename+"-features-"+std::to_string(idx)+".mat", arma::raw_ascii);
+            targets.load(ds_filename+"-targets-"+std::to_string(idx)+".mat", arma::raw_ascii);
         }
 
-        void train(const arma::mat& ds) {
-            arma::mat inputs = ds.head_cols(ds.n_cols - 1);
-            arma::mat targets = ds.tail_cols(1);
+        void train() {
             model.Train(inputs, targets, optimizer);
         }
 

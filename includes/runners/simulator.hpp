@@ -15,6 +15,8 @@
 #include <cstdlib>
 #include <gsl/gsl_statistics.h>
 
+#include "../decision_makers/strategy.hpp"
+
 #include "../ljpotential.hpp"
 #include "../report.hpp"
 #include "../physics.hpp"
@@ -27,7 +29,6 @@
 #include "../graph.hpp"
 #include "../metrics.hpp"
 #include "../zoltan_fn.hpp"
-#include "../decision_makers/strategy.hpp"
 
 template<int N>
 double simulate(FILE *fp,          // Output file (at 0)

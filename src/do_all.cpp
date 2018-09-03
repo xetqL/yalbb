@@ -7,11 +7,12 @@
 
 #include <zoltan.h>
 
+#include "../includes/runners/simulator.hpp"
+
 #include "../includes/initial_conditions.hpp"
 #include "../includes/nbody_io.hpp"
 #include "../includes/params.hpp"
 #include "../includes/runners/branch_and_bound.hpp"
-#include "../includes/runners/simulator.hpp"
 
 
 int main(int argc, char **argv) {
@@ -207,6 +208,7 @@ int main(int argc, char **argv) {
 
     std::ofstream dataset;
     if (!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
+
     size_t sol_idx = 0;
     for (auto const& solution : astar_optimal_paths) {
         if (!rank){
@@ -215,10 +217,15 @@ int main(int argc, char **argv) {
                 if(node->type == NodeType::Computing)
                     std::cout << std::setprecision(10) << "frame time: " << node->get_node_cost() << " ? "<< (node->decision==NodeLBDecision::LoadBalance ? "1" : "0") << std::endl;
             }
+            arma::mat feat, target;
+            std::tie(feat, target) = to_armadillo_mat(solution, 13);
+            feat.save(DATASET_FILENAME+"-features-"+std::to_string(sol_idx)+".mat", arma::raw_ascii);
+            target.save(DATASET_FILENAME+"-targets-"+std::to_string(sol_idx)+".mat", arma::raw_ascii);
         }
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
         sol_idx++;
     }
+
     astar_optimal_paths = {};
     MPI_Barrier(MPI_COMM_WORLD);
 

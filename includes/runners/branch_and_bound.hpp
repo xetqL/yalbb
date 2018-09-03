@@ -33,7 +33,7 @@
 #endif
 
 #ifndef N_FEATURES
-#define N_FEATURES 14
+#define N_FEATURES 12
 #endif
 
 #ifndef N_LABEL
