@@ -96,12 +96,6 @@ struct LBMetrics{
 
 };
 
-class FeatureContainer {
-public:
-    virtual std::vector<double> get_features() = 0;
-    virtual int get_target() = 0;
-};
-
 namespace topology {
 
 /**

@@ -104,6 +104,33 @@ namespace decision_making {
         }
     };
 
+    class NeuralNetworkPolicy : public Policy {
+        mlpack::ann::FFN<mlpack::ann::MeanSquaredError<>> model;
+        mlpack::optimization::RMSProp optimizer;
+        std::shared_ptr<arma::mat> ds;
+    public:
+
+        NeuralNetworkPolicy(mlpack::optimization::RMSProp& opt) :
+                optimizer(opt) {
+        }
+
+        void train(const arma::mat& ds) {
+            arma::mat inputs = ds.head_cols(ds.n_cols - 1);
+            arma::mat targets = ds.tail_cols(1);
+            model.Train(inputs, targets, optimizer);
+        }
+
+        /**
+         * Ask model what to do *without fitting value*
+         */
+        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+            arma::mat features(mc->metrics);
+            arma::mat responses(1, 1);
+            model.Predict(features, responses);
+            return responses(0,0) >= 0.5;
+        }
+    };
+
 } // end of namespace decision_making
 
 #endif //NBMPI_STRATEGY_HPP

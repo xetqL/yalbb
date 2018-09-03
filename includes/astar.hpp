@@ -7,14 +7,14 @@
 #include <queue>
 #include <memory>
 #include <future>
-#include "metrics.hpp"
 #include "utils.hpp"
+#include "feature_container.hpp"
 
 enum NodeType {Partitioning, Computing};
 enum NodeLBDecision {LoadBalance, DoNothing};
 
 template<typename MESH_DATA, typename Domain>
-struct Node : public metric::FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA, Domain>>{
+struct Node : public FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA, Domain>>{
 private:
     double node_cost = 0.0;
 public:
@@ -150,7 +150,7 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<MESH_
 }
 
 template<typename Domain>
-struct NodeWithoutParticles : public metric::FeatureContainer, public std::enable_shared_from_this<NodeWithoutParticles<Domain>>{
+struct NodeWithoutParticles : public FeatureContainer, public std::enable_shared_from_this<NodeWithoutParticles<Domain>>{
     long long idx = 0;                // index of the node
     int start_it, end_it;
     std::shared_ptr<NodeWithoutParticles<Domain>> parent;
