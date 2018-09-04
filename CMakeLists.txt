@@ -275,6 +275,8 @@ add_executable(doall
 target_include_directories(doall
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY})
 
 target_link_libraries(doall
