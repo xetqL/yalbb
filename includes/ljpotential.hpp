@@ -383,7 +383,7 @@ inline std::tuple<int, int, int> compute_one_step(
      * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
      * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
     if(step >= 0) {
-        //freeze after T/2 !
+        // freeze after T/2 !
         if(step > params->nframes / 2) params->frozen_factor = 0.0;
         else params->frozen_factor = 1.0;
 

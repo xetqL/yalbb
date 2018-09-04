@@ -64,7 +64,7 @@ struct LBMetrics{
      * */
     const std::vector<RealType> metrics;
 
-    LBMetrics(const std::vector<RealType> metrics) : metrics(metrics){};
+    LBMetrics(const std::vector<RealType> metrics) : metrics(metrics) {};
 
     RealType get_gini_times(){
         return metrics.at(0);
@@ -87,13 +87,12 @@ struct LBMetrics{
     RealType get_macd_gini_complexities(){
         return metrics.at(6);
     }
-    RealType get_macd_gini_communications(){
-        return metrics.at(8);
-    }
     RealType get_macd_times(){
         return metrics.at(7);
     }
-
+    RealType get_macd_gini_communications(){
+        return metrics.at(8);
+    }
 };
 
 namespace topology {
@@ -372,7 +371,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
             //(RealType) gsl_stats_variance(&window_gini_communications->data_container.front(), 1, window_gini_times->data_container.size()),
             (RealType) variance<RealType>(mu_interaction_times),
             //slope_gini_times, slope_gini_complexity, slope_times, slope_gini_communications,
-            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications
+            macd_gini_times, macd_gini_complexity, macd_times, macd_gini_communications,
     };
 }
 

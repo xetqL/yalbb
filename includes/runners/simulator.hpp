@@ -70,28 +70,35 @@ double simulate(FILE *fp,          // Output file (at 0)
 
     int nb_lb = 0;
     //std::vector<elements::Element<N>> remote_el;
-    metric::LBMetrics<double>* a = new metric::LBMetrics<double>({0.0});
+    std::unique_ptr<metric::LBMetrics<double>> a = nullptr;
     std::vector<double> times(nproc);
     MESH_DATA<N> tmp_data;
-
+    std::shared_ptr<SlidingWindow<double>>
+            window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
+            window_gini_complexities = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
+            window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
+            window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     double total_time = 0.0;
     int complexity, received, sent;
+    std::vector<double> previous_dataset_entry(13), current_dataset_entry(13), last_positive_dataset_entry(13);
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
             double it_time;
-
+            previous_dataset_entry = current_dataset_entry;
             MPI_Barrier(comm); //wait for all to do communications
 
             double begin = MPI_Wtime(); //start of step
-            if (lb_policy->should_load_balance(i + frame * npframe, a /* should be replaced by the metrics */)){
+            bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, std::move(a));
+            if (should_load_balance_now) {
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
                 nb_lb ++;
             } else {
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
             }
 
-            MPI_Barrier(comm); //everybody've finished communications
+            //everybody've finished communications
+            MPI_Barrier(comm);
             //everybody computes a step
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm, frame);
 
@@ -110,14 +117,29 @@ double simulate(FILE *fp,          // Output file (at 0)
             std::vector<double> complexities(nproc);
             double cmplx = complexity;
             MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
-            double gini_complexities = metric::load_balancing::compute_gini_index(complexities);
-            delete a;
-            a = new metric::LBMetrics<double>({gini_complexities});
+
+            current_dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+                                                             window_gini_complexities, window_gini_communications,
+                                                             true_iteration_time, times, 0.0,
+                                                             sent, received, complexity, comm);
+
+            if(should_load_balance_now) last_positive_dataset_entry = current_dataset_entry;
+
+            current_dataset_entry.push_back((previous_dataset_entry.at(0) - current_dataset_entry.at(0)));
+            current_dataset_entry.push_back((previous_dataset_entry.at(1) - current_dataset_entry.at(1)));
+            current_dataset_entry.push_back((previous_dataset_entry.at(2) - current_dataset_entry.at(2)));
+            current_dataset_entry.push_back((previous_dataset_entry.at(3) - current_dataset_entry.at(3)));
+
+            //TODO:Compute the difference of the total time between
+            //TODO:last_positive... and current_data... iff !should_load_balance_now it is implicitly cpt by A*
+
+            a = std::make_unique<metric::LBMetrics<double>>(current_dataset_entry);
         }
 
         if(!rank) {
             printf("Frame [%d] completed in %f seconds\n", frame, frame_time);
         }
+
         total_time += frame_time;
 
         // Write metrics to report file
@@ -137,7 +159,6 @@ double simulate(FILE *fp,          // Output file (at 0)
     MPI_Barrier(comm);
     if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
     if (rank == 0 && frame_file.is_open()) frame_file.close();
-    delete a;
     return total_time;
 }
 

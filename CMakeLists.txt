@@ -42,9 +42,9 @@ set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
 set(BOOST_INCLUDE_DIRECTORY "" CACHE String "Boost include directory (local)")
-include_directories(${BOOST_INCLUDE_DIRECTORY})
+include_directories(${BOOST_INCLUDE_DIRECTORY} /usr/local/include)
 set(BOOST_LIBRARY_DIRECTORY "" CACHE String "Boost library directory (local)")
-link_directories(${BOOST_LIBRARY_DIRECTORY})
+link_directories(${BOOST_LIBRARY_DIRECTORY} /usr/local/lib/libmlpack.so.3.0)
 
 ########################################################################################################################
 # Tests
@@ -124,7 +124,8 @@ set_target_properties(build
         OUTPUT_NAME "nbmpi")
 
 set(ZOLTAN_LIBRARY_PATH zoltan CACHE String "zoltan library path (zoltan.a)")
-set(ARMADILLO_LIBRARY_PATH "" CACHE String "armadillo library path (libarmadillo.so)")
+set(ARMADILLO_LIBRARY_PATH armadillo CACHE String "armadillo library path (libarmadillo.so)")
+set(MLPACK_LIBRARY_PATH mlpack CACHE String "armadillo library path (libmlpack.so)")
 
 target_link_libraries(build
         PRIVATE
@@ -270,14 +271,18 @@ add_executable(doall
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
         src/do_all.cpp includes/feature_container.hpp)
+
 target_include_directories(doall
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
         ${ZOLTAN_INCLUDE_DIRECTORY})
+
 target_link_libraries(doall
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
+        ${MLPACK_LIBRARY_PATH}
+        ${ARMADILLO_LIBRARY_PATH}
         ${GSL_LIBRARIES})
 
 add_custom_target(tests

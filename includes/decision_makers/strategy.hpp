@@ -11,6 +11,8 @@
 #include <mlpack/core/optimizers/sgd/update_policies/vanilla_update.hpp>
 #include <mlpack/methods/ann/layer/layer.hpp>
 #include <mlpack/methods/ann/ffn.hpp>
+#include <mlpack/methods/ann/loss_functions/mean_squared_error.hpp>
+#include <mlpack/prereqs.hpp>
 
 #include <random>
 #include <queue>
@@ -18,7 +20,11 @@
 namespace decision_making {
     class Policy {
     public:
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) = 0;
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) = 0;
+
+        virtual void print(std::string prefix) {
+            std::cout << prefix << " ";
+        }
     };
 
     class RandomPolicy : public Policy {
@@ -31,21 +37,33 @@ namespace decision_making {
             gen.seed(seed);
         }
 
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
             return dist(gen) < lb_probability;
         }
+
+        void print(std::string prefix) override {
+            Policy::print(prefix);
+            std::cout << "Random Policy:" << std::endl;
+        }
+
     };
 
     class ThresholdHeuristicPolicy : public Policy{
         const float threshold;
-        inline bool is_greater_than_threshold(metric::LBMetrics<double>* mc) {
-            return mc->get_gini_times() > threshold;
+        inline bool is_greater_than_threshold(std::unique_ptr<metric::LBMetrics<double>> mc) {
+            if (mc)
+                return mc->get_gini_times() > threshold;
+            else return false;
         }
 
     public:
         ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
-            return is_greater_than_threshold(mc);
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+            return is_greater_than_threshold(std::move(mc));
+        }
+        void print(std::string prefix) override {
+            Policy::print(prefix);
+            std::cout << "Threshold Policy:" << std::endl;
         }
     };
 
@@ -82,15 +100,19 @@ namespace decision_making {
 
             }
             dataset.close();
-            std::cout << decisions.size() << std::endl;
         }
 
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
             if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
                 return decision;
             } else return false;
+        }
+
+        void print(std::string prefix) override {
+            Policy::print(prefix);
+            std::cout << "InFile Policy:" << std::endl;
         }
     };
 
@@ -98,15 +120,19 @@ namespace decision_making {
         const int period;
     public:
         PeriodicPolicy(int period) : period(period) {}
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
             return (it % period) == 0;
+        }
+        void print(std::string prefix) override {
+            Policy::print(prefix);
+            std::cout << "Periodic Policy ("<< std::to_string(period) << "):" << std::endl;
         }
     };
 
     class NoLBPolicy : public Policy{
     public:
         NoLBPolicy() {}
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
             return false;
         }
     };
@@ -121,12 +147,13 @@ namespace decision_making {
         NeuralNetworkPolicy(const std::string& ds_filename, int idx) {
             inputs.load(ds_filename+"-features-"+std::to_string(idx)+".mat", arma::raw_ascii);
             targets.load(ds_filename+"-targets-"+std::to_string(idx)+".mat", arma::raw_ascii);
-
-            model.Add<mlpack::ann::Linear<> >(inputs.n_rows, 6);
+            auto tin = inputs.t().eval();
+            auto ttar= targets.t().eval();
+            model.Add<mlpack::ann::Linear<> >(tin.n_rows, 6);
             model.Add<mlpack::ann::LeakyReLU<> >();
-            model.Add<mlpack::ann::Linear<> >(6, targets.n_rows);
+            model.Add<mlpack::ann::Linear<> >(6, ttar.n_rows);
             model.Add<mlpack::ann::LeakyReLU<> >();
-
+            model.Train(tin, ttar);
         }
 
         void train() {
@@ -136,11 +163,17 @@ namespace decision_making {
         /**
          * Ask model what to do *without fitting value*
          */
-        virtual inline bool should_load_balance(int it, metric::LBMetrics<double>* mc) override {
+        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+            if(!mc) return false;
             arma::mat features(mc->metrics);
             arma::mat responses(1, 1);
             model.Predict(features, responses);
-            return responses(0,0) >= 0.5;
+            return responses(0,0) >= 0;
+        }
+
+        void print(std::string prefix) override {
+            Policy::print(prefix);
+            std::cout << "NeuralNetwork Policy:" << std::endl;
         }
     };
 

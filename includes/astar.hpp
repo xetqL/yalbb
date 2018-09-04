@@ -125,9 +125,7 @@ public:
 
 template<typename MESH_DATA, typename Domain>
 std::pair<arma::mat,arma::mat> to_armadillo_mat(std::list<std::shared_ptr<Node<MESH_DATA, Domain>>> dataset, int nfeatures) {
-    //const size_t ds_size = dataset.size();
     const size_t nfeat = (*dataset.begin())->get_features().size();
-    auto ds_size = std::count_if(dataset.begin(), dataset.end(), [](auto n){return n->type == NodeType::Computing;});
     arma::mat arma_features(0, nfeat);
     arma::mat arma_targets(0, 1);
     std::cout << arma_targets.n_rows << std::endl;
@@ -138,12 +136,8 @@ std::pair<arma::mat,arma::mat> to_armadillo_mat(std::list<std::shared_ptr<Node<M
             arma::rowvec features(line->get_features());
             arma::rowvec target;
             target << (int) line->get_target() << arma::endr;
-            std::cout << line->get_target() << std::endl;
-            std::cout << arma_features.n_cols << std::endl;
-
             arma_features.insert_rows(i, features);
             arma_targets.insert_rows(i, target);
-
             i++;
         }
     }

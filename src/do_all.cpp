@@ -226,7 +226,7 @@ int main(int argc, char **argv) {
         sol_idx++;
     }
 
-    astar_optimal_paths = {};
+    astar_optimal_paths = {}; // free memory
     MPI_Barrier(MPI_COMM_WORLD);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -240,7 +240,7 @@ int main(int argc, char **argv) {
     if(!rank && file_exists(RESULT_FILENAME)) {
         std::remove(RESULT_FILENAME.c_str());
     }
-    for (unsigned int lb_policy_idx = 0; lb_policy_idx < 6 ; ++lb_policy_idx) {
+    for (unsigned int lb_policy_idx = 1 /* skip the no lb ... */ ; lb_policy_idx <= 6  ; ++lb_policy_idx) {
         mesh_data = original_data; //recover data from the clean copy
 
         switch (lb_policy_idx) {
@@ -264,12 +264,13 @@ int main(int argc, char **argv) {
                         DATASET_FILENAME, params.nframes, params.npframe);
                 break;
             case 6://neural net policy
-
                 lb_policy = std::make_shared<decision_making::NeuralNetworkPolicy>(DATASET_FILENAME, 0);
                 break;
             default:
                 throw std::runtime_error("unknown lb policy");
         }
+
+        if(!rank) lb_policy->print(std::to_string(lb_policy_idx));
 
         zz = zoltan_create_wrapper();
 
