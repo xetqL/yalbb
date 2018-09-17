@@ -15,9 +15,11 @@
 #include "partitioner.hpp"
 
 namespace elements {
-    using Point3D = boost::geometry::model::point<double, 3, boost::geometry::cs::cartesian>;
-    using Box3D = boost::geometry::model::box<Point3D>;
+
     using ElementRealType = double;
+    using Point3D = boost::geometry::model::point<ElementRealType, 3, boost::geometry::cs::cartesian>;
+    using Box3D = boost::geometry::model::box<Point3D>;
+
     template<int N>
     struct Element {
         int gid;
@@ -287,7 +289,7 @@ namespace elements {
 
         MPI_Type_extent(MPI_INT, &intex);
         offset[0] = static_cast<MPI_Aint>(0);
-        offset[1] = intex;
+        offset[1] = 2 * intex;
 
         MPI_Type_struct(2, blockcount_element, offset, oldtype_element, &element_datatype);
         MPI_Type_commit(&element_datatype);

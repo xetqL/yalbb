@@ -51,7 +51,7 @@ void create_cell_linkedlist(
 template <int N, class MapType>
 int create_cell_linkedlist(
         const long long nsub, /* number of subdomain per row*/
-        const double lsub, /* width of subdomain */
+        const elements::ElementRealType lsub, /* width of subdomain */
         const std::vector<elements::Element<N>> &local_elements, /* particle location */
         const std::vector<elements::Element<N>> &remote_elements, /* particle location */
         MapType &plist) {
@@ -64,9 +64,12 @@ int create_cell_linkedlist(
         auto const& particle = cpt >= local_size ? remote_elements[cpt-local_size] : local_elements[cpt];
 
         cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
-        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0){
+
+        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0) {
+            //std::cout << particle << std::endl;
             return 400;
         }
+
         if( plist.find(cell_of_particle) != plist.end())
             plist[cell_of_particle]->push_back(particle);
         else{
@@ -80,16 +83,17 @@ int create_cell_linkedlist(
 template<int N>
 int compute_forces (
         const long long M, /* Number of subcell in a row  */
-        const double lsub, /* length of a cell */
+        const elements::ElementRealType lsub, /* length of a cell */
         std::vector<elements::Element<N>> &local_elements,
         const std::vector<elements::Element<N>> &remote_elements,
         const std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N>>>> &plist,
         const sim_param_t* params) noexcept {
 
-    auto g    = (double) params->G;
-    auto eps  = (double) params->eps_lj;
-    auto sig  = (double) params->sig_lj;
-    double sig2 = sig*sig;
+    elements::ElementRealType g    = dto<elements::ElementRealType>(params->G);
+    elements::ElementRealType eps  = dto<elements::ElementRealType>(params->eps_lj);
+    elements::ElementRealType sig  = dto<elements::ElementRealType>(params->sig_lj);
+    elements::ElementRealType sig2 = sig*sig;
+
     size_t complexity = local_elements.size();
     // each particle MUST checks the local particles and the particles from neighboring PE
     std::unordered_map<int, elements::Element<N>> element_map;
@@ -126,14 +130,14 @@ int compute_forces (
                             if (force_recepter.gid != force_source.gid) {
                                 complexity++;
                                 double start_interaction = MPI_Wtime();
-                                std::array<double, N> delta_dim;
-                                double delta = 0.0;
+                                std::array<elements::ElementRealType, N> delta_dim;
+                                elements::ElementRealType delta = 0.0;
                                 for(size_t dim = 0; dim < N; ++dim) {
-                                    const double ddim = force_source.position.at(dim) - force_recepter.position.at(dim);
+                                    const elements::ElementRealType ddim = force_source.position.at(dim) - force_recepter.position.at(dim);
                                     delta += (ddim*ddim);
                                     delta_dim[dim] = ddim;
                                 }
-                                double C_LJ = compute_LJ_scalar(delta, eps, sig2);
+                                elements::ElementRealType C_LJ = compute_LJ_scalar<elements::ElementRealType>(delta, eps, sig2);
                                 for(int dim = 0; dim < N; ++dim) {
                                     force_recepter.acceleration[dim] += (C_LJ * delta_dim[dim]);
                                 }
@@ -359,10 +363,10 @@ inline std::tuple<int, int, int> compute_one_step(
         const int step = -1 /* by default we don't care about the step*/ ) {
 
     int received, sent;
-    double cut_off_radius = 3.2 * params->sig_lj; // cut_off
+    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(3.2 * params->sig_lj); // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
-    double cell_size = cut_off_radius; //cell size
-    const double dt = params->dt;
+    elements::ElementRealType cell_size = cut_off_radius; //cell size
+    const elements::ElementRealType dt = params->dt;
 
     auto remote_el = load_balancing::geometric::__exchange_data<N>(mesh_data->els, domain_boundaries, datatype, comm, received, sent, cell_size);
 

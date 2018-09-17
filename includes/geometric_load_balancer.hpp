@@ -472,13 +472,14 @@ namespace load_balancing {
             int caller_rank; MPI_Comm_rank(LB_COMM, &caller_rank);
             std::vector<elements::Element<N> > buffer;
             std::map<int, std::shared_ptr<std::vector<elements::Element<N> > > > data_to_migrate;
+
             for(int i = 0; i < numExport; ++i)
                 if(data_to_migrate.find(exportProcs[i]) == data_to_migrate.end())
                     data_to_migrate[exportProcs[i]] = std::make_shared<std::vector<elements::Element<N>>>();
 
             for(int i = 0; i < numExport; ++i) {
-                auto PE = exportProcs[i];
-                auto gid= exportGlobalGids[i];
+                auto PE  = exportProcs[i];
+                auto gid = exportGlobalGids[i];
 
                 //check within the remaining elements which belong to the current PE
                 size_t data_id = 0;
@@ -504,6 +505,7 @@ namespace load_balancing {
                 cpt++;
             }
             int collectData = 0;
+
             while(collectData < numImport) {// receive the data in any order
                 int source_rank, size;
                 MPI_Status status;
@@ -514,8 +516,10 @@ namespace load_balancing {
                 buffer.resize(size);
                 MPI_Recv(&buffer.front(), size, datatype.elements_datatype, source_rank, 300, LB_COMM, &status);
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
+
             }
             MPI_Waitall(cpt, &reqs.front(), MPI_STATUSES_IGNORE);
+
         }
 
         template<int N> void zoltan_migrate_particles(

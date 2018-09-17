@@ -161,7 +161,7 @@ namespace decision_making {
         }
 
         /**
-         * Ask model what to do *without fitting value*
+         * Query the model
          */
         virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
             if(!mc) return false;

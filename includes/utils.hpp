@@ -49,6 +49,16 @@ inline long long position_to_cell(std::array<double, N> const& position, const d
     return idx;
 }
 
+template<int N>
+inline long long position_to_cell(std::array<float, N> const& position, const float lsub, const long long c, const long long r = 0) {
+    const std::vector<long long> weight = {1, c, c*r};
+    long long idx = 0;
+    for(int i = 0; i < N; ++i) {
+        idx += weight.at(i) * std::floor(position.at(i) / lsub);
+    }
+    return idx;
+}
+
 inline void linear_to_grid(const long long index, const long long c, const long long r, int& x_idx, int& y_idx, int& z_idx){
     x_idx = (int) (index % (c*r) % c);           // col
     y_idx = (int) std::floor(index % (c*r) / r); // row

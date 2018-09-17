@@ -155,9 +155,9 @@ public:
 
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
-        float x_sz = condition->xmax - condition->xmin;
-        float y_sz = condition->ymax - condition->ymin;
-        float z_sz = condition->zmax - condition->zmin;
+        elements::ElementRealType x_sz = condition->xmax - condition->xmin;
+        elements::ElementRealType y_sz = condition->ymax - condition->ymin;
+        elements::ElementRealType z_sz = condition->zmax - condition->zmin;
         const int clusters_to_generate = clusters.size();
 
         int number_of_element_generated = 0;
@@ -362,6 +362,7 @@ void initialize_mesh_data(int npart, MESH_DATA<N>& mesh_data,
                           initial_condition::RandomElementsGenerator<N>* elements_generator,
                           const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) {
     elements_generator->generate_elements(mesh_data.els, npart, condition);
+
 }
 
 } // end of namespace initial_condition

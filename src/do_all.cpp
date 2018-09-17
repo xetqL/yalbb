@@ -198,8 +198,12 @@ int main(int argc, char **argv) {
 
     std::vector<partitioning::geometric::Domain<DIMENSION>>
             domain_boundaries = retrieve_domain_boundaries<DIMENSION>(zz, nproc, &params);
+    std::for_each(mesh_data.els.cbegin(), mesh_data.els.cend(), [&rank](auto p) {std::cout << rank << " " << p << std::endl;} );
+    std::cout << "NEXT" << std::endl;
+
     load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
                                                          exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
+
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
@@ -297,17 +301,18 @@ int main(int argc, char **argv) {
         Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
         Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
-        auto time_spent = simulate<DIMENSION>(NULL, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
+        auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
 
-        if(!rank) {
+        if (!rank) {
             std::ofstream result;
             result.open(RESULT_FILENAME, std::ofstream::app | std::ofstream::out);
             std::cout << time_spent << std::endl;
             result << time_spent << std::endl;
             result.close();
         }
+
         Zoltan_Destroy(&zz);
-        MPI_Barrier(MPI_COMM_WORLD); //finished with this LB heuristic... go next
+        MPI_Barrier(MPI_COMM_WORLD);
     }
 
     MPI_Finalize();

@@ -111,7 +111,7 @@ void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealTy
 }
 
 template<int N>
-void apply_reflect(std::vector<elements::Element<N>> &elements, const double simsize) {
+void apply_reflect(std::vector<elements::Element<N>> &elements, const elements::ElementRealType simsize) {
     //unsigned int i = 0, repeat=0;
     //const unsigned int MAX_REPEAT = 4;
     for(auto &element: elements){
@@ -119,10 +119,10 @@ void apply_reflect(std::vector<elements::Element<N>> &elements, const double sim
         //repeat = 0;
         while(dim < N){
             if(element.position.at(dim) < 0.0)
-                reflect(0.0, &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
+                reflect<elements::ElementRealType>(0.0, &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
 
             if(element.position.at(dim) >= simsize)
-                reflect(simsize-std::numeric_limits<double>::epsilon(), &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
+                reflect<elements::ElementRealType>(simsize-std::numeric_limits<elements::ElementRealType>::epsilon(), &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
 
             dim++;
         }

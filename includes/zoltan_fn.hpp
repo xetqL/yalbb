@@ -116,6 +116,20 @@ void zoltan_fn_init(Zoltan_Struct* zz, MESH_DATA<N>* mesh_data){
     Zoltan_Set_Num_Geom_Fn(  zz, get_num_geometry<N>,      mesh_data);
     Zoltan_Set_Geom_Multi_Fn(zz, get_geometry_list<N>,     mesh_data);
 }
+template<typename T>
+inline T dto(double v) {
+    T ret = (T) v;
+
+    if(std::isinf(ret)){
+        if(ret == -INFINITY){
+            ret = std::numeric_limits<T>::lowest();
+        } else {
+            ret = std::numeric_limits<T>::max();
+        }
+    }
+
+    return ret;
+}
 
 template <int N>
 inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
@@ -149,7 +163,12 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                         &exportToPart);     /* Partition to which each vertex will belong */
     if(changes) for(int part = 0; part < nproc; ++part) {
             Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-            auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax, params->simsize);
+            auto domain = partitioning::geometric::borders_to_domain<N>(dto<elements::ElementRealType>(xmin),
+                                                                        dto<elements::ElementRealType>(ymin),
+                                                                        dto<elements::ElementRealType>(zmin),
+                                                                        dto<elements::ElementRealType>(xmax),
+                                                                        dto<elements::ElementRealType>(ymax),
+                                                                        dto<elements::ElementRealType>(zmax), params->simsize);
             domain_boundaries[part] = domain;
         }
 
@@ -168,7 +187,12 @@ retrieve_domain_boundaries(Zoltan_Struct *zz, int nproc, const sim_param_t *para
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
     for (int part = 0; part < nproc; ++part) {
         Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<N>(xmin, ymin, zmin, xmax, ymax, zmax,
+        auto domain = partitioning::geometric::borders_to_domain<N>(dto<elements::ElementRealType>(xmin),
+                                                                    dto<elements::ElementRealType>(ymin),
+                                                                    dto<elements::ElementRealType>(zmin),
+                                                                    dto<elements::ElementRealType>(xmax),
+                                                                    dto<elements::ElementRealType>(ymax),
+                                                                    dto<elements::ElementRealType>(zmax),
                                                                     params->simsize);
         domain_boundaries[part] = domain;
     }
