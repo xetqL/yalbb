@@ -14,6 +14,7 @@
 #include "../includes/params.hpp"
 #include "../includes/runners/branch_and_bound.hpp"
 
+#define ENABLE_AUTOMATIC_MIGRATION true
 
 int main(int argc, char **argv) {
     constexpr int DIMENSION = 3;
@@ -91,12 +92,10 @@ int main(int argc, char **argv) {
         std::queue<ElementGeneratorCfg> elements_generators;
         switch (params.particle_init_conf) {
             case 1: //uniformly distributed
-
                 condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                         &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
-
                 elements_generators.push(std::make_pair(
                         std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(
                                 params.seed, MAX_TRIAL), params.npart));
@@ -178,9 +177,9 @@ int main(int argc, char **argv) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     const std::string DATASET_FILENAME = SIMULATION_STR_NAME + ".dataset";
-    auto zz = zoltan_create_wrapper();
+    auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
 
-    zoltan_fn_init<DIMENSION>(zz, &mesh_data);
+    zoltan_fn_init<DIMENSION>(zz, &mesh_data, ENABLE_AUTOMATIC_MIGRATION);
     Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                         &changes,           // 1 if partitioning was changed, 0 otherwise
                         &numGidEntries,     // Number of integers used for a global ID
@@ -198,17 +197,12 @@ int main(int argc, char **argv) {
 
     std::vector<partitioning::geometric::Domain<DIMENSION>>
             domain_boundaries = retrieve_domain_boundaries<DIMENSION>(zz, nproc, &params);
-    std::for_each(mesh_data.els.cbegin(), mesh_data.els.cend(), [&rank](auto p) {std::cout << rank << " " << p << std::endl;} );
-    std::cout << "NEXT" << std::endl;
-
-    load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
-                                                         exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
     if (!rank) std::cout << "Run A* simulation to get optimal path..." << std::endl;
-    auto astar_optimal_paths = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD);
+    auto astar_optimal_paths = Astar_runner<DIMENSION>(&mesh_data, zz, &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
 
     std::ofstream dataset;
     if (!rank && file_exists(DATASET_FILENAME)) std::remove(DATASET_FILENAME.c_str());
@@ -276,9 +270,10 @@ int main(int argc, char **argv) {
 
         if(!rank) lb_policy->print(std::to_string(lb_policy_idx));
 
-        zz = zoltan_create_wrapper();
+        zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
 
-        zoltan_fn_init<DIMENSION>(zz, &mesh_data);
+        zoltan_fn_init<DIMENSION>(zz, &mesh_data, ENABLE_AUTOMATIC_MIGRATION);
+
         Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
                             &changes,           // 1 if partitioning was changed, 0 otherwise
                             &numGidEntries,     // Number of integers used for a global ID
@@ -296,12 +291,10 @@ int main(int argc, char **argv) {
 
         domain_boundaries = retrieve_domain_boundaries<DIMENSION>(zz, nproc, &params);
 
-        load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
-                                                             exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
         Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
         Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
-        auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
+        auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
 
         if (!rank) {
             std::ofstream result;

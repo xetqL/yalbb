@@ -72,7 +72,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         MESH_DATA<N> *p_mesh_data,
         Zoltan_Struct *load_balancer,
         sim_param_t *params,
-        const MPI_Comm comm = MPI_COMM_WORLD) {
+        const MPI_Comm comm = MPI_COMM_WORLD,
+        bool automatic_migration = false) {
     // MPI Init ...
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -133,7 +134,8 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             auto domain_boundaries = child->domain;
 
             //migrate the particles to the good cpu according to partition
-            load_balancing::geometric::__migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
+            //load_balancing::geometric::__migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
+            load_balancing::geometric::zoltan_migrate_particles(mesh_data.els, load_balancer, datatype, comm);
             MPI_Barrier(comm);
 
             child_cost = 0;
@@ -142,7 +144,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
                     MPI_Barrier(comm);
                     double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
                     double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
                     MPI_Barrier(comm);
 

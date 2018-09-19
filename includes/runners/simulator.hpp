@@ -36,7 +36,8 @@ double simulate(FILE *fp,          // Output file (at 0)
             Zoltan_Struct *load_balancer,
             std::shared_ptr<decision_making::Policy> lb_policy,
             sim_param_t *params,
-            const MPI_Comm comm = MPI_COMM_WORLD) {
+            const MPI_Comm comm = MPI_COMM_WORLD,
+            bool automatic_migration = false) {
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -91,7 +92,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             double begin = MPI_Wtime(); //start of step
             bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, std::move(a));
             if (should_load_balance_now) {
-                zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm);
+                zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
                 nb_lb ++;
             } else {
                 load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);

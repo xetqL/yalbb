@@ -16,7 +16,7 @@
 
 namespace elements {
 
-    using ElementRealType = double;
+    using ElementRealType = float;
     using Point3D = boost::geometry::model::point<ElementRealType, 3, boost::geometry::cs::cartesian>;
     using Box3D = boost::geometry::model::box<Point3D>;
 
@@ -153,7 +153,7 @@ namespace elements {
                 acc += "," + std::to_string(element.acceleration.at(i));
             }
             acc += ")";
-            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " gid: " << element.gid << " lid: " << element.gid;
+            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " gid: " << element.gid << " lid: " << element.lid;
             return os;
         }
 
