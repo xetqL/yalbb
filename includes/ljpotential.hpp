@@ -352,6 +352,62 @@ void compute_forces(
         }
     }
 }
+
+template <int N>
+inline std::tuple<int, int, int> compute_one_step(
+        MESH_DATA<N>* mesh_data,
+        std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > >& plklist,
+        Zoltan_Struct *load_balancer,
+        const partitioning::CommunicationDatatype& datatype,
+        sim_param_t* params,
+        const MPI_Comm comm,
+        const int step = -1 /* by default we don't care about the step*/ ) {
+    int received, sent;
+    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(3.2 * params->sig_lj); // cut_off
+    auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
+    elements::ElementRealType cell_size = cut_off_radius; //cell size
+    const elements::ElementRealType dt = params->dt;
+
+    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cell_size);
+
+    // update local ids
+    const size_t nb_elements = mesh_data->els.size();
+    for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
+
+    int err = lennard_jones::create_cell_linkedlist(cell_per_row, cell_size, mesh_data->els, remote_el, plklist);
+
+    if(err) {
+        std::cerr << err << std::endl;
+        throw std::runtime_error("Particle out of domain");
+    }
+
+    int cmplx = lennard_jones::compute_forces(cell_per_row, cell_size, mesh_data->els, remote_el, plklist, params);
+
+    /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
+     * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+    if(step >= 0) {
+        // freeze after T/2 !
+        if(step > params->nframes / 2) params->frozen_factor = 0.0;
+        else params->frozen_factor = 1.0;
+
+        for (auto &p : mesh_data->els)
+            for (int dim = 0; dim < N; ++dim) {
+                p.velocity[dim] *= params->frozen_factor;
+                //////////////////////////////////////////////////////////////////////////////
+                p.acceleration[dim] *= 0.0; //cancel all the forces, /!\ to remove after tests
+                //////////////////////////////////////////////////////////////////////////////
+            }
+    }
+    /// IT STOPS HERE
+
+    leapfrog2(dt, mesh_data->els);
+    leapfrog1(dt, mesh_data->els);
+    apply_reflect(mesh_data->els, params->simsize);
+
+    return std::make_tuple(cmplx, received, sent);
+};
+
 template <int N>
 inline std::tuple<int, int, int> compute_one_step(
         MESH_DATA<N>* mesh_data,
@@ -406,7 +462,7 @@ inline std::tuple<int, int, int> compute_one_step(
     apply_reflect(mesh_data->els, params->simsize);
 
     return std::make_tuple(cmplx, received, sent);
-}
+};
 
 }
 #endif //NBMPI_LJPOTENTIAL_HPP
