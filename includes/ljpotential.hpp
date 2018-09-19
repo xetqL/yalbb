@@ -66,7 +66,7 @@ int create_cell_linkedlist(
         cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
 
         if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0) {
-            //std::cout << particle << std::endl;
+            std::cout << particle << std::endl;
             return 400;
         }
 
@@ -121,7 +121,7 @@ int compute_forces (
                     if (xcellidx + neighborx < 0 || xcellidx + neighborx >= M) continue;
                     if (ycellidx + neighbory < 0 || ycellidx + neighbory >= M) continue;
                     if (zcellidx + neighborz < 0 || zcellidx + neighborz >= M) continue;
-                    nlinearcellidx = (xcellidx + neighborx) + M * (ycellidx + neighbory) + M*M * (zcellidx+neighborz);
+                    nlinearcellidx = (xcellidx + neighborx) + M * (ycellidx + neighbory) + M * M * (zcellidx+neighborz);
                     if(plist.find(nlinearcellidx) != plist.end()) {
                         auto el_list = plist.at(nlinearcellidx).get();
                         size_t cell_el_size = el_list->size();
@@ -129,12 +129,11 @@ int compute_forces (
                             auto const& force_source = el_list->at(el_idx);
                             if (force_recepter.gid != force_source.gid) {
                                 complexity++;
-                                double start_interaction = MPI_Wtime();
                                 std::array<elements::ElementRealType, N> delta_dim;
                                 elements::ElementRealType delta = 0.0;
                                 for(size_t dim = 0; dim < N; ++dim) {
                                     const elements::ElementRealType ddim = force_source.position.at(dim) - force_recepter.position.at(dim);
-                                    delta += (ddim*ddim);
+                                    delta += (ddim * ddim);
                                     delta_dim[dim] = ddim;
                                 }
                                 elements::ElementRealType C_LJ = compute_LJ_scalar<elements::ElementRealType>(delta, eps, sig2);
@@ -363,30 +362,30 @@ inline std::tuple<int, int, int> compute_one_step(
         const MPI_Comm comm,
         const int step = -1 /* by default we don't care about the step*/ ) {
     int received, sent;
-    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(3.2 * params->sig_lj); // cut_off
+    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(2.5 * params->sig_lj); // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
     elements::ElementRealType cell_size = cut_off_radius; //cell size
     const elements::ElementRealType dt = params->dt;
 
-    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cell_size);
+    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, 1.0);
 
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
-    int err = lennard_jones::create_cell_linkedlist(cell_per_row, cell_size, mesh_data->els, remote_el, plklist);
+    int err = lennard_jones::create_cell_linkedlist(cell_per_row, cut_off_radius, mesh_data->els, remote_el, plklist);
 
     if(err) {
         std::cerr << err << std::endl;
         throw std::runtime_error("Particle out of domain");
     }
 
-    int cmplx = lennard_jones::compute_forces(cell_per_row, cell_size, mesh_data->els, remote_el, plklist, params);
+    int cmplx = lennard_jones::compute_forces(cell_per_row, cut_off_radius, mesh_data->els, remote_el, plklist, params);
 
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
      * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    if(step >= 0) {
+    /*if(step >= 0) {
         // freeze after T/2 !
         if(step > params->nframes / 2) params->frozen_factor = 0.0;
         else params->frozen_factor = 1.0;
@@ -395,10 +394,10 @@ inline std::tuple<int, int, int> compute_one_step(
             for (int dim = 0; dim < N; ++dim) {
                 p.velocity[dim] *= params->frozen_factor;
                 //////////////////////////////////////////////////////////////////////////////
-                p.acceleration[dim] *= 0.0; //cancel all the forces, /!\ to remove after tests
+                //p.acceleration[dim] *= 0.0; //cancel all the forces, /!\ to remove after tests
                 //////////////////////////////////////////////////////////////////////////////
             }
-    }
+    }*/
     /// IT STOPS HERE
 
     leapfrog2(dt, mesh_data->els);
@@ -442,7 +441,7 @@ inline std::tuple<int, int, int> compute_one_step(
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
      * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    if(step >= 0) {
+    /*if(step >= 0) {
         // freeze after T/2 !
         if(step > params->nframes / 2) params->frozen_factor = 0.0;
         else params->frozen_factor = 1.0;
@@ -454,7 +453,7 @@ inline std::tuple<int, int, int> compute_one_step(
                 p.acceleration[dim] *= 0.0; //cancel all the forces, /!\ to remove after tests
                 //////////////////////////////////////////////////////////////////////////////
             }
-    }
+    }*/
     /// IT STOPS HERE
 
     leapfrog2(dt, mesh_data->els);

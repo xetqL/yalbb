@@ -16,6 +16,7 @@
 #include <vector>
 #include <zoltan.h>
 
+#define ENABLE_AUTOMATIC_MIGRATION true
 
 template<int N>
 void init_mesh_data(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* params) {

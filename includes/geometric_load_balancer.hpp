@@ -11,6 +11,7 @@
 #include "partitioner.hpp"
 #include "spatial_elements.hpp"
 #include "spatial_bisection.hpp"
+#include "zoltan_fn.hpp"
 
 namespace load_balancing {
 
@@ -566,7 +567,6 @@ namespace load_balancing {
 
         }
 
-
         template<int N>
         const std::vector<elements::Element<N>> zoltan_exchange_data(std::vector<elements::Element<N>> &data,
                                                                      Zoltan_Struct *load_balancer,
@@ -585,7 +585,7 @@ namespace load_balancing {
 
             std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
             size_t data_id = 0;
-            int* PEs;
+            std::vector<int> PEs(wsize, -1);
             int num_found, num_known = 0;
             std::vector<int> export_gids, export_lids, export_procs;
 
@@ -600,16 +600,18 @@ namespace load_balancing {
                                      pos_in_double.at(0) + cell_size,
                                      pos_in_double.at(1) + cell_size,
                                      N == 3 ? pos_in_double.at(2) + cell_size : 0.0,
-                                     PEs, &num_found);
+                                     &PEs.front(), &num_found);
                 for(int PE_idx = 0; PE_idx < num_found; PE_idx++) {
                     int PE = PEs[PE_idx];
-                    if (PE != caller_rank) {
-                        export_gids.push_back(data.at(data_id).gid);
-                        export_lids.push_back(data.at(data_id).lid);
-                        export_procs.push_back(PE);
-                        //get the value and copy it into the "to migrate" vector
-                        data_to_migrate.at(PE).push_back(*(data.end() - 1));
-                        num_known++;
+                    if(PE >= 0) {
+                        if (PE != caller_rank) {
+                            export_gids.push_back(data.at(data_id).gid);
+                            export_lids.push_back(data.at(data_id).lid);
+                            export_procs.push_back(PE);
+                            //get the value and copy it into the "to migrate" vector
+                            data_to_migrate.at(PE).push_back(data.at(data_id));
+                            num_known++;
+                        }
                     }
                 }
                 data_id++; //if the element must stay with me then check the next one
@@ -748,6 +750,9 @@ namespace load_balancing {
                 MPI_Recv(&buffer.front(), size, datatype.elements_datatype, proc_id, 300, LB_COMM, MPI_STATUS_IGNORE);
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(data));
             }
+
+            const int nb_data = data.size();
+            for(int i = 0; i < nb_data; ++i) data[i].lid = i;
 
             MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
 

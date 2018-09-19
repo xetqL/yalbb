@@ -43,7 +43,7 @@ template<int N>
 inline long long position_to_cell(std::array<double, N> const& position, const double lsub, const long long c, const long long r = 0) {
     const std::vector<long long> weight = {1, c, c*r};
     long long idx = 0;
-    for(int i = 0; i < N; ++i){
+    for(int i = 0; i < N; ++i) {
         idx += weight.at(i) * std::floor(position.at(i) / lsub);
     }
     return idx;

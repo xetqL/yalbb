@@ -14,7 +14,6 @@
 #include "../includes/params.hpp"
 #include "../includes/runners/branch_and_bound.hpp"
 
-#define ENABLE_AUTOMATIC_MIGRATION true
 
 int main(int argc, char **argv) {
     constexpr int DIMENSION = 3;
@@ -120,7 +119,7 @@ int main(int argc, char **argv) {
                 break;
             case 4: //cluster(s)
                 condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
-                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        &(mesh_data.els), params.sig_lj, params.sig_lj, params.T0, 0, 0, 0,
                         params.simsize, params.simsize, params.simsize
                 );
                 NB_CLUSTERS = 1;

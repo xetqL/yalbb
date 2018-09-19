@@ -45,53 +45,100 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
-    if(rank == 0){
-        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(mesh_data.els),
-                                                                                  params.sig_lj,
-                                                                                  params.sig_lj*params.sig_lj,
-                                                                                  params.T0,
-                                                                                  0, 0, 0,
-                                                                                  params.simsize,
-                                                                                  params.simsize,
-                                                                                  params.simsize);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if (rank == 0) {
+        std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>> condition;
         const int MAX_TRIAL = 100000;
         int NB_CLUSTERS;
         std::vector<int> clusters;
         using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<DIMENSION>>, int>;
         std::queue<ElementGeneratorCfg> elements_generators;
-        switch(params.particle_init_conf) {
+        switch (params.particle_init_conf) {
             case 1: //uniformly distributed
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(
+                                params.seed, MAX_TRIAL), params.npart));
                 break;
             case 2: //Half full half empty
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(
+                                params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 3: //Wall of particle
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(
+                                params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 4: //cluster(s)
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, 6.25 * params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
                 NB_CLUSTERS = 1;
                 clusters.resize(NB_CLUSTERS);
                 std::fill(clusters.begin(), clusters.end(), params.npart);
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                                clusters, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 5: //custom various density
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
                 NB_CLUSTERS = 2;
                 clusters.resize(NB_CLUSTERS);
                 std::fill(clusters.begin(), clusters.end(), params.npart / 4);
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart / 4));
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 10, false, params.seed, MAX_TRIAL), 3*params.npart / 4));
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                                clusters, params.seed, MAX_TRIAL), params.npart / 4));
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(
+                                params.simsize / 10, false, params.seed, MAX_TRIAL), 3 * params.npart / 4));
+                break;
+            case 6: //custom various density
+                condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                        &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                        params.simsize, params.simsize, params.simsize
+                );
+                NB_CLUSTERS = 1;
+                clusters.resize(NB_CLUSTERS);
+                std::fill(clusters.begin(), clusters.end(), params.npart);
+                elements_generators.push(std::make_pair(
+                        std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                                clusters, params.seed, MAX_TRIAL), params.npart));
+
                 break;
             default:
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+                MPI_Finalize();
+                throw std::runtime_error("Unknown particle distribution.");
         }
-        while(elements_generators.size() > 0) {
+        while (!elements_generators.empty()) {
             ElementGeneratorCfg el_gen = elements_generators.front();
-            el_gen.first->generate_elements(mesh_data.els, el_gen.second, &condition);
+            el_gen.first->generate_elements(mesh_data.els, el_gen.second, condition);
             elements_generators.pop();
             std::cout << el_gen.second << std::endl;
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     if (rank == 0) {
         std::cout << "==============================================" << std::endl;
@@ -111,94 +158,33 @@ int main(int argc, char** argv) {
         std::cout << "==============================================" << std::endl;
     }
 
-    auto zz = zoltan_create_wrapper();
+    auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
 
-    zoltan_fn_init<DIMENSION>(zz, &mesh_data);
+    zoltan_fn_init<DIMENSION>(zz, &mesh_data, ENABLE_AUTOMATIC_MIGRATION);
 
-    rc = Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
-                             &changes,           // 1 if partitioning was changed, 0 otherwise
-                             &numGidEntries,     // Number of integers used for a global ID
-                             &numLidEntries,     // Number of integers used for a local ID
-                             &numImport,         // Number of vertices to be sent to me
-                             &importGlobalGids,  // Global IDs of vertices to be sent to me
-                             &importLocalGids,   // Local IDs of vertices to be sent to me
-                             &importProcs,       // Process rank for source of each incoming vertex
-                             &importToPart,      // New partition for each incoming vertex
-                             &numExport,         // Number of vertices I must send to other processes
-                             &exportGlobalGids,  // Global IDs of the vertices I must send
-                             &exportLocalGids,   // Local IDs of the vertices I must send
-                             &exportProcs,       // Process to which I send each of the vertices
-                             &exportToPart);     // Partition to which each vertex will belong
-    double xmin, ymin, zmin, xmax, ymax, zmax;
+    Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
+                        &changes,           // 1 if partitioning was changed, 0 otherwise
+                        &numGidEntries,     // Number of integers used for a global ID
+                        &numLidEntries,     // Number of integers used for a local ID
+                        &numImport,         // Number of vertices to be sent to me
+                        &importGlobalGids,  // Global IDs of vertices to be sent to me
+                        &importLocalGids,   // Local IDs of vertices to be sent to me
+                        &importProcs,       // Process rank for source of each incoming vertex
+                        &importToPart,      // New partition for each incoming vertex
+                        &numExport,         // Number of vertices I must send to other processes
+                        &exportGlobalGids,  // Global IDs of the vertices I must send
+                        &exportLocalGids,   // Local IDs of the vertices I must send
+                        &exportProcs,       // Process to which I send each of the vertices
+                        &exportToPart);     // Partition to which each vertex will belong
 
-    std::vector<partitioning::geometric::Domain<DIMENSION>> domain_boundaries(nproc);
+    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
-    for(int part = 0; part < nproc; ++part) {
-        Zoltan_RCB_Box(zz, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
-        auto domain = partitioning::geometric::borders_to_domain<DIMENSION>(xmin, ymin, zmin,
-                                                                            xmax, ymax, zmax, params.simsize);
-        domain_boundaries[part] = domain;
-    }
+    std::shared_ptr<decision_making::Policy> lb_policy = std::make_shared<decision_making::PeriodicPolicy>(25);
 
-    load_balancing::geometric::migrate_zoltan<DIMENSION>(mesh_data.els, numImport, numExport,
-                                                         exportProcs, exportGlobalGids, datatype, MPI_COMM_WORLD);
-
-    std::shared_ptr<decision_making::Policy> lb_policy;
-    switch(params.lb_policy){
-        case 1:
-            lb_policy = std::make_shared<decision_making::RandomPolicy>(0.1, params.seed);
-            break;
-        case 2:
-            lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.6);
-            break;
-        case 3:
-            if( params.lb_interval == 0 ) {
-                std::cerr << "You must provide an interval (-I)" << std::endl;
-                MPI_Finalize();
-                exit(0);
-            }
-            lb_policy = std::make_shared<decision_making::PeriodicPolicy>(params.lb_interval);
-            break;
-        case 4:
-            {
-                auto r_file = "lj_dataset-" + std::to_string(params.seed) +
-                                     "-" + std::to_string(params.nframes) + "x" + std::to_string(params.npframe) +
-                                     "-" + std::to_string(params.world_size) +
-                                     "-" + std::to_string(params.npart) +
-                                     "-" + std::to_string((params.T0)) +
-                                     "-" + std::to_string((params.G)) +
-                                     "-" + std::to_string((params.simsize)) +
-                                     "-" + std::to_string((params.eps_lj)) +
-                                     "-" + std::to_string((params.sig_lj)) +
-                                     "-" + std::to_string(params.dt) + ".data";
-                lb_policy = std::make_shared<decision_making::InFilePolicy>(r_file, params.nframes, params.npframe);
-                break;
-            }
-        default:
-            lb_policy = std::make_shared<decision_making::NoLBPolicy>();
-    }
-
-    auto time_spent = simulate<DIMENSION>(fp, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD);
-    
-    if(!rank) {
-        std::ofstream result;
-        result.open("result-"+std::to_string(params.seed)
-		+"-"+std::to_string(params.nframes)
-		+"x"+std::to_string(params.npframe)
-		+"-"+std::to_string(params.npart)
-		+"-"+std::to_string(nproc)
-		+"-"+std::to_string(params.particle_init_conf)
-		+"-"+std::to_string(params.lb_policy)
-		+"-"+std::to_string(params.dt)
-		+"-INTERVAL-"+std::to_string(params.lb_interval)
-		+".result", std::ofstream::trunc | std::ofstream::trunc);
-    	result << time_spent << std::endl;
-	    result.close();
-    }
+    auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
 
     MPI_Barrier(MPI_COMM_WORLD);
-
-    double t2 = MPI_Wtime();
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
                         &importProcs,      &importToPart);
