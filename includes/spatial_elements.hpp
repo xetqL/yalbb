@@ -13,6 +13,7 @@
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <type_traits>
 #include "partitioner.hpp"
+#include "utils.hpp"
 
 namespace elements {
 
@@ -34,7 +35,7 @@ namespace elements {
         constexpr Element(std::array<ElementRealType, N> p, std::array<ElementRealType, N> v, std::array<ElementRealType,N> a, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(a){
             //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
-        constexpr Element() : gid(0), lid(0), position(), velocity(), acceleration(){
+        constexpr Element() : gid(0), lid(0), position(), velocity(), acceleration() {
             //std::fill(velocity.begin(), velocity.end(), 0.0);
             //std::fill(position.begin(), position.end(), 0.0);
             //std::fill(acceleration.begin(), acceleration.end(), 0.0);
@@ -138,26 +139,106 @@ namespace elements {
         }
 
         friend std::ostream &operator<<(std::ostream &os, const Element &element) {
-            std::string pos = "("+std::to_string(element.position.at(0));
+            std::string pos = std::to_string(element.position.at(0));
             for(int i = 1; i < N; i++){
-                pos += "," + std::to_string(element.position.at(i));
+                pos += " " + std::to_string(element.position.at(i));
             }
-            pos += ")";
-            std::string vel = "("+std::to_string(element.velocity.at(0));
+
+            std::string vel = std::to_string(element.velocity.at(0));
             for(int i = 1; i < N; i++){
-                vel += "," + std::to_string(element.velocity.at(i));
+                vel += " " + std::to_string(element.velocity.at(i));
             }
-            vel += ")";
-            std::string acc = "("+std::to_string(element.acceleration.at(0));
+
+            std::string acc = std::to_string(element.acceleration.at(0));
             for(int i = 1; i < N; i++){
-                acc += "," + std::to_string(element.acceleration.at(i));
+                acc += " " + std::to_string(element.acceleration.at(i));
             }
-            acc += ")";
-            os << "position: " << pos << " velocity: " << vel << " acceleration: " << acc << " gid: " << element.gid << " lid: " << element.lid;
+
+            os << pos << ";" << vel << ";" << acc << ";" << element.gid << ";" << element.lid;
             return os;
         }
 
+
     };
+
+
+
+    template<int N>
+    void import_from_file_float(std::string filename, std::vector<Element<N>>& particles) {
+
+        std::ifstream pfile;
+        pfile.open(filename, std::ifstream::in);
+        if(!pfile.good()) throw std::runtime_error("bad particle file");
+
+        std::string line;
+        while (std::getline(pfile, line)) {
+            auto parameters = split(line, ';');
+            auto str_pos = split(parameters[0], ' ');
+            auto str_vel = split(parameters[1], ' ');
+            auto str_acc = split(parameters[2], ' ');
+            auto str_gid = parameters[3];
+            auto str_lid = parameters[4];
+            Element<N> e;
+
+            for(int i = 0; i < N; ++i)
+                e.position[i] = std::stof(str_pos[i], 0);
+            for(int i = 0; i < N; ++i)
+                e.velocity[i] = std::stof(str_vel[i], 0);
+            for(int i = 0; i < N; ++i)
+                e.acceleration[i] = std::stof(str_acc[i], 0);
+
+            e.gid = std::stoi(str_gid);
+            e.lid = std::stoi(str_lid);
+            particles.push_back(e);
+        }
+    }
+
+    template<int N>
+    void import_from_file_double(std::string filename, std::vector<Element<N>>& particles) {
+
+        std::ifstream pfile;
+        pfile.open(filename, std::ifstream::in);
+        if(!pfile.good()) throw std::runtime_error("bad particle file");
+
+        std::string line;
+        while (std::getline(pfile, line)) {
+            auto parameters = split(line, ';');
+            auto str_pos = split(parameters[0], ' ');
+            auto str_vel = split(parameters[1], ' ');
+            auto str_acc = split(parameters[2], ' ');
+            auto str_gid = parameters[3];
+            auto str_lid = parameters[4];
+            Element<N> e;
+
+            for(int i = 0; i < N; ++i)
+                e.position[i] = std::stod(str_pos[i], 0);
+            for(int i = 0; i < N; ++i)
+                e.velocity[i] = std::stod(str_vel[i], 0);
+            for(int i = 0; i < N; ++i)
+                e.acceleration[i] = std::stod(str_acc[i], 0);
+
+            e.gid = std::stoi(str_gid);
+            e.lid = std::stoi(str_lid);
+            particles.push_back(e);
+        }
+    }
+
+    template<int N, class RealType, bool UseDoublePrecision = std::is_same<RealType, double>::value>
+    void import_from_file(std::string filename, std::vector<Element<N>>& particles) {
+        if(UseDoublePrecision) import_from_file_double<N>(filename, particles);
+        else import_from_file_float<N>(filename, particles);
+    }
+
+    template<int N>
+    void export_to_file(std::string filename, const std::vector<Element<N>> elements) {
+        std::ofstream particles_data;
+        if (file_exists(filename)) std::remove(filename.c_str());
+        particles_data.open(filename, std::ofstream::out);
+        for(auto const& e : elements) {
+            particles_data << e << std::endl;
+        }
+        particles_data.close();
+    }
 
     template<int N>
     const inline ElementRealType distance2(const std::array<ElementRealType, N>& e1, const std::array<ElementRealType, N>& e2)  {

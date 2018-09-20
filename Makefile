@@ -70,7 +70,7 @@ rebuild_cache/fast: rebuild_cache
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/ccmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/home/xetql/cmake-3.11.0-rc2-Linux-x86_64/bin/cmake-gui -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -109,6 +109,19 @@ preinstall/fast:
 depend:
 	$(CMAKE_COMMAND) -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
+
+#=============================================================================
+# Target rules for targets named generate
+
+# Build rule for target.
+generate: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 generate
+.PHONY : generate
+
+# fast build rule for target.
+generate/fast:
+	$(MAKE) -f CMakeFiles/generate.dir/build.make CMakeFiles/generate.dir/build
+.PHONY : generate/fast
 
 #=============================================================================
 # Target rules for targets named build_tests_lj
@@ -401,6 +414,33 @@ src/full_dataset_builder.cpp.s:
 	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/src/full_dataset_builder.cpp.s
 .PHONY : src/full_dataset_builder.cpp.s
 
+src/generate.o: src/generate.cpp.o
+
+.PHONY : src/generate.o
+
+# target to build an object file
+src/generate.cpp.o:
+	$(MAKE) -f CMakeFiles/generate.dir/build.make CMakeFiles/generate.dir/src/generate.cpp.o
+.PHONY : src/generate.cpp.o
+
+src/generate.i: src/generate.cpp.i
+
+.PHONY : src/generate.i
+
+# target to preprocess a source file
+src/generate.cpp.i:
+	$(MAKE) -f CMakeFiles/generate.dir/build.make CMakeFiles/generate.dir/src/generate.cpp.i
+.PHONY : src/generate.cpp.i
+
+src/generate.s: src/generate.cpp.s
+
+.PHONY : src/generate.s
+
+# target to generate assembly for a file
+src/generate.cpp.s:
+	$(MAKE) -f CMakeFiles/generate.dir/build.make CMakeFiles/generate.dir/src/generate.cpp.s
+.PHONY : src/generate.cpp.s
+
 src/nbmpi.o: src/nbmpi.cpp.o
 
 .PHONY : src/nbmpi.o
@@ -574,6 +614,7 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
+	@echo "... generate"
 	@echo "... build_tests_lj"
 	@echo "... build_tests_lb"
 	@echo "... build_tests_utils"
@@ -601,6 +642,9 @@ help:
 	@echo "... src/full_dataset_builder.o"
 	@echo "... src/full_dataset_builder.i"
 	@echo "... src/full_dataset_builder.s"
+	@echo "... src/generate.o"
+	@echo "... src/generate.i"
+	@echo "... src/generate.s"
 	@echo "... src/nbmpi.o"
 	@echo "... src/nbmpi.i"
 	@echo "... src/nbmpi.s"

@@ -59,6 +59,18 @@ inline long long position_to_cell(std::array<float, N> const& position, const fl
     return idx;
 }
 
+std::vector<std::string> split(const std::string& s, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream, token, delimiter))
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
 inline void linear_to_grid(const long long index, const long long c, const long long r, int& x_idx, int& y_idx, int& z_idx){
     x_idx = (int) (index % (c*r) % c);           // col
     y_idx = (int) std::floor(index % (c*r) / r); // row

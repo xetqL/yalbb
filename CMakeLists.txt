@@ -277,6 +277,7 @@ add_executable(doall
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
         src/do_all.cpp includes/feature_container.hpp)
+
 target_include_directories(doall
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
@@ -314,6 +315,34 @@ add_executable(zoltan_migration
         includes/runners/dataset_generator.hpp
         src/zoltan_migration.cpp includes/feature_container.hpp
         )
+
+add_executable(generate
+        Makefile
+        ${INCLUDE_DIRECTORY}/utils.hpp
+        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
+        includes/geometric_load_balancer.hpp
+        includes/partitioner.hpp
+        includes/spatial_elements.hpp
+        includes/ljpotential.hpp
+        includes/physics.hpp
+        includes/nbody_io.hpp
+        includes/params.hpp
+        includes/runners/box_runner.hpp
+        includes/report.hpp
+        includes/graph.hpp
+        includes/zoltan_fn.hpp
+        includes/metrics.hpp
+        includes/runners/simulator.hpp
+        includes/runners/dataset_generator.hpp
+        src/generate.cpp includes/feature_container.hpp src/generate.cpp)
+
+target_include_directories(generate
+        PRIVATE
+        )
+
+target_link_libraries(generate
+        PRIVATE
+)
 
 target_include_directories(zoltan_migration
         PRIVATE
