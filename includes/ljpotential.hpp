@@ -362,7 +362,7 @@ inline std::tuple<int, int, int> compute_one_step(
         const MPI_Comm comm,
         const int step = -1 /* by default we don't care about the step*/ ) {
     int received, sent;
-    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(3.2 * params->sig_lj); // cut_off
+    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(10. * params->sig_lj); // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
     elements::ElementRealType cell_size = cut_off_radius; //cell size
     const elements::ElementRealType dt = params->dt;
