@@ -102,12 +102,6 @@ int main(int argc, char** argv){
 
     elements::export_to_file<DIMENSION>(std::to_string(params.npart) + "-"+ std::to_string(params.particle_init_conf) + ".particles", mesh_data.els);
     mesh_data.els = {};
-    if(mesh_data.els.empty()){
-        std::cout << "The particle container is now empty" << std::endl;
-    }
-    elements::import_from_file<DIMENSION, elements::ElementRealType >(
-            std::to_string(params.npart) + std::to_string(params.particle_init_conf) + ".particles", mesh_data.els);
 
-    std::for_each(mesh_data.els.begin(), mesh_data.els.end(), [](auto const& el){std::cout << el << std::endl;});
     return 0;
 }

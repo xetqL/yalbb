@@ -334,7 +334,7 @@ add_executable(generate
         includes/metrics.hpp
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
-        src/generate.cpp includes/feature_container.hpp src/generate.cpp)
+        src/generate.cpp includes/feature_container.hpp)
 
 target_include_directories(generate
         PRIVATE
