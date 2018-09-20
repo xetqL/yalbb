@@ -338,11 +338,20 @@ add_executable(generate
 
 target_include_directories(generate
         PRIVATE
+        ${MPI_C_INCLUDE_PATH}
+        ${MLPACK_INCLUDE_DIRECTORY}
+        ${ARMADILLO_INCLUDE_DIRECTORY}
+        ${ZOLTAN_INCLUDE_DIRECTORY}
         )
 
 target_link_libraries(generate
         PRIVATE
-)
+        ${MPI_C_LIBRARIES}
+        ${ZOLTAN_LIBRARY_PATH}
+        ${MLPACK_LIBRARY_PATH}
+        ${ARMADILLO_LIBRARY_PATH}
+        ${ARMADILLO}
+        ${GSL_LIBRARIES})
 
 target_include_directories(zoltan_migration
         PRIVATE
