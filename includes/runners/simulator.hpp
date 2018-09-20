@@ -95,13 +95,13 @@ double simulate(FILE *fp,          // Output file (at 0)
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
                 nb_lb ++;
             } else {
-                load_balancing::geometric::migrate_particles<N>(mesh_data->els, domain_boundaries, datatype, comm);
+                load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
 
             //everybody've finished communications
             MPI_Barrier(comm);
             //everybody computes a step
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, domain_boundaries, datatype, params, comm, frame);
+            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
 
             double end = MPI_Wtime();// End of step
             //compute my own time
