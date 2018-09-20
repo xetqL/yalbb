@@ -362,7 +362,7 @@ inline std::tuple<int, int, int> compute_one_step(
         const MPI_Comm comm,
         const int step = -1 /* by default we don't care about the step*/ ) {
     int received, sent;
-    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(10. * params->sig_lj); // cut_off
+    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(2.5 * params->sig_lj); // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
     elements::ElementRealType cell_size = cut_off_radius; //cell size
     const elements::ElementRealType dt = params->dt;
@@ -370,7 +370,7 @@ inline std::tuple<int, int, int> compute_one_step(
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
-    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cut_off_radius);
+    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, 1.);
 
     int err = lennard_jones::create_cell_linkedlist(cell_per_row, cut_off_radius, mesh_data->els, remote_el, plklist);
 
