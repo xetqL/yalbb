@@ -32,9 +32,11 @@ namespace elements {
         constexpr Element(std::array<ElementRealType, N> p, std::array<ElementRealType, N> v, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(){
             //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
+
         constexpr Element(std::array<ElementRealType, N> p, std::array<ElementRealType, N> v, std::array<ElementRealType,N> a, const int gid, const int lid) : gid(gid), lid(lid), position(p), velocity(v), acceleration(a){
             //std::fill(acceleration.begin(), acceleration.end(), 0.0);
         }
+
         constexpr Element() : gid(0), lid(0), position(), velocity(), acceleration() {
             //std::fill(velocity.begin(), velocity.end(), 0.0);
             //std::fill(position.begin(), position.end(), 0.0);
@@ -70,6 +72,7 @@ namespace elements {
             std::generate(v.begin(), v.end(), [&dist, &gen](){return dist(gen);});
             return Element::create(p, v, gid, lid);
         }
+
         template<class Distribution, class Generator>
         static Element<N> create_random( Distribution& distx, Distribution& disty, Distribution& distz, Generator &gen, int gid, int lid){
             std::array<ElementRealType, N> p, v;

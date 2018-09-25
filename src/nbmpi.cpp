@@ -50,10 +50,13 @@ int main(int argc, char** argv) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     if (rank == 0) {
-        if(file_exists(std::to_string(params.npart) + "-" + std::to_string(params.particle_init_conf)+".particles")) {
+        const std::string IMPORT_FILENAME
+                        = std::to_string(params.npart) + "-" +
+                          std::to_string(params.particle_init_conf) + "-" +
+                          std::to_string(params.simsize) + ".particles";
+        if(file_exists(IMPORT_FILENAME)) {
             std::cout << "importing from file ..." << std::endl;
-            elements::import_from_file<DIMENSION, elements::ElementRealType >(
-                    std::to_string(params.npart) + "-" + std::to_string(params.particle_init_conf)+".particles", mesh_data.els);
+            elements::import_from_file<DIMENSION, elements::ElementRealType >(IMPORT_FILENAME, mesh_data.els);
             std::cout << "Done !" << std::endl;
         } else {
             std::cout << "Generating data ..." << std::endl;

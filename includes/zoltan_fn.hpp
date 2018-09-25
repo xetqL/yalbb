@@ -215,6 +215,10 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                          const partitioning::CommunicationDatatype& datatype,
                          const MPI_Comm comm,
                          bool automatic_migration = false){
+    int wsize;
+    MPI_Comm_size(comm, &wsize);
+    if(wsize == 1) return;
+
     // ZOLTAN VARIABLES
     int changes, numGidEntries, numLidEntries, numImport, numExport;
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
@@ -238,7 +242,8 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                         &exportProcs,       /* Process to which I send each of the vertices */
                         &exportToPart);     /* Partition to which each vertex will belong */
 
-    if(changes) for(int part = 0; part < nproc; ++part) {
+    if(changes)
+        for(int part = 0; part < nproc; ++part) {
             Zoltan_RCB_Box(load_balancer, part, &dim, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
             auto domain = partitioning::geometric::borders_to_domain<N>(dto<elements::ElementRealType>(xmin),
                                                                         dto<elements::ElementRealType>(ymin),
@@ -249,9 +254,10 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                                                                         params->simsize);
             domain_boundaries[part] = domain;
         }
+
     if(!automatic_migration)
         load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
-                                                     exportGlobalGids, datatype, MPI_COMM_WORLD);
+                                                     exportGlobalGids, datatype, comm);
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);

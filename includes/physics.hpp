@@ -44,11 +44,21 @@ void leapfrog1(int n, RealType dt, RealType* x, RealType* v, RealType* a) {
 }
 
 template<int N>
-void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements, double ff = 1.0) {
+void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements, double cut_off, double ff = 1.0) {
     for(auto &el : elements){
-        for(size_t dim = 0; dim < N; ++dim){
-            el.velocity[dim] += ff * el.acceleration.at(dim) * dt / 2;
+        for(size_t dim = 0; dim < N; ++dim) {
+            el.velocity[dim] += el.acceleration.at(dim) * dt / 2;
+            /**
+             * This is a mega-giga hotfix.
+             * Let say that particles are so close that they produce so much force on them such that the timestep
+             * is too big to prevent them to cross the min radius. If a particle cross the min radius of another one
+             * it creates an almost infinity repulsive force that breaks everything. In real life, this should not
+             * happen because*/
+            if(std::abs(el.velocity.at(dim) * dt) >= cut_off ) {
+                el.velocity[dim] = 0.9 * cut_off / dt; //max speed is 90% of cutoff per timestep
+            }
             el.position[dim] += el.velocity.at(dim) * dt;
+
         }
     }
 }

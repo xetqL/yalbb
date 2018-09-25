@@ -10,6 +10,7 @@
 #include "../includes/initial_conditions.hpp"
 #include "../includes/nbody_io.hpp"
 #include "../includes/params.hpp"
+#include "../includes/ljpotential.hpp"
 
 
 int main(int argc, char** argv){
@@ -27,6 +28,25 @@ int main(int argc, char** argv){
         MPI_Finalize();
         return -1;
     }
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<3> > > > plklist;
+
+    std::array<elements::ElementRealType, 3> p1 = {39.972660,39.971722,39.992611}, v1 = {0,0,0}, a1 = v1;
+    std::array<elements::ElementRealType, 3> p2 = {39.988892, 39.982147 , 39.991638};
+    long long nb_c = std::ceil(40.0/(3.5f * params.sig_lj));
+    long long pos1 = position_to_cell<3>(p1, 3.5f*params.sig_lj, nb_c, nb_c);
+    long long pos2 = position_to_cell<3>(p2, 3.5f*params.sig_lj, nb_c, nb_c);
+    std::vector<elements::Element<3>> l, r;
+    l.push_back(elements::Element<3>::createc(p1, v1, 0, 0));
+    std::cout << "number of cell = "<< (long long) std::pow(nb_c, 3) << std::endl;
+    std::cout << "pos = "<< pos1 << std::endl;
+    std::cout << "pos = "<< pos2 << std::endl;
+
+    int err = lennard_jones::create_cell_linkedlist(1143, dto<elements::ElementRealType >(0.035), l, r, plklist);
+
+
+
+
+    return 0;
 
     std::vector<int> caca;
     caca.push_back(10);

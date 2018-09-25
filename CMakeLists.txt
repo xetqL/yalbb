@@ -276,7 +276,7 @@ add_executable(doall
         includes/metrics.hpp
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
-        src/do_all.cpp includes/feature_container.hpp)
+        src/do_all.cpp includes/feature_container.hpp includes/generate.hpp)
 
 target_include_directories(doall
         PRIVATE
@@ -334,7 +334,7 @@ add_executable(generate
         includes/metrics.hpp
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
-        src/generate.cpp includes/feature_container.hpp)
+        src/generate.cpp includes/feature_container.hpp includes/generate.hpp)
 
 target_include_directories(generate
         PRIVATE

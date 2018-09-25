@@ -45,6 +45,7 @@ namespace load_balancing {
         partitioning::CommunicationDatatype communication_datatypes;
         MPI_Comm LB_COMM;
     public:
+
         const MPI_Datatype get_element_datatype() {
             return communication_datatypes.elements_datatype;
         }
@@ -580,10 +581,14 @@ namespace load_balancing {
             int caller_rank;
             MPI_Comm_rank(LB_COMM, &caller_rank);
 
+	    
+
             std::vector<elements::Element<N>> buffer;
             std::vector<elements::Element<N>> remote_data_gathered;
 
-            std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
+            if(wsize == 1) return remote_data_gathered;
+
+	        std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
             size_t data_id = 0;
             std::vector<int> PEs(wsize, -1);
             int num_found, num_known = 0;
@@ -601,6 +606,7 @@ namespace load_balancing {
                                      pos_in_double.at(1) + cell_size,
                                      N == 3 ? pos_in_double.at(2) + cell_size : 0.0,
                                      &PEs.front(), &num_found);
+
                 for(int PE_idx = 0; PE_idx < num_found; PE_idx++) {
                     int PE = PEs[PE_idx];
                     if(PE >= 0) {
@@ -680,6 +686,8 @@ namespace load_balancing {
             MPI_Comm_size(LB_COMM, &wsize);
             int caller_rank;
             MPI_Comm_rank(LB_COMM, &caller_rank);
+
+	    if(wsize == 1) return;
 
             std::vector<std::vector<elements::Element<N>>> data_to_migrate(wsize);
 

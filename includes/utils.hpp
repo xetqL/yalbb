@@ -44,9 +44,17 @@ inline long long position_to_cell(std::array<double, N> const& position, const d
     const std::vector<long long> weight = {1, c, c*r};
     long long idx = 0;
     for(int i = 0; i < N; ++i) {
-        idx += weight.at(i) * std::floor(position.at(i) / lsub);
+        long long curr_idx = weight.at(i) * (long long) std::floor(position.at(i) / lsub);
+        //std::cout << idx << "+" << curr_idx<< "==";//"+(" << c << "*"<<r<<"*" << std::floor(position.at(i) / lsub) << ")==";
+        idx +=  curr_idx;
+        //std::cout << idx << std::endl;
     }
     return idx;
+}
+
+template<int N>
+inline unsigned long long position_to_cell(double x, double y, double z, const double lsub, const long long c, const long long r = 0) {
+    return (unsigned long long) std::floor(x / lsub) + c * std::floor(y / lsub) +  c * r * std::floor(z / lsub);
 }
 
 template<int N>
@@ -54,7 +62,10 @@ inline long long position_to_cell(std::array<float, N> const& position, const fl
     const std::vector<long long> weight = {1, c, c*r};
     long long idx = 0;
     for(int i = 0; i < N; ++i) {
-        idx += weight.at(i) * std::floor(position.at(i) / lsub);
+        long long curr_idx = weight.at(i) * (long long) std::floor(position.at(i) / lsub);
+        //std::cout << idx << "+" << curr_idx<< "==";//"+(" << c << "*"<<r<<"*" << std::floor(position.at(i) / lsub) << ")==";
+        idx +=  curr_idx;
+        //std::cout << idx << std::endl;
     }
     return idx;
 }
@@ -73,7 +84,7 @@ std::vector<std::string> split(const std::string& s, char delimiter)
 
 inline void linear_to_grid(const long long index, const long long c, const long long r, int& x_idx, int& y_idx, int& z_idx){
     x_idx = (int) (index % (c*r) % c);           // col
-    y_idx = (int) std::floor(index % (c*r) / r); // row
+    y_idx = (int) std::floor(index % (c*r) / c); // row
     z_idx = (int) std::floor(index / (c*r));     // depth
     assert(c==r);
     assert(x_idx < c);

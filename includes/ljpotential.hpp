@@ -48,6 +48,30 @@ void create_cell_linkedlist(
     }
 }
 
+template <int N>
+void remove_untracked_elements(const long long nsub, /* number of subdomain per row*/
+                               const elements::ElementRealType lsub, /* width of subdomain */
+                               std::vector<elements::Element<N>> &local_elements /* particle location */){
+    size_t local_size = local_elements.size();
+    size_t cpt = 0;
+    long long cell_of_particle;
+    while(cpt < local_size) {
+        auto const& particle = local_elements[cpt];
+        cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub);
+
+        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0) { //a particle is out!
+            if(cpt < local_size) {//it is mine, so forget about it
+                std::cout << particle << std::endl;
+                std::iter_swap(local_elements.begin()+cpt, local_elements.end()-1);
+                local_elements.pop_back();
+                continue;
+            }
+        }
+
+        cpt++;
+    }
+}
+
 template <int N, class MapType>
 int create_cell_linkedlist(
         const long long nsub, /* number of subdomain per row*/
@@ -59,23 +83,25 @@ int create_cell_linkedlist(
 
     plist.clear();
     size_t local_size = local_elements.size(),
-            remote_size = remote_elements.size();
-    for (size_t cpt = 0; cpt < local_size + remote_size; ++cpt) {
+            remote_size = remote_elements.size(),
+            total_size = local_size+remote_size;
+    size_t cpt = 0;
+    while(cpt < total_size) {
         auto const& particle = cpt >= local_size ? remote_elements[cpt-local_size] : local_elements[cpt];
+        cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub);
 
-        cell_of_particle = position_to_cell<N>(particle.position, lsub, nsub, nsub); //(int) (std::floor(particle.position.at(0) / lsub)) + nsub * (std::floor(particle.position.at(1) / lsub));
-
-        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0) {
+        if (cell_of_particle >= (std::pow(nsub, N)) || cell_of_particle < 0) { //a particle is out!
             std::cout << particle << std::endl;
-            return 400;
-        }
-
-        if( plist.find(cell_of_particle) != plist.end())
+            std::cout << lsub << std::endl;
+            std::cout << nsub << std::endl;
+            std::cout << (long long) std::pow(nsub, N) << std::endl;
+            std::cout << cell_of_particle << std::endl;
+        } else {
+            if( plist.find(cell_of_particle) == plist.end() )
+                plist[cell_of_particle] = std::make_unique<std::vector<elements::Element<N>>>();
             plist[cell_of_particle]->push_back(particle);
-        else{
-            plist[cell_of_particle] = std::make_unique<std::vector<elements::Element<N>>>();
-            plist[cell_of_particle]->push_back(particle);
         }
+        cpt++;
     }
     return 0;
 }
@@ -110,7 +136,9 @@ int compute_forces (
         linearcellidx = position_to_cell<N>(force_recepter.position, lsub, M, M);
         // convert linear index to grid position
         int xcellidx, ycellidx, zcellidx;
+
         linear_to_grid(linearcellidx, M, M, xcellidx, ycellidx, zcellidx);
+
         constexpr int zstart= N == 3 ? -1 : 0; // if in 2D, there is only 1 depth
         constexpr int zstop = N == 3 ?  2 : 1; // so, iterate only through [0,1)
         // Explore neighboring cells
@@ -125,18 +153,21 @@ int compute_forces (
                     if(plist.find(nlinearcellidx) != plist.end()) {
                         auto el_list = plist.at(nlinearcellidx).get();
                         size_t cell_el_size = el_list->size();
-                        for(size_t el_idx = 0; el_idx < cell_el_size; ++el_idx){
+                        for(size_t el_idx = 0; el_idx < cell_el_size; ++el_idx) {
                             auto const& force_source = el_list->at(el_idx);
                             if (force_recepter.gid != force_source.gid) {
                                 complexity++;
                                 std::array<elements::ElementRealType, N> delta_dim;
                                 elements::ElementRealType delta = 0.0;
+
                                 for(size_t dim = 0; dim < N; ++dim) {
                                     const elements::ElementRealType ddim = force_source.position.at(dim) - force_recepter.position.at(dim);
                                     delta += (ddim * ddim);
                                     delta_dim[dim] = ddim;
                                 }
+
                                 elements::ElementRealType C_LJ = compute_LJ_scalar<elements::ElementRealType>(delta, eps, sig2);
+
                                 for(int dim = 0; dim < N; ++dim) {
                                     force_recepter.acceleration[dim] += (C_LJ * delta_dim[dim]);
                                 }
@@ -361,16 +392,18 @@ inline std::tuple<int, int, int> compute_one_step(
         sim_param_t* params,
         const MPI_Comm comm,
         const int step = -1 /* by default we don't care about the step*/ ) {
+
     int received, sent;
-    elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(2.5 * params->sig_lj); // cut_off
+    elements::ElementRealType cut_off_radius = 3.5f * params->sig_lj; // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
     elements::ElementRealType cell_size = cut_off_radius; //cell size
     const elements::ElementRealType dt = params->dt;
+
     // update local ids
     const size_t nb_elements = mesh_data->els.size();
     for(size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
-    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, 1.);
+    auto remote_el = load_balancing::geometric::zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cut_off_radius);
 
     int err = lennard_jones::create_cell_linkedlist(cell_per_row, cut_off_radius, mesh_data->els, remote_el, plklist);
 
@@ -380,6 +413,8 @@ inline std::tuple<int, int, int> compute_one_step(
     }
 
     int cmplx = lennard_jones::compute_forces(cell_per_row, cut_off_radius, mesh_data->els, remote_el, plklist, params);
+
+    //remove_untracked_elements(cell_per_row, cut_off_radius, mesh_data->els);
 
     /**!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      * WE HAVE TO REMOVE THIS AFTER TESTS!!!!!
@@ -400,7 +435,7 @@ inline std::tuple<int, int, int> compute_one_step(
     /// IT STOPS HERE
 
     leapfrog2(dt, mesh_data->els);
-    leapfrog1(dt, mesh_data->els);
+    leapfrog1(dt, mesh_data->els, 2.5 * params->sig_lj);
     apply_reflect(mesh_data->els, params->simsize);
 
     return std::make_tuple(cmplx, received, sent);
@@ -417,6 +452,7 @@ inline std::tuple<int, int, int> compute_one_step(
         const int step = -1 /* by default we don't care about the step*/ ) {
 
     int received, sent;
+
     elements::ElementRealType cut_off_radius = dto<elements::ElementRealType>(3.2 * params->sig_lj); // cut_off
     auto cell_per_row = (long long) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
     elements::ElementRealType cell_size = cut_off_radius; //cell size
