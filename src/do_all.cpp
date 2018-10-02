@@ -266,13 +266,14 @@ int main(int argc, char **argv) {
                 lb_policy = std::make_shared<decision_making::RandomPolicy>(0.1, params.seed);
                 break;
             case 4://TODO: threshold should be a parameter
-                lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.6);
+                lb_policy = std::make_shared<decision_making::ThresholdHeuristicPolicy>(0.3);
                 break;
             case 5://load the file created above
                 lb_policy = std::make_shared<decision_making::InFilePolicy>(
                         DATASET_FILENAME, params.nframes, params.npframe);
                 break;
             case 6://neural net policy
+                mlpack::math::RandomSeed(params.seed);
                 lb_policy = std::make_shared<decision_making::NeuralNetworkPolicy>(DATASET_FILENAME, 0);
                 break;
             default:

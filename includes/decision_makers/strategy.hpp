@@ -138,7 +138,9 @@ namespace decision_making {
     };
 
     class NeuralNetworkPolicy : public Policy {
-        mlpack::ann::FFN<mlpack::ann::MeanSquaredError<>> model;
+        mlpack::ann::MeanSquaredError<> mse;
+        mlpack::ann::RandomInitialization rand_init;
+        mlpack::ann::FFN<mlpack::ann::MeanSquaredError<>, mlpack::ann::RandomInitialization> model;
         mlpack::optimization::RMSProp optimizer;
         std::shared_ptr<arma::mat> ds;
         arma::mat inputs, targets;

@@ -149,6 +149,14 @@ target_include_directories(build
         ${ZOLTAN_INCLUDE_DIRECTORY}
 )
 
+find_library(ZOLTAN
+                NAMES zoltan libzoltan
+                HINTS "${ZOLTAN_LIBRARY_PATH}" /usr/local ~/local/lib)
+
+find_library(MLPACK
+        NAMES mlpack libmlpack
+        HINTS "${MLPACK_LIBRARY_PATH}" /usr/local ~/local/lib)
+
 add_executable(dataset
         Makefile
         ${INCLUDE_DIRECTORY}/utils.hpp
