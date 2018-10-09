@@ -103,9 +103,8 @@ double simulate(FILE *fp,          // Output file (at 0)
             //everybody computes a step
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
 
-            double end = MPI_Wtime();// End of step
+            it_time = (MPI_Wtime() - begin);
             //compute my own time
-            it_time = (end - begin);
             //everybody share their time
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
 
@@ -114,10 +113,6 @@ double simulate(FILE *fp,          // Output file (at 0)
             frame_time += true_iteration_time;
 
             std::tie(complexity, received, sent) = computation_info;
-
-            std::vector<double> complexities(nproc);
-            double cmplx = complexity;
-            MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
 
             current_dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
                                                              window_gini_complexities, window_gini_communications,

@@ -222,6 +222,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
+            cost += solution->get_node_cost();
             if(solution->type == NodeType::Computing) solution_path.push_front(solution);
             solution = solution->parent;
         }
