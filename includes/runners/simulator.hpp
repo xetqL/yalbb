@@ -97,7 +97,6 @@ double simulate(FILE *fp,          // Output file (at 0)
             } else {
                 load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
-
             //everybody've finished communications
             MPI_Barrier(comm);
             //everybody computes a step
