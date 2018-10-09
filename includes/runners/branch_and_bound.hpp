@@ -144,17 +144,17 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
             switch(child->get_node_type()) {
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
-                    MPI_Barrier(comm);
-                    double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
-                    MPI_Barrier(comm);
-                    double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
+                        MPI_Barrier(comm);
+                        double partitioning_start_time = MPI_Wtime();
+                        zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
+                        MPI_Barrier(comm);
+                        double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
 
-                    child->last_metric = child->metrics_before_decision;
-                    child->domain = domain_boundaries; //update the partitioning
-                    child->set_cost(my_partitioning_time);     //set how much time it costed
-                    if(!rank) std::cout << child << std::endl;
-                    queue.insert(child);
+                        child->last_metric = child->metrics_before_decision;
+                        child->domain = domain_boundaries; //update the partitioning
+                        child->set_cost(my_partitioning_time);     //set how much time it costed
+                        if(!rank) std::cout << child << std::endl;
+                        queue.insert(child);
                     }
                     break;
                 case NodeType::Computing:
@@ -210,7 +210,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             queue.erase(queue.begin());                     // Remove it from the queue
             if (is_a_solution(current_node, LAST_ITERATION))// if it is a solution node
                 solutions.push_back(current_node);          // then add to solution list
-        // while current node is a solution and we search for more...
+            // while current node is a solution and we search for more...
         } while(is_a_solution(current_node, LAST_ITERATION) && solutions.size() < NB_BEST_SOLUTIONS);
 
         MPI_Barrier(comm);

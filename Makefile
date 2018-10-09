@@ -48,10 +48,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/xetql/data/Dropbox/projects/cpp/nbody/nbmpi
+CMAKE_SOURCE_DIR = /home/xetql/data/Dropbox/projects/cpp/nbody/ljmpi
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/xetql/data/Dropbox/projects/cpp/nbody/nbmpi
+CMAKE_BINARY_DIR = /home/xetql/data/Dropbox/projects/cpp/nbody/ljmpi
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -80,9 +80,9 @@ edit_cache/fast: edit_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/data/Dropbox/projects/cpp/nbody/nbmpi/CMakeFiles /home/xetql/data/Dropbox/projects/cpp/nbody/nbmpi/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/data/Dropbox/projects/cpp/nbody/ljmpi/CMakeFiles /home/xetql/data/Dropbox/projects/cpp/nbody/ljmpi/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/data/Dropbox/projects/cpp/nbody/nbmpi/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/data/Dropbox/projects/cpp/nbody/ljmpi/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
