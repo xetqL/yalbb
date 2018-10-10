@@ -118,8 +118,11 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     int it = 0;
     double child_cost, true_child_cost;
 
+
     int complexity, received, sent;
     auto lb_policy = std::make_shared<decision_making::PeriodicPolicy>(100);
+    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
+
     std::vector<MESH_DATA<N>> particle_positions(nframes+1);
     particle_positions[0] = mesh_data;
 
@@ -143,18 +146,17 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
             switch(child->get_node_type()) {
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
-                    MPI_Barrier(comm);
-                    double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
-                    double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
-                    MPI_Barrier(comm);
+                        MPI_Barrier(comm);
+                        double partitioning_start_time = MPI_Wtime();
+                        zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
+                        MPI_Barrier(comm);
+                        double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
 
-                    MPI_Allreduce(&my_partitioning_time, &child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
-
-                    child->last_metric = child->metrics_before_decision;
-                    child->domain = domain_boundaries; //update the partitioning
-                    child->set_cost(child_cost);     //set how much time it costed
-                    queue.insert(child);
+                        child->last_metric = child->metrics_before_decision;
+                        child->domain = domain_boundaries; //update the partitioning
+                        child->set_cost(my_partitioning_time);     //set how much time it costed
+                        if(!rank) std::cout << child << std::endl;
+                        queue.insert(child);
                     }
                     break;
                 case NodeType::Computing:
@@ -212,7 +214,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             queue.erase(queue.begin());                     // Remove it from the queue
             if (is_a_solution(current_node, LAST_ITERATION))// if it is a solution node
                 solutions.push_back(current_node);          // then add to solution list
-        // while current node is a solution and we search for more...
+            // while current node is a solution and we search for more...
         } while(is_a_solution(current_node, LAST_ITERATION) && solutions.size() < NB_BEST_SOLUTIONS);
 
         MPI_Barrier(comm);
@@ -225,9 +227,11 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
+            cost += solution->get_node_cost();
             if(solution->type == NodeType::Computing) solution_path.push_front(solution);
             solution = solution->parent;
         }
+        if(!rank) std::cout << "Solution cost: " << cost << std::endl;
         best_paths.push_back(solution_path);
         path_idx++;
     }
