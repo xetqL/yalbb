@@ -27,6 +27,7 @@
 #include "../graph.hpp"
 #include "../metrics.hpp"
 #include "../zoltan_fn.hpp"
+#include "../decision_makers/strategy.hpp"
 
 #ifndef WINDOW_SIZE
 #define WINDOW_SIZE 30
@@ -118,7 +119,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     double child_cost, true_child_cost;
 
     int complexity, received, sent;
-
+    auto lb_policy = std::make_shared<decision_making::PeriodicPolicy>(100);
     std::vector<MESH_DATA<N>> particle_positions(nframes+1);
     particle_positions[0] = mesh_data;
 
@@ -169,6 +170,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                         for (int i = 0; i < npframe; ++i) {
                             MPI_Barrier(comm);
                             it_start = MPI_Wtime();
+                            lb_policy->should_load_balance(i + frame * npframe, std::move(nullptr));
                             load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, load_balancer, datatype, comm);
                             MPI_Barrier(comm);
                             computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, load_balancer, datatype,
@@ -182,6 +184,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                                                                         true_iteration_time, times, 0.0, sent, received, complexity, comm);
                             child_cost += true_iteration_time;
                         }
+
                         child->end_it += npframe;
                         particle_positions[(child->end_it / npframe)] = mesh_data;
 

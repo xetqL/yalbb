@@ -85,12 +85,13 @@ double simulate(FILE *fp,          // Output file (at 0)
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
-            double it_time;
+            double it_time = 0.0, elapsed, begin;
             previous_dataset_entry = current_dataset_entry;
             MPI_Barrier(comm); //wait for all to do communications
-
-            double begin = MPI_Wtime(); //start of step
+            begin = MPI_Wtime(); //start of step
             bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, std::move(a));
+            MPI_Barrier(comm);
+            elapsed = MPI_Wtime();
             if (should_load_balance_now) {
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
                 nb_lb ++;
@@ -100,12 +101,14 @@ double simulate(FILE *fp,          // Output file (at 0)
 
             //everybody've finished communications
             MPI_Barrier(comm);
+            elapsed = MPI_Wtime() - begin;
+            //if(!rank) std::cout << "time spent in COMM: "<<elapsed<<" ";
+
             //everybody computes a step
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
-
-            double end = MPI_Wtime();// End of step
+            MPI_Barrier(comm);
             //compute my own time
-            it_time = (end - begin);
+            it_time = MPI_Wtime() - begin;
             //everybody share their time
             MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
 

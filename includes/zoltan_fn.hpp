@@ -263,6 +263,47 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 }
 
+template <int N>
+inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
+                                Zoltan_Struct* load_balancer,
+                                const partitioning::CommunicationDatatype& datatype,
+                                const MPI_Comm comm,
+                                bool automatic_migration = false){
+    int wsize;
+    MPI_Comm_size(comm, &wsize);
+    if(wsize == 1) return;
+
+    // ZOLTAN VARIABLES
+    int changes, numGidEntries, numLidEntries, numImport, numExport;
+    ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
+    int *importProcs, *importToPart, *exportProcs, *exportToPart, dim;
+    double xmin, ymin, zmin, xmax, ymax, zmax;
+    // END OF ZOLTAN VARIABLES
+
+    zoltan_fn_init(load_balancer, mesh_data, automatic_migration);
+    Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
+                        &changes,           /* 1 if partitioning was changed, 0 otherwise */
+                        &numGidEntries,     /* Number of integers used for a global ID */
+                        &numLidEntries,     /* Number of integers used for a local ID */
+                        &numImport,         /* Number of vertices to be sent to me */
+                        &importGlobalGids,  /* Global IDs of vertices to be sent to me */
+                        &importLocalGids,   /* Local IDs of vertices to be sent to me */
+                        &importProcs,       /* Process rank for source of each incoming vertex */
+                        &importToPart,      /* New partition for each incoming vertex */
+                        &numExport,         /* Number of vertices I must send to other processes*/
+                        &exportGlobalGids,  /* Global IDs of the vertices I must send */
+                        &exportLocalGids,   /* Local IDs of the vertices I must send */
+                        &exportProcs,       /* Process to which I send each of the vertices */
+                        &exportToPart);     /* Partition to which each vertex will belong */
+
+    if(!automatic_migration)
+        load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
+                                                     exportGlobalGids, datatype, comm);
+
+    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
+    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+}
+
 template<int N>
 std::vector<partitioning::geometric::Domain<N>>
 retrieve_domain_boundaries(Zoltan_Struct *zz, int nproc, const sim_param_t *params) {

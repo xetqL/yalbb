@@ -70,26 +70,16 @@ public:
     Node (int startit, NodeLBDecision decision, NodeType type, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
             start_it(startit), end_it(startit),
             parent(p),
-            /*window_gini_times(std::make_shared<SlidingWindow<double>>(*p->window_gini_times)),
-            window_gini_complexities(std::make_shared<SlidingWindow<double>>(*p->window_gini_complexities)),
-            window_times(std::make_shared<SlidingWindow<double>>(*p->window_times)),
-            window_gini_communications(std::make_shared<SlidingWindow<double>>(*p->window_gini_communications)),*/
             decision(decision),
             type(type),
             concrete_cost(parent->concrete_cost),
             metrics_before_decision(parent->last_metric),
-            //mesh_data(mesh_data),
             domain(domain),
             lb(Zoltan_Copy(parent->lb)){};
 
     Node(Domain domain, Zoltan_Struct* zz, int size) :
             start_it(0), end_it(0), parent(nullptr),
-            /*window_gini_times(std::make_shared<SlidingWindow<double>>(size)),
-            window_gini_complexities(std::make_shared<SlidingWindow<double>>(size)),
-            window_times(std::make_shared<SlidingWindow<double>>(size)),
-            window_gini_communications(std::make_shared<SlidingWindow<double>>(size)),*/
             decision(NodeLBDecision::LoadBalance), type(NodeType::Computing),
-            //mesh_data(mesh_data),
             domain(domain), lb(zz) {
     }
 
