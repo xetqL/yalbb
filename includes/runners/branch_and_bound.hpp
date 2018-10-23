@@ -135,7 +135,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
             //migrate the particles to the good cpu according to partition
             //load_balancing::geometric::__migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
-            load_balancing::geometric::zoltan_migrate_particles(mesh_data.els, load_balancer, datatype, comm);
+            load_balancing::geometric::zoltan_migrate_particles(mesh_data.els, child->lb, datatype, comm);
             MPI_Barrier(comm);
 
             child_cost = 0;
@@ -144,7 +144,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
                     MPI_Barrier(comm);
                     double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
+                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, child->lb, nproc, params, datatype, comm, automatic_migration);
                     double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
                     MPI_Barrier(comm);
 
@@ -169,9 +169,9 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                         for (int i = 0; i < npframe; ++i) {
                             MPI_Barrier(comm);
                             it_start = MPI_Wtime();
-                            load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, load_balancer, datatype, comm);
+                            load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, child->lb, datatype, comm);
                             MPI_Barrier(comm);
-                            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, load_balancer, datatype,
+                            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, child->lb, datatype,
                                                                                   params, comm, frame);
                             my_iteration_time = MPI_Wtime() - it_start;
                             std::tie(complexity, received, sent) = computation_info;
