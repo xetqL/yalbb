@@ -309,6 +309,7 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
 
     std::vector<RealType> communications(nproc);
     RealType fsent = (RealType) (sent + received);
+
     if(std::is_same<RealType, float>::value)
         MPI_Allgather(&fsent, 1, MPI_FLOAT, &communications.front(), 1, MPI_FLOAT, comm);
     else
@@ -329,7 +330,8 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
 
 #ifdef DEBUG
     if(!rank) {
-    //    std::for_each(complexities.begin(), complexities.end(), [](auto const& el){std::cout << (int) el << " ";});
+        std::cout << fsent << std::endl;
+        std::for_each(communications.begin(), communications.end(), [](auto const& el){std::cout << (int) el << " ";});
     }
 #endif
 
@@ -361,7 +363,6 @@ all_compute_metrics(std::shared_ptr<SlidingWindow<RealType>> window_times,
     RealType macd_times = metric::load_dynamic::compute_macd_ema(window_times->data_container, 12, 26,
             2.0 / (window_times->data_container.size() + 1));
 
-    
     return {
             gini_times, gini_complexities, gini_communications, // LB for times, complexity, and communications
             *std::max_element(times.begin(), times.end()),

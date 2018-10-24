@@ -581,8 +581,6 @@ namespace load_balancing {
             int caller_rank;
             MPI_Comm_rank(LB_COMM, &caller_rank);
 
-	    
-
             std::vector<elements::Element<N>> buffer;
             std::vector<elements::Element<N>> remote_data_gathered;
 
@@ -657,17 +655,21 @@ namespace load_balancing {
 
             // Send the data to neighbors
             std::vector<MPI_Request> reqs(nb_reqs);
+            nb_elements_sent = 0;
             for (size_t PE = 0; PE < wsize; PE++) {
                 int send_size = data_to_migrate.at(PE).size();
                 if (send_size) {
+                    nb_elements_sent += send_size;
                     MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype.elements_datatype, PE, 400, LB_COMM,
                               &reqs[cpt]);
                     cpt++;
                 }
             }
             // Import the data from neighbors
+            nb_elements_recv = 0;
             for (int proc_id : import_from_procs) {
                 size_t size = num_import_from_procs[proc_id];
+                nb_elements_recv += size;
                 buffer.resize(size);
                 MPI_Recv(&buffer.front(), size, datatype.elements_datatype, proc_id, 400, LB_COMM, MPI_STATUS_IGNORE);
                 std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
