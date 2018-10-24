@@ -45,10 +45,9 @@
 #endif
 
 template<int N> using Domain = std::vector<partitioning::geometric::Domain<N> >;
-template<int N> using LBNode = Node<MESH_DATA<N>, Domain<N>>;
+template<int N> using LBNode = Node<MESH_DATA<N>>;
 template<int N> using LBSolutionPath = std::list<std::shared_ptr<LBNode<N> > >;
-
-template<int N> using NodeQueue = std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>, Domain<N>> >;
+template<int N> using NodeQueue = std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>> >;
 
 template<int N>
 inline bool is_a_solution(const std::shared_ptr<LBNode<N>> node, const int LAST_ITERATION) {
@@ -74,7 +73,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
         sim_param_t *params,
         const MPI_Comm comm = MPI_COMM_WORLD,
         bool automatic_migration = false) {
-    // MPI Init ...
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -84,15 +82,14 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     const int NB_BEST_SOLUTIONS = (int) params->nb_best_path,
             LAST_ITERATION = nframes * npframe;
 
-    int number_of_visited_node = 0, number_of_frames_computed = 0;
+    int number_of_visited_node = 0;
 
     double it_start, true_iteration_time, my_iteration_time;
-    MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data, *p_tmp_data;
+    MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data;
 
     partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
-    Domain<N> domain_boundaries = retrieve_domain_boundaries<N>(load_balancer, nproc, params);
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
-    std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>, Domain<N>> > queue;
+    std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>> > queue;
 
     std::shared_ptr<SlidingWindow<double>>
             window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
@@ -103,20 +100,17 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     std::vector<double>
             dataset_entry(N_FEATURES + N_LABEL),
             features(N_FEATURES + N_LABEL),
-            times(nproc),
-            optimal_frame_time_lookup_table(nframes);
+            times(nproc), optimal_frame_time_lookup_table(nframes);
 
     std::vector<bool> tried_to_load_balance(nframes, false);
 
-    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(domain_boundaries, load_balancer, params->npframe), solution;
+    std::shared_ptr<LBNode<N> > current_node = std::make_shared<LBNode<N>>(load_balancer, params->npframe), solution;
     std::vector<std::shared_ptr<LBNode<N> > > solutions;
 
     current_node->metrics_before_decision = dataset_entry;
     current_node->last_metric = dataset_entry;
 
-    int it = 0;
-    double child_cost, true_child_cost;
-
+    double child_cost;
     int complexity, received, sent;
 
     std::vector<MESH_DATA<N>> particle_positions(nframes+1);
@@ -131,7 +125,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
             int frame_id =  (child->start_it / npframe);
 
             auto mesh_data = particle_positions[frame_id]; //get data at this time-step
-            auto domain_boundaries = child->domain;
 
             //migrate the particles to the good cpu according to partition
             //load_balancing::geometric::__migrate_particles<N>(mesh_data.els, domain_boundaries, datatype, comm);
@@ -144,14 +137,13 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                 case NodeType::Partitioning: if(!tried_to_load_balance[frame_id]) {
                     MPI_Barrier(comm);
                     double partitioning_start_time = MPI_Wtime();
-                    zoltan_load_balance<N>(&mesh_data, domain_boundaries, child->lb, nproc, params, datatype, comm, automatic_migration);
+                    zoltan_load_balance<N>(&mesh_data, child->lb, datatype, comm, automatic_migration);
                     double my_partitioning_time = MPI_Wtime() - partitioning_start_time;
                     MPI_Barrier(comm);
 
                     MPI_Allreduce(&my_partitioning_time, &child_cost, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                     child->last_metric = child->metrics_before_decision;
-                    child->domain = domain_boundaries; //update the partitioning
                     child->set_cost(child_cost);     //set how much time it costed
                     queue.insert(child);
                     }
@@ -193,7 +185,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                         child->last_metric.push_back(dataset_entry.at(3) - child->metrics_before_decision.at(3));
 
                         //child->mesh_data = mesh_data;      //update particles
-                        child->domain = domain_boundaries;   //update the partitioning
                         child->set_cost(child_cost);       //set how much time it costed
                         queue.insert(child);
 
@@ -214,21 +205,23 @@ std::vector<LBSolutionPath<N>> Astar_runner(
 
         MPI_Barrier(comm);
     }
-
     std::vector<LBSolutionPath<N> > best_paths;
     size_t path_idx = 0;
+    std::vector<double> costs(NB_BEST_SOLUTIONS, 0.0);
     while(path_idx < NB_BEST_SOLUTIONS) {
-        double cost = 0;
         LBSolutionPath<N> solution_path;
         auto solution = solutions[path_idx];
         while (solution->parent.get() != nullptr) { //reconstruct path
+            costs[path_idx] += solution->get_node_cost();
             if(solution->type == NodeType::Computing) solution_path.push_front(solution);
             solution = solution->parent;
         }
         best_paths.push_back(solution_path);
         path_idx++;
     }
-    if(!rank) std::cout << "Visited nodes:"<<number_of_visited_node<<std::endl;
+    if(!rank) std::cout << "Visited nodes:"<< number_of_visited_node
+                        << "\n Best solution costs " << costs[0] << " [s]\n "
+                        << NB_BEST_SOLUTIONS << "th solution costs: " << costs[NB_BEST_SOLUTIONS-1] << " [s]" << std::endl;
     return best_paths;
 }
 /*

@@ -17,14 +17,14 @@
 enum NodeType {Partitioning, Computing};
 enum NodeLBDecision {LoadBalance, DoNothing};
 
-template<typename MESH_DATA, typename Domain>
-struct Node : public FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA, Domain>>{
+template<typename MESH_DATA>
+struct Node : public FeatureContainer, public std::enable_shared_from_this<Node<MESH_DATA>>{
 private:
     double node_cost = 0.0;
 public:
 
     int start_it, end_it;
-    std::shared_ptr<Node<MESH_DATA, Domain>> parent;
+    std::shared_ptr<Node<MESH_DATA>> parent;
     //std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities , window_times, window_gini_communications;
     NodeLBDecision decision;          // Y / N boolean
     NodeType type;
@@ -34,7 +34,6 @@ public:
 
     std::vector<double> metrics_before_decision, last_metric;
     //MESH_DATA mesh_data;    // particles informations
-    Domain domain;
 
     Zoltan_Struct* lb;
 
@@ -67,7 +66,7 @@ public:
         return decision == NodeLBDecision::LoadBalance ? 1:0;
     }
 
-    Node (int startit, NodeLBDecision decision, NodeType type, std::shared_ptr<Node<MESH_DATA, Domain>> p, Domain domain) :
+    Node (int startit, NodeLBDecision decision, NodeType type, std::shared_ptr<Node<MESH_DATA>> p) :
             start_it(startit), end_it(startit),
             parent(p),
             /*window_gini_times(std::make_shared<SlidingWindow<double>>(*p->window_gini_times)),
@@ -79,10 +78,9 @@ public:
             concrete_cost(parent->concrete_cost),
             metrics_before_decision(parent->last_metric),
             //mesh_data(mesh_data),
-            domain(domain),
             lb(Zoltan_Copy(parent->lb)){};
 
-    Node(Domain domain, Zoltan_Struct* zz, int size) :
+    Node(Zoltan_Struct* zz, int size) :
             start_it(0), end_it(0), parent(nullptr),
             /*window_gini_times(std::make_shared<SlidingWindow<double>>(size)),
             window_gini_complexities(std::make_shared<SlidingWindow<double>>(size)),
@@ -90,41 +88,41 @@ public:
             window_gini_communications(std::make_shared<SlidingWindow<double>>(size)),*/
             decision(NodeLBDecision::LoadBalance), type(NodeType::Computing),
             //mesh_data(mesh_data),
-            domain(domain), lb(zz) {
+            lb(zz) {
     }
 
     ~Node() {
         Zoltan_Destroy(&lb);
     }
 
-    std::array<std::shared_ptr<Node<MESH_DATA, Domain>>, 2> get_children(){
+    std::array<std::shared_ptr<Node<MESH_DATA>>, 2> get_children(){
         switch(type) {
             case NodeType::Partitioning:
                 return {
-                        std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing,  this->shared_from_this(), domain),
+                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing,  this->shared_from_this()),
                         nullptr
                 };
             case NodeType::Computing:
                 if(end_it == 0) //starting case to start using the TCP connection ... does not ask me why ...
                     return {
-                            std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing, this->shared_from_this(), domain),
-                            std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing, this->shared_from_this(), domain)
+                            std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing, this->shared_from_this()),
+                            std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing, this->shared_from_this())
                     };
 
                 if(start_it == 0 && decision == NodeLBDecision::LoadBalance)
                     return {nullptr, nullptr};
 
                 return {
-                        std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::LoadBalance, NodeType::Partitioning, this->shared_from_this(), domain),
-                        std::make_shared<Node<MESH_DATA, Domain>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing,    this->shared_from_this(), domain)
+                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Partitioning, this->shared_from_this()),
+                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing,    this->shared_from_this())
                 };
 
         }
     }
 };
 
-template<typename MESH_DATA, typename Domain>
-std::pair<arma::mat,arma::mat> to_armadillo_mat(std::list<std::shared_ptr<Node<MESH_DATA, Domain>>> dataset, int nfeatures) {
+template<typename MESH_DATA>
+std::pair<arma::mat,arma::mat> to_armadillo_mat(std::list<std::shared_ptr<Node<MESH_DATA>>> dataset, int nfeatures) {
     const size_t nfeat = (*dataset.begin())->get_features().size();
     arma::mat arma_features(0, nfeat);
     arma::mat arma_targets(0, 1);
@@ -145,22 +143,22 @@ std::pair<arma::mat,arma::mat> to_armadillo_mat(std::list<std::shared_ptr<Node<M
     return std::make_pair(arma_features, arma_targets);
 }
 
-template<class MESH_DATA, class Domain>
+template<class MESH_DATA>
 class Compare
 {
 public:
-    bool operator() (std::shared_ptr<Node<MESH_DATA, Domain>> a, std::shared_ptr<Node<MESH_DATA, Domain>> b) {
+    bool operator() (std::shared_ptr<Node<MESH_DATA>> a, std::shared_ptr<Node<MESH_DATA>> b) {
         return a->cost() < b->cost();
     }
 };
 
-template<typename MESH_DATA, typename Domain>
-bool operator<(const std::shared_ptr<Node<MESH_DATA, Domain>> &n1, const std::shared_ptr<Node<MESH_DATA, Domain>> &n2) {
+template<typename MESH_DATA>
+bool operator<(const std::shared_ptr<Node<MESH_DATA>> &n1, const std::shared_ptr<Node<MESH_DATA>> &n2) {
     return n1->cost() < n2->cost();
 }
 
-template<typename MESH_DATA, typename Domain>
-std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<MESH_DATA, Domain>>& value)
+template<typename MESH_DATA>
+std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<MESH_DATA>>& value)
 {
     output << " Iteration: " << std::setw(6) << value->start_it <<  " -> " << std::setw(6) << value->end_it;
     output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->get_node_cost();
@@ -261,8 +259,8 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<NodeWithou
     return output;
 }
 
-template<class Data, class Domain>
-int has_been_explored(std::multiset<std::shared_ptr<Node<Data, Domain> >, Compare<Data, Domain> > c, int start_it) {
+template<class Data>
+int has_been_explored(std::multiset<std::shared_ptr<Node<Data> >, Compare<Data> > c, int start_it) {
     return std::any_of(c.cbegin(), c.cend(), [&start_it](auto node){return node->start_it >= start_it;});
 }
 

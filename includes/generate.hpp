@@ -12,16 +12,13 @@
 #include "params.hpp"
 
 template<int N>
-void init_generator(std::queue<std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<N>>, int>>& gen,
-                    std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<N>> condition,
-                    int init_conf,
-                    const sim_param_t* params,
-                    const int MAX_TRIAL = 1000000) {
-    while(!gen.empty()) gen.pop();
-
+std::queue<std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<N>>, int>>
+init_generator(std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<N>> condition,
+                int init_conf, const sim_param_t* params, const int MAX_TRIAL = 1000000) {
     unsigned int NB_CLUSTERS;
     std::vector<int> clusters;
-
+    using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<N>>, int>;
+    std::queue<ElementGeneratorCfg> gen;
     switch (init_conf) {
         case 1: //uniformly distributed
             gen.push(std::make_pair(
@@ -68,6 +65,7 @@ void init_generator(std::queue<std::pair<std::shared_ptr<initial_condition::Rand
         default:
             throw std::runtime_error("Unknown particle distribution.");
     }
+    return gen;
 }
 
 #endif //NBMPI_GENERATE_HPP
