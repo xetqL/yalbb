@@ -46,6 +46,34 @@ include_directories(${BOOST_INCLUDE_DIRECTORY} /usr/local/include)
 set(BOOST_LIBRARY_DIRECTORY "" CACHE String "Boost library directory (local)")
 link_directories(${BOOST_LIBRARY_DIRECTORY} /usr/local/lib/libmlpack.so.3.0)
 
+set(CMAKE_PREFIX_PATH  "~/libraries/")
+
+find_library(ARMADILLO
+        NAMES armadillo libarmadillo
+        HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/armadillo
+        PATHS ${ARMADILLO_LIBRARY_PATH}
+        )
+
+find_library(ZOLTAN
+        NAMES zoltan libzoltan
+        HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/Zoltan/lib
+        PATHS ${ZOLTAN_LIBRARY_PATH})
+
+find_path(ZOLTAN_INCLUDES
+        NAMES zoltan zoltan.h
+        HINTS ${CMAKE_PREFIX_PATH}/Zoltan/include
+        )
+
+find_library(MLPACK
+        NAMES mlpack libmlpack
+        HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/mlpack/lib
+        PATHS ${MLPACK_LIBRARY_PATH})
+
+find_path(MLPACK_INCLUDES
+        NAMES mlpack/core.hpp
+        HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/mlpack/include)
+
+
 ########################################################################################################################
 # Tests
 ########################################################################################################################
@@ -117,7 +145,11 @@ add_executable(build
         includes/report.hpp
         includes/graph.hpp
         includes/zoltan_fn.hpp
-        includes/metrics.hpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
+        includes/metrics.hpp
+        includes/runners/simulator.hpp
+        includes/runners/dataset_generator.hpp
+        includes/unloading_model.hpp
+        includes/decision_makers/ml_strategy.hpp)
 
 set_target_properties(build 
         PROPERTIES
@@ -284,7 +316,7 @@ add_executable(doall
         includes/metrics.hpp
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
-        src/do_all.cpp includes/feature_container.hpp includes/generate.hpp)
+        src/do_all.cpp includes/feature_container.hpp includes/generate.hpp includes/decision_makers/ml_strategy.hpp)
 
 target_include_directories(doall
         PRIVATE
@@ -302,7 +334,10 @@ target_link_libraries(doall
         ${ARMADILLO_LIBRARY_PATH}
         ${ARMADILLO}
         ${GSL_LIBRARIES})
+file(GLOB includes_f
+        "*.hpp"
 
+        )
 add_executable(zoltan_migration
         Makefile
         ${INCLUDE_DIRECTORY}/utils.hpp
@@ -321,6 +356,7 @@ add_executable(zoltan_migration
         includes/metrics.hpp
         includes/runners/simulator.hpp
         includes/runners/dataset_generator.hpp
+        ${includes_f}
         src/zoltan_migration.cpp includes/feature_container.hpp
         )
 
@@ -364,7 +400,6 @@ target_link_libraries(generate
 target_include_directories(zoltan_migration
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
-        ${MLPACK_INCLUDE_DIRECTORY}
         ${ARMADILLO_INCLUDE_DIRECTORY}
         ${ZOLTAN_INCLUDE_DIRECTORY}
         )
@@ -373,9 +408,6 @@ target_link_libraries(zoltan_migration
         PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH}
-        ${MLPACK_LIBRARY_PATH}
-        ${ARMADILLO_LIBRARY_PATH}
-        ${ARMADILLO}
         ${GSL_LIBRARIES})
 
 add_custom_target(tests

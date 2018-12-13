@@ -92,8 +92,11 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
     }
 }
 
-Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration = false) {
-    auto zz = Zoltan_Create(MPI_COMM_WORLD);
+
+
+Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm) {
+    auto zz = Zoltan_Create(comm);
+
     Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
     Zoltan_Set_Param(zz, "LB_METHOD", "RCB");
     Zoltan_Set_Param(zz, "DETERMINISTIC", "1");
@@ -110,6 +113,10 @@ Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration = false) {
         Zoltan_Set_Param(zz, "AUTO_MIGRATE", "TRUE");
 
     return zz;
+}
+
+Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration = false) {
+    return zoltan_create_wrapper(false, MPI_COMM_WORLD);
 }
 
 template<int N>
