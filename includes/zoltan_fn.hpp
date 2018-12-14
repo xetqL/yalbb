@@ -94,13 +94,20 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
 
 
 
-Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm) {
+Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm, int num_global_part = -1, int part_on_me = -1) {
+    std::string ngp = std::to_string(num_global_part);
+    std::string pom = std::to_string(part_on_me);
+
     auto zz = Zoltan_Create(comm);
 
     Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
     Zoltan_Set_Param(zz, "LB_METHOD", "RCB");
     Zoltan_Set_Param(zz, "DETERMINISTIC", "1");
     Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
+
+    if(num_global_part >= 1) Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", ngp.c_str());
+    if(part_on_me >= 1) Zoltan_Set_Param(zz, "NUM_LOCAL_PARTS",  pom.c_str());
+
     Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
     Zoltan_Set_Param(zz, "OBJ_WEIGHT_DIM", "0");
     Zoltan_Set_Param(zz, "RETURN_LISTS", "ALL");
@@ -275,10 +282,8 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                                 Zoltan_Struct* load_balancer,
                                 const partitioning::CommunicationDatatype& datatype,
                                 const MPI_Comm comm,
-                                bool automatic_migration = false) {
-    int wsize;
-    MPI_Comm_size(comm, &wsize);
-    if(wsize == 1) return;
+                                bool automatic_migration = false,
+                                bool do_migration = true) {
 
     // ZOLTAN VARIABLES
     int changes, numGidEntries, numLidEntries, numImport, numExport;
@@ -286,6 +291,8 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
     int *importProcs, *importToPart, *exportProcs, *exportToPart, dim;
     double xmin, ymin, zmin, xmax, ymax, zmax;
     // END OF ZOLTAN VARIABLES
+
+    automatic_migration = do_migration ? automatic_migration : false;
 
     zoltan_fn_init(load_balancer, mesh_data, automatic_migration);
     Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
@@ -302,8 +309,8 @@ inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
                         &exportLocalGids,   /* Local IDs of the vertices I must send */
                         &exportProcs,       /* Process to which I send each of the vertices */
                         &exportToPart);     /* Partition to which each vertex will belong */
-
-    if(!automatic_migration)
+    std::cout << numExport << std::endl;
+    if(!automatic_migration && do_migration)
         load_balancing::geometric::migrate_zoltan<N>(mesh_data->els, numImport, numExport, exportProcs,
                                                      exportGlobalGids, datatype, comm);
 

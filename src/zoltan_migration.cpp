@@ -82,33 +82,43 @@ int main(int argc, char** argv) {
     zoltan_load_balance(&bottom_data, zz, datatype, bottom, true);
     MPI_Barrier(bottom);
     if(rank == 0) std::cout << "Data are balanced" << std::endl;
-    std::for_each(bottom_data.els.cbegin(),bottom_data.els.cend(), [&rank](auto el){std::cout<< rank <<" " << el << std::endl;});
+    std::for_each(bottom_data.els.cbegin(),bottom_data.els.cend(), [&rank](auto el){std::cout << rank <<" " << el << std::endl;});
 
     MPI_Comm top;
 
     double my_slope = 0.;
     if(rank == 0) my_slope = 0.3; // 0 is not in top comm
+    if(rank == 1) my_slope = 0.3; // 0 is not in top comm
     std::vector<int> increasing_cpus;
     load_balancing::esoteric::get_communicator(my_slope, rank, bottom, &increasing_cpus, &top);
 
     MESH_DATA<DIMENSION> top_data;
-    Zoltan_Struct* zz_top = load_balancing::esoteric::divide_data_into_top_bottom(&bottom_data.els, &top_data.els, increasing_cpus, datatype,   bottom, top);
+    Zoltan_Struct* zz_top = load_balancing::esoteric::divide_data_into_top_bottom2(&bottom_data.els, &top_data.els, increasing_cpus, datatype,   bottom);
 
     MPI_Barrier(bottom);
     if(rank == 0) std::cout << "After the SPLIT" << std::endl;
     std::for_each(bottom_data.els.cbegin(),bottom_data.els.cend(), [&rank](auto el){std::cout <<"B "<< rank <<" " << el << std::endl;});
     std::for_each(top_data.els.cbegin(),top_data.els.cend(), [&rank](auto el){std::cout <<"T "<< rank <<" " << el << std::endl;});
+
     sleep(1);
+
     double coords[3] = {1,2,3};
     int PE;
     MPI_Barrier(bottom);
     if(rank == 0) std::cout << "After the MIGRATION" << std::endl;
     if(rank == 2) top_data.els[0].position = {0.290078,0.383462,0.618015};
-    load_balancing::esoteric::migrate(&bottom_data.els, &top_data.els, zz, zz_top, bottom, top, increasing_cpus, datatype);
+    load_balancing::esoteric::migrate(&bottom_data.els, &top_data.els, zz, zz_top, bottom, increasing_cpus, datatype);
 
     MPI_Barrier(bottom);
     std::for_each(bottom_data.els.cbegin(),bottom_data.els.cend(), [&rank](auto el){std::cout <<">B "<< rank <<" " << el << std::endl;});
     std::for_each(top_data.els.cbegin(),top_data.els.cend(), [&rank](auto el){std::cout <<">T "<< rank <<" " << el << std::endl;});
+    MPI_Barrier(bottom);
+    auto remote = load_balancing::esoteric::exchange(&bottom_data.els, &top_data.els, zz, zz_top, bottom, increasing_cpus, datatype);
+    MPI_Barrier(bottom);
+
+    sleep(1);
+    std::for_each(remote.cbegin(),remote.cend(), [&rank](auto el){std::cout <<"Remote> "<< rank <<" " << el << std::endl;});
+
     MPI_Finalize();
     return 0;
 }
