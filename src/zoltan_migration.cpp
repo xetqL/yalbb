@@ -91,6 +91,8 @@ int main(int argc, char** argv) {
     if(rank == 1) my_slope = 0.3; // 0 is not in top comm
     std::vector<int> increasing_cpus;
     load_balancing::esoteric::get_communicator(my_slope, rank, bottom, &increasing_cpus, &top);
+    std::for_each(increasing_cpus.cbegin(),increasing_cpus.cend(), [&rank](auto el){std::cout << rank <<" " << el << std::endl;});
+
 
     MESH_DATA<DIMENSION> top_data;
     Zoltan_Struct* zz_top = load_balancing::esoteric::divide_data_into_top_bottom2(&bottom_data.els, &top_data.els, increasing_cpus, datatype,   bottom);

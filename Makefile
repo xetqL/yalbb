@@ -39,10 +39,10 @@ cmake_force:
 SHELL = /bin/sh
 
 # The CMake executable.
-CMAKE_COMMAND = /usr/bin/cmake
+CMAKE_COMMAND = /home/xetql/programs/clion-2018.3/bin/cmake/linux/bin/cmake
 
 # The command to remove a file.
-RM = /usr/bin/cmake -E remove -f
+RM = /home/xetql/programs/clion-2018.3/bin/cmake/linux/bin/cmake -E remove -f
 
 # Escaping for special characters.
 EQUALS = =
@@ -59,7 +59,7 @@ CMAKE_BINARY_DIR = /home/xetql/SynologyDrive/projects/cpp/nbody/ljmpi
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/usr/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/home/xetql/programs/clion-2018.3/bin/cmake/linux/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -69,8 +69,8 @@ rebuild_cache/fast: rebuild_cache
 
 # Special rule for the target edit_cache
 edit_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/usr/bin/cmake-gui -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
+	/home/xetql/programs/clion-2018.3/bin/cmake/linux/bin/cmake -E echo No\ interactive\ CMake\ dialog\ available.
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -111,136 +111,6 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named zoltan_migration
-
-# Build rule for target.
-zoltan_migration: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 zoltan_migration
-.PHONY : zoltan_migration
-
-# fast build rule for target.
-zoltan_migration/fast:
-	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/build
-.PHONY : zoltan_migration/fast
-
-#=============================================================================
-# Target rules for targets named basegain
-
-# Build rule for target.
-basegain: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 basegain
-.PHONY : basegain
-
-# fast build rule for target.
-basegain/fast:
-	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/build
-.PHONY : basegain/fast
-
-#=============================================================================
-# Target rules for targets named full_dataset
-
-# Build rule for target.
-full_dataset: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 full_dataset
-.PHONY : full_dataset
-
-# fast build rule for target.
-full_dataset/fast:
-	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/build
-.PHONY : full_dataset/fast
-
-#=============================================================================
-# Target rules for targets named tests
-
-# Build rule for target.
-tests: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 tests
-.PHONY : tests
-
-# fast build rule for target.
-tests/fast:
-	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
-.PHONY : tests/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_utils
-
-# Build rule for target.
-build_tests_utils: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
-.PHONY : build_tests_utils
-
-# fast build rule for target.
-build_tests_utils/fast:
-	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
-.PHONY : build_tests_utils/fast
-
-#=============================================================================
-# Target rules for targets named doall
-
-# Build rule for target.
-doall: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 doall
-.PHONY : doall
-
-# fast build rule for target.
-doall/fast:
-	$(MAKE) -f CMakeFiles/doall.dir/build.make CMakeFiles/doall.dir/build
-.PHONY : doall/fast
-
-#=============================================================================
-# Target rules for targets named astar
-
-# Build rule for target.
-astar: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 astar
-.PHONY : astar
-
-# fast build rule for target.
-astar/fast:
-	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/build
-.PHONY : astar/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_space_partitioning
-
-# Build rule for target.
-build_tests_space_partitioning: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
-.PHONY : build_tests_space_partitioning
-
-# fast build rule for target.
-build_tests_space_partitioning/fast:
-	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
-.PHONY : build_tests_space_partitioning/fast
-
-#=============================================================================
-# Target rules for targets named build
-
-# Build rule for target.
-build: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build
-.PHONY : build
-
-# fast build rule for target.
-build/fast:
-	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
-.PHONY : build/fast
-
-#=============================================================================
-# Target rules for targets named build_tests_lb
-
-# Build rule for target.
-build_tests_lb: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 build_tests_lb
-.PHONY : build_tests_lb
-
-# fast build rule for target.
-build_tests_lb/fast:
-	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/build
-.PHONY : build_tests_lb/fast
-
-#=============================================================================
 # Target rules for targets named generate
 
 # Build rule for target.
@@ -267,6 +137,97 @@ build_tests_lj/fast:
 .PHONY : build_tests_lj/fast
 
 #=============================================================================
+# Target rules for targets named build_tests_lb
+
+# Build rule for target.
+build_tests_lb: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_lb
+.PHONY : build_tests_lb
+
+# fast build rule for target.
+build_tests_lb/fast:
+	$(MAKE) -f CMakeFiles/build_tests_lb.dir/build.make CMakeFiles/build_tests_lb.dir/build
+.PHONY : build_tests_lb/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_utils
+
+# Build rule for target.
+build_tests_utils: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_utils
+.PHONY : build_tests_utils
+
+# fast build rule for target.
+build_tests_utils/fast:
+	$(MAKE) -f CMakeFiles/build_tests_utils.dir/build.make CMakeFiles/build_tests_utils.dir/build
+.PHONY : build_tests_utils/fast
+
+#=============================================================================
+# Target rules for targets named tests
+
+# Build rule for target.
+tests: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 tests
+.PHONY : tests
+
+# fast build rule for target.
+tests/fast:
+	$(MAKE) -f CMakeFiles/tests.dir/build.make CMakeFiles/tests.dir/build
+.PHONY : tests/fast
+
+#=============================================================================
+# Target rules for targets named basegain
+
+# Build rule for target.
+basegain: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 basegain
+.PHONY : basegain
+
+# fast build rule for target.
+basegain/fast:
+	$(MAKE) -f CMakeFiles/basegain.dir/build.make CMakeFiles/basegain.dir/build
+.PHONY : basegain/fast
+
+#=============================================================================
+# Target rules for targets named build_tests_space_partitioning
+
+# Build rule for target.
+build_tests_space_partitioning: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build_tests_space_partitioning
+.PHONY : build_tests_space_partitioning
+
+# fast build rule for target.
+build_tests_space_partitioning/fast:
+	$(MAKE) -f CMakeFiles/build_tests_space_partitioning.dir/build.make CMakeFiles/build_tests_space_partitioning.dir/build
+.PHONY : build_tests_space_partitioning/fast
+
+#=============================================================================
+# Target rules for targets named astar
+
+# Build rule for target.
+astar: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 astar
+.PHONY : astar
+
+# fast build rule for target.
+astar/fast:
+	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/build
+.PHONY : astar/fast
+
+#=============================================================================
+# Target rules for targets named build
+
+# Build rule for target.
+build: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 build
+.PHONY : build
+
+# fast build rule for target.
+build/fast:
+	$(MAKE) -f CMakeFiles/build.dir/build.make CMakeFiles/build.dir/build
+.PHONY : build/fast
+
+#=============================================================================
 # Target rules for targets named dataset
 
 # Build rule for target.
@@ -278,6 +239,45 @@ dataset: cmake_check_build_system
 dataset/fast:
 	$(MAKE) -f CMakeFiles/dataset.dir/build.make CMakeFiles/dataset.dir/build
 .PHONY : dataset/fast
+
+#=============================================================================
+# Target rules for targets named full_dataset
+
+# Build rule for target.
+full_dataset: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 full_dataset
+.PHONY : full_dataset
+
+# fast build rule for target.
+full_dataset/fast:
+	$(MAKE) -f CMakeFiles/full_dataset.dir/build.make CMakeFiles/full_dataset.dir/build
+.PHONY : full_dataset/fast
+
+#=============================================================================
+# Target rules for targets named zoltan_migration
+
+# Build rule for target.
+zoltan_migration: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 zoltan_migration
+.PHONY : zoltan_migration
+
+# fast build rule for target.
+zoltan_migration/fast:
+	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/build
+.PHONY : zoltan_migration/fast
+
+#=============================================================================
+# Target rules for targets named doall
+
+# Build rule for target.
+doall: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 doall
+.PHONY : doall
+
+# fast build rule for target.
+doall/fast:
+	$(MAKE) -f CMakeFiles/doall.dir/build.make CMakeFiles/doall.dir/build
+.PHONY : doall/fast
 
 src/astar_search.o: src/astar_search.cpp.o
 
@@ -474,8 +474,8 @@ src/zoltan_migration.o: src/zoltan_migration.cpp.o
 
 # target to build an object file
 src/zoltan_migration.cpp.o:
-	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.o
 	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/zoltan_migration.cpp.o
+	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.o
 .PHONY : src/zoltan_migration.cpp.o
 
 src/zoltan_migration.i: src/zoltan_migration.cpp.i
@@ -484,8 +484,8 @@ src/zoltan_migration.i: src/zoltan_migration.cpp.i
 
 # target to preprocess a source file
 src/zoltan_migration.cpp.i:
-	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.i
 	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/zoltan_migration.cpp.i
+	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.i
 .PHONY : src/zoltan_migration.cpp.i
 
 src/zoltan_migration.s: src/zoltan_migration.cpp.s
@@ -494,8 +494,8 @@ src/zoltan_migration.s: src/zoltan_migration.cpp.s
 
 # target to generate assembly for a file
 src/zoltan_migration.cpp.s:
-	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.s
 	$(MAKE) -f CMakeFiles/astar.dir/build.make CMakeFiles/astar.dir/src/zoltan_migration.cpp.s
+	$(MAKE) -f CMakeFiles/zoltan_migration.dir/build.make CMakeFiles/zoltan_migration.dir/src/zoltan_migration.cpp.s
 .PHONY : src/zoltan_migration.cpp.s
 
 tests/test_lj_physics.o: tests/test_lj_physics.cpp.o
@@ -614,19 +614,19 @@ help:
 	@echo "... depend"
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... zoltan_migration"
-	@echo "... basegain"
-	@echo "... full_dataset"
-	@echo "... tests"
-	@echo "... build_tests_utils"
-	@echo "... doall"
-	@echo "... astar"
-	@echo "... build_tests_space_partitioning"
-	@echo "... build"
-	@echo "... build_tests_lb"
 	@echo "... generate"
 	@echo "... build_tests_lj"
+	@echo "... build_tests_lb"
+	@echo "... build_tests_utils"
+	@echo "... tests"
+	@echo "... basegain"
+	@echo "... build_tests_space_partitioning"
+	@echo "... astar"
+	@echo "... build"
 	@echo "... dataset"
+	@echo "... full_dataset"
+	@echo "... zoltan_migration"
+	@echo "... doall"
 	@echo "... src/astar_search.o"
 	@echo "... src/astar_search.i"
 	@echo "... src/astar_search.s"

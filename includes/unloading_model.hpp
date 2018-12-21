@@ -21,16 +21,20 @@ namespace load_balancing {
          * @param top the new communicator for people how will communicate on "top".
          */
         //TODO: If everybody has increasing load, then nobody in top, then the execution will fail.
-        void get_communicator(double my_load_slope, int my_rank, MPI_Comm bottom, std::vector<int> *increasing_cpus, MPI_Comm *top) {
+        int get_communicator(double my_load_slope, int my_rank, MPI_Comm bottom, std::vector<int> *increasing_cpus, MPI_Comm *top) {
             //top is set for PE that does not have an increasing load others have undefined.
             //bottom is simply MPI_COMM_WORLD normally
             //easy as fuck right?
             const int TOP_CPU_TAG = 800;
 
-            MPI_Comm_split(bottom, my_load_slope < SLOPE_THRESHOLD ? 1 : MPI_UNDEFINED, my_rank, top);
+            int err = 0;
+
+            MPI_Comm_split(bottom, my_load_slope < SLOPE_THRESHOLD ? 1 : 0, my_rank, top);
             MPI_Group top_gr;
             MPI_Group bottom_gr; MPI_Comm_group(bottom, &bottom_gr);
-            if(*top != MPI_COMM_NULL){
+            int bottom_gr_size; MPI_Comm_size(bottom, &bottom_gr_size);
+
+            if(my_load_slope < SLOPE_THRESHOLD){ //top_group
 
                 int top_rank; MPI_Comm_rank(*top, &top_rank);
                 MPI_Comm_group(*top, &top_gr);
@@ -43,20 +47,38 @@ namespace load_balancing {
                 MPI_Group increasing_gr; MPI_Group_difference(bottom_gr, top_gr, &increasing_gr);
                 int increasing_gr_size; MPI_Group_size(increasing_gr, &increasing_gr_size);
 
-                increasing_cpus->resize(increasing_gr_size); std::iota(increasing_cpus->begin(), increasing_cpus->end(), 0);
-                MPI_Group_translate_ranks(increasing_gr, increasing_cpus->size(), &increasing_cpus->front(), bottom_gr, &increasing_cpus->front());
-
-                if(top_rank < increasing_cpus->size()) { // No more increasing than P/2 !
-                    MPI_Send(&increasing_cpus->front(), increasing_cpus->size(), MPI_INT, increasing_cpus->at(top_rank), TOP_CPU_TAG, bottom);
+                if(increasing_gr_size > bottom_gr_size / 2) err = 1;
+                else{
+                    increasing_cpus->resize(increasing_gr_size); std::iota(increasing_cpus->begin(), increasing_cpus->end(), 0);
+                    MPI_Group_translate_ranks(increasing_gr, increasing_cpus->size(), &increasing_cpus->front(), bottom_gr, &increasing_cpus->front());
                 }
 
-            } else {
-                MPI_Status status;
-                MPI_Probe(MPI_ANY_SOURCE, TOP_CPU_TAG, bottom, &status);
-                int count; MPI_Get_count(&status, MPI_INT, &count);
-                increasing_cpus->resize(count);
-                MPI_Recv(&increasing_cpus->front(), count, MPI_INT, status.MPI_SOURCE, TOP_CPU_TAG, bottom, MPI_STATUS_IGNORE);
+
+            } else { //increasing_group
+
+                int top_gr_size; MPI_Comm_size(*top, &top_gr_size);
+                if(top_gr_size > bottom_gr_size / 2) err = 1;
+                else{
+                    MPI_Comm_group(*top, &top_gr);
+                    increasing_cpus->resize(top_gr_size); std::iota(increasing_cpus->begin(), increasing_cpus->end(), 0);
+                    MPI_Group_translate_ranks(top_gr, increasing_cpus->size(), &increasing_cpus->front(), bottom_gr, &increasing_cpus->front());
+                }
+                //MPI_Status status;
+                //MPI_Probe(MPI_ANY_SOURCE, TOP_CPU_TAG, bottom, &status);
+                //int count; MPI_Get_count(&status, MPI_INT, &count);
+                //increasing_cpus->resize(count);
+                //MPI_Recv(&increasing_cpus->front(), count, MPI_INT, status.MPI_SOURCE, TOP_CPU_TAG, bottom, MPI_STATUS_IGNORE);
+
+
+                *top = MPI_COMM_NULL;
             }
+
+            if(err) {
+                *top = MPI_COMM_NULL;
+                increasing_cpus->clear();
+            }
+
+            return err;
         }
 
         template<int N>
