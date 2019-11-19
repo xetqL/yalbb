@@ -119,7 +119,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             double cmplx = complexity;
             MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
 
-            current_dataset_entry = metric::all_compute_metrics(window_times, window_gini_times,
+            current_dataset_entry = metric::all_compute_metrics<double>(window_times, window_gini_times,
                                                              window_gini_complexities, window_gini_communications,
                                                              true_iteration_time, times, 0.0,
                                                              sent, received, complexity, comm);

@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     }
 
     if(rank == 0) {
-        initial_condition::lennard_jones::RejectionCondition<DIMENSION> condition(&(mesh_data.els),
+        auto condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(&(mesh_data.els),
                                                                                   params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
                                                                                   params.T0,
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
         }
         while(elements_generators.size() > 0) {
             ElementGeneratorCfg el_gen = elements_generators.front();
-            el_gen.first->generate_elements(mesh_data.els, el_gen.second, &condition);
+            el_gen.first->generate_elements(mesh_data.els, el_gen.second, condition);
             elements_generators.pop();
             std::cout << el_gen.second << std::endl;
         }

@@ -80,7 +80,7 @@ void generate_dataset(MESH_DATA<N> *mesh_data,
                                                                     params->simsize);
         domain_boundaries[part] = domain;
     }
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
     std::vector<elements::Element<N>> remote_el;
     std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities, window_times, window_gini_communications;
@@ -180,7 +180,7 @@ void generate_dataset(MESH_DATA<N> *mesh_data,
         float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
 
         leapfrog2(dt, mesh_data->els);
-        leapfrog1(dt, mesh_data->els);
+        leapfrog1(dt, mesh_data->els, 3.2*params->sig_lj);
         apply_reflect(mesh_data->els, params->simsize);
 
         double my_iteration_time = (MPI_Wtime() - start) / TICK_FREQ;
@@ -253,7 +253,7 @@ void compute_dataset_base_gain(FILE *fp,          // Output file (at 0)
         domain_boundaries[part] = domain;
     }
 
-    std::unordered_map<int, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
+    std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
     double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
     int M = std::ceil(params->simsize / rm); // number of cell in a row
     float lsub = rm; //cell size
@@ -280,10 +280,9 @@ void compute_dataset_base_gain(FILE *fp,          // Output file (at 0)
             // update local ids
             for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
             lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist,
-                                                                     params);
+            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
             leapfrog2(dt, mesh_data->els);
-            leapfrog1(dt, mesh_data->els);
+            leapfrog1(dt, mesh_data->els, 3.2 * params->sig_lj);
             apply_reflect(mesh_data->els, params->simsize);
             double my_iteration_time = (MPI_Wtime() - start) / TICK_FREQ;
             MPI_Barrier(comm);

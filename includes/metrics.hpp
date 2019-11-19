@@ -13,6 +13,8 @@
 #include <deque>
 #include <numeric>
 #include <iostream>
+#include <algorithm>
+#include <memory>
 
 #include <gsl/gsl_histogram.h>
 #include <gsl/gsl_statistics.h>

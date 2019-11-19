@@ -182,7 +182,7 @@ int compute_forces (
 }
 
 template<int N, class MapType>
-void compute_forces(
+void _compute_forces(
         const int M, /* Number of subcell in a row  */
         const float lsub, /* length of a cell */
         std::vector<elements::Element<N>> &local_elements,
