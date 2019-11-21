@@ -16,6 +16,8 @@
 #include <iostream>
 #include <fstream>
 
+#define binary_node_max_id_for_level(x) (std::pow(2, (int) (std::log(x+1)/std::log(2))+1) - 2)
+
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
  a;\

@@ -10,6 +10,8 @@
 #include <memory>
 #include <future>
 #include <list>
+#include <ostream>
+#include <mpi.h>
 
 #include "utils.hpp"
 #include "feature_container.hpp"
@@ -23,7 +25,8 @@ private:
     double node_cost = 0.0;
 public:
 
-    int start_it, end_it;
+    int start_it, end_it, rank;
+    uint64_t id;
     std::shared_ptr<Node<MESH_DATA>> parent;
     //std::shared_ptr<SlidingWindow<double>> window_gini_times, window_gini_complexities , window_times, window_gini_communications;
     NodeLBDecision decision;          // Y / N boolean
@@ -66,9 +69,11 @@ public:
         return decision == NodeLBDecision::LoadBalance ? 1:0;
     }
 
-    Node (int startit, NodeLBDecision decision, NodeType type, std::shared_ptr<Node<MESH_DATA>> p) :
+    Node (uint64_t id, int startit, NodeLBDecision decision, NodeType type, std::shared_ptr<Node<MESH_DATA>> p) :
+            id(id),
             start_it(startit), end_it(startit),
             parent(p),
+
             /*window_gini_times(std::make_shared<SlidingWindow<double>>(*p->window_gini_times)),
             window_gini_complexities(std::make_shared<SlidingWindow<double>>(*p->window_gini_complexities)),
             window_times(std::make_shared<SlidingWindow<double>>(*p->window_times)),
@@ -78,9 +83,12 @@ public:
             concrete_cost(parent->concrete_cost),
             metrics_before_decision(parent->last_metric),
             //mesh_data(mesh_data),
-            lb(Zoltan_Copy(parent->lb)){};
+            lb(Zoltan_Copy(parent->lb)){
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    };
 
     Node(Zoltan_Struct* zz, int size) :
+            id(0),
             start_it(0), end_it(0), parent(nullptr),
             /*window_gini_times(std::make_shared<SlidingWindow<double>>(size)),
             window_gini_complexities(std::make_shared<SlidingWindow<double>>(size)),
@@ -89,6 +97,7 @@ public:
             decision(NodeLBDecision::LoadBalance), type(NodeType::Computing),
             //mesh_data(mesh_data),
             lb(zz) {
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     }
 
     ~Node() {
@@ -96,28 +105,41 @@ public:
     }
 
     std::array<std::shared_ptr<Node<MESH_DATA>>, 2> get_children(){
+
+        std::ofstream treef;
+        if (rank == 0) {
+            treef.open("tree_file", std::ofstream::out | std::ofstream::app);
+            treef << id << " " << 2*id+1 << " " << 2*binary_node_max_id_for_level(id)+2 << std::endl;
+            treef.close();
+        }
+
         switch(type) {
             case NodeType::Partitioning:
                 return {
-                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing,  this->shared_from_this()),
+                        std::make_shared<Node<MESH_DATA>>(id, end_it, NodeLBDecision::LoadBalance, NodeType::Computing,  this->shared_from_this()),
                         nullptr
                 };
             case NodeType::Computing:
                 if(end_it == 0) //starting case to start using the TCP connection ... does not ask me why ...
                     return {
-                            std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Computing, this->shared_from_this()),
-                            std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing, this->shared_from_this())
+                            std::make_shared<Node<MESH_DATA>>(2*binary_node_max_id_for_level(id)+2, end_it, NodeLBDecision::LoadBalance, NodeType::Computing, this->shared_from_this()),
+                            std::make_shared<Node<MESH_DATA>>(2*id+1, end_it, NodeLBDecision::DoNothing,   NodeType::Computing, this->shared_from_this())
                     };
 
                 if(start_it == 0 && decision == NodeLBDecision::LoadBalance)
                     return {nullptr, nullptr};
 
                 return {
-                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::LoadBalance, NodeType::Partitioning, this->shared_from_this()),
-                        std::make_shared<Node<MESH_DATA>>(end_it, NodeLBDecision::DoNothing,   NodeType::Computing,    this->shared_from_this())
+                        std::make_shared<Node<MESH_DATA>>(2*binary_node_max_id_for_level(id)+2, end_it, NodeLBDecision::LoadBalance, NodeType::Partitioning, this->shared_from_this()),
+                        std::make_shared<Node<MESH_DATA>>(2*id+1, end_it, NodeLBDecision::DoNothing,   NodeType::Computing,    this->shared_from_this())
                 };
 
         }
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Node &node) {
+
+        return os;
     }
 };
 

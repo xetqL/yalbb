@@ -289,7 +289,9 @@ add_executable(basegain
         includes/graph.hpp
         includes/zoltan_fn.hpp
         includes/metrics.hpp
-        src/dataset_base_gain.cpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
+        src/dataset_base_gain.cpp
+        includes/runners/simulator.hpp
+        includes/runners/dataset_generator.hpp)
 target_include_directories(basegain
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
