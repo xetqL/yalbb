@@ -183,7 +183,8 @@ int main(int argc, char **argv) {
     for(auto const& solution : res) {
         double total_time = 0.0;
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
-        metric::io::write_solution( fsolution, SOLUTION_FILENAME, solution, rank);
+        metric::io::write_solution( fsolution, std::to_string(i)+"-"+SOLUTION_FILENAME, solution, rank);
+        i++;
     }
     MPI_Barrier(MPI_COMM_WORLD);
 

@@ -417,8 +417,7 @@ void write_dataset(std::ofstream &dataset, std::string fname,
 }
 
 template<class FeatureContainer>
-void write_solution(std::ofstream &dataset, std::string fname,
-                   std::list<std::shared_ptr<FeatureContainer>> fcontainers,
+void write_solution(std::ofstream &dataset, std::string fname, std::list<std::shared_ptr<FeatureContainer>> fcontainers,
                    int rank,  int exec_rank = 0 ) {
 
     if (rank == exec_rank) {
@@ -438,3 +437,4 @@ void write_solution(std::ofstream &dataset, std::string fname,
 
 
 #endif //NBMPI_METRICS_H
+ //NBMPI_METRICS_H
