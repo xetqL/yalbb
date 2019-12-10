@@ -158,7 +158,17 @@ int main(int argc, char **argv) {
                                          "-" + std::to_string((params.eps_lj)) +
                                          "-" + std::to_string((params.sig_lj)) +
                                          "-" + std::to_string(params.dt) + ".data";
-
+    std::ofstream fsolution;
+    const std::string SOLUTION_FILENAME = "lj_solution-" + std::to_string(params.seed) +
+                                         "-" + std::to_string(params.nframes) + "x" + std::to_string(params.npframe) +
+                                         "-" + std::to_string(params.world_size) +
+                                         "-" + std::to_string(params.npart) +
+                                         "-" + std::to_string((params.T0)) +
+                                         "-" + std::to_string((params.G)) +
+                                         "-" + std::to_string((params.simsize)) +
+                                         "-" + std::to_string((params.eps_lj)) +
+                                         "-" + std::to_string((params.sig_lj)) +
+                                         "-" + std::to_string(params.dt) + ".data";
     auto sol = res.at(0);
 
     std::ofstream lb_file, metric_file, frame_file;
@@ -173,7 +183,7 @@ int main(int argc, char **argv) {
     for(auto const& solution : res) {
         double total_time = 0.0;
         metric::io::write_dataset(dataset, DATASET_FILENAME, solution, rank, (*(std::next(solution.end(), -1)))->cost());
-
+        metric::io::write_solution( fsolution, SOLUTION_FILENAME, solution, rank);
     }
     MPI_Barrier(MPI_COMM_WORLD);
 

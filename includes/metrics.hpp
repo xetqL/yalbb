@@ -416,6 +416,23 @@ void write_dataset(std::ofstream &dataset, std::string fname,
 
 }
 
+template<class FeatureContainer>
+void write_solution(std::ofstream &dataset, std::string fname,
+                   std::list<std::shared_ptr<FeatureContainer>> fcontainers,
+                   int rank,  int exec_rank = 0 ) {
+
+    if (rank == exec_rank) {
+        if (!dataset.is_open()) dataset.open(fname, std::ofstream::out | std::ofstream::app);
+        for (auto const &features_container : fcontainers) {
+            dataset << features_container->get_target() << " ";
+        }
+        dataset << std::endl;
+        dataset.close();
+    }
+
+}
+
+
 }// end namespace metric::io
 }// end namespace metric
 
