@@ -82,6 +82,7 @@ double simulate(FILE *fp,          // Output file (at 0)
     double total_time = 0.0;
     int complexity, received, sent;
     std::vector<double> previous_dataset_entry(13), current_dataset_entry(13), last_positive_dataset_entry(13);
+    std::vector<double> max, avg;	
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
@@ -100,14 +101,23 @@ double simulate(FILE *fp,          // Output file (at 0)
 
             //everybody've finished communications
             MPI_Barrier(comm);
-            //everybody computes a step
+            //everybody computes a stepi
+	    
+	    double wtime = MPI_Wtime();
             auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
+            wtime = MPI_Wtime() - wtime; 
 
             double end = MPI_Wtime();// End of step
             //compute my own time
             it_time = (end - begin);
             //everybody share their time
-            MPI_Allgather(&it_time, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+	    double maxv;
+            
+	    MPI_Allreduce(&wtime,&maxv, 1, MPI_DOUBLE, MPI_MAX, comm);
+	    max.push_back(maxv);
+
+	    MPI_Allgather(&wtime, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+            avg.push_back(std::accumulate(times.begin(), times.end(), 0.0) / nproc);
 
             double true_iteration_time = *std::max_element(times.begin(), times.end());
 
@@ -160,6 +170,13 @@ double simulate(FILE *fp,          // Output file (at 0)
     MPI_Barrier(comm);
     if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
     if (rank == 0 && frame_file.is_open()) frame_file.close();
+
+    for(int i = 0; i < max.size(); ++i){
+    
+       std::cout << max[i] << " " << avg[i] << std::endl;
+
+    }
+
     return total_time;
 }
 

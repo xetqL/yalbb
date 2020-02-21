@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(nbmpi)
-
+include_directories("/usr/local/include")
+link_directories("/usr/local/lib")
 
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
     MESSAGE("Compile with debug flag")

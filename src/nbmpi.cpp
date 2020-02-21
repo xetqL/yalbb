@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
-    std::shared_ptr<decision_making::Policy> lb_policy = std::make_shared<decision_making::PeriodicPolicy>(25);
+    std::shared_ptr<decision_making::Policy> lb_policy = std::make_shared<decision_making::NoLBPolicy>();
 
     auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  lb_policy, &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
 
