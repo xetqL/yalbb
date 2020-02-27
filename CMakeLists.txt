@@ -3,6 +3,7 @@ project(nbmpi)
 include_directories("/usr/local/include")
 link_directories("/usr/local/lib")
 
+
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
     MESSAGE("Compile with debug flag")
     ADD_DEFINITIONS(-DDEBUG)
@@ -32,9 +33,7 @@ find_package(MPI REQUIRED)
 find_package(GSL REQUIRED)
 
 set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

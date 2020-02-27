@@ -82,6 +82,8 @@ static void print_usage() {
 
 static void default_params(sim_param_t* params) {
     std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution dist(0, 100'000'000);
     params->fname = (char*) "run.out";
     params->npart = 500;
     params->nframes = 400;
@@ -95,7 +97,7 @@ static void default_params(sim_param_t* params) {
     params->record = false;
     params->computation_method = (short) 2;
     params->world_size = (unsigned int) 1;
-    params->seed = rd(); //by default a random number
+    params->seed = dist(mt); //by default a random number
     params->lb_interval = 0;
     params->one_shot_lb_call = 0;
     params->nb_best_path = 1;

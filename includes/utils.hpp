@@ -18,6 +18,9 @@
 
 #define binary_node_max_id_for_level(x) (std::pow(2, (int) (std::log(x+1)/std::log(2))+1) - 2)
 
+using Real = float;
+using Integer = long long int;
+
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
  a;\
@@ -42,32 +45,11 @@ bool file_exists(const std::string fileName)
 }
 
 template<int N>
-inline long long position_to_cell(std::array<double, N> const& position, const double lsub, const long long c, const long long r = 0) {
-    const std::vector<long long> weight = {1, c, c*r};
-    long long idx = 0;
+inline Integer position_to_cell(std::array<Real, N> const& position, const Real lsub, const Integer c, const Integer r = 0) {
+    const std::vector<Integer> weight = {1, c, c*r};
+    Integer idx = 0;
     for(int i = 0; i < N; ++i) {
-        long long curr_idx = weight.at(i) * (long long) std::floor(position.at(i) / lsub);
-        //std::cout << idx << "+" << curr_idx<< "==";//"+(" << c << "*"<<r<<"*" << std::floor(position.at(i) / lsub) << ")==";
-        idx +=  curr_idx;
-        //std::cout << idx << std::endl;
-    }
-    return idx;
-}
-
-template<int N>
-inline unsigned long long position_to_cell(double x, double y, double z, const double lsub, const long long c, const long long r = 0) {
-    return (unsigned long long) std::floor(x / lsub) + c * std::floor(y / lsub) +  c * r * std::floor(z / lsub);
-}
-
-template<int N>
-inline long long position_to_cell(std::array<float, N> const& position, const float lsub, const long long c, const long long r = 0) {
-    const std::vector<long long> weight = {1, c, c*r};
-    long long idx = 0;
-    for(int i = 0; i < N; ++i) {
-        long long curr_idx = weight.at(i) * (long long) std::floor(position.at(i) / lsub);
-        //std::cout << idx << "+" << curr_idx<< "==";//"+(" << c << "*"<<r<<"*" << std::floor(position.at(i) / lsub) << ")==";
-        idx +=  curr_idx;
-        //std::cout << idx << std::endl;
+        idx += weight.at(i) * (Integer) std::floor(position.at(i) / lsub);
     }
     return idx;
 }

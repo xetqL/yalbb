@@ -71,80 +71,39 @@ double simulate(FILE *fp,          // Output file (at 0)
 
     int nb_lb = 0;
     //std::vector<elements::Element<N>> remote_el;
-    std::unique_ptr<metric::LBMetrics<double>> a = nullptr;
     std::vector<double> times(nproc);
     MESH_DATA<N> tmp_data;
-    std::shared_ptr<SlidingWindow<double>>
-            window_gini_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
-            window_gini_complexities = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
-            window_times = std::make_shared<SlidingWindow<double>>(params->npframe / 2),
-            window_gini_communications = std::make_shared<SlidingWindow<double>>(params->npframe / 2);
     double total_time = 0.0;
     int complexity, received, sent;
-    std::vector<double> previous_dataset_entry(13), current_dataset_entry(13), last_positive_dataset_entry(13);
-    std::vector<double> max, avg;	
+    std::vector<double> max, avg;
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
             double it_time;
-            previous_dataset_entry = current_dataset_entry;
-            MPI_Barrier(comm); //wait for all to do communications
 
             double begin = MPI_Wtime(); //start of step
-            bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, std::move(a));
-            if (should_load_balance_now) {
+            //bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, nullptr);
+            if (false) {
                 zoltan_load_balance<N>(mesh_data, domain_boundaries, load_balancer, nproc, params, datatype, comm, automatic_migration);
                 nb_lb ++;
             } else {
                 load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
 
-            //everybody've finished communications
-            MPI_Barrier(comm);
-            //everybody computes a stepi
-	    
-	    double wtime = MPI_Wtime();
-            auto computation_info = lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
-            wtime = MPI_Wtime() - wtime; 
+	        double wtime = MPI_Wtime();
+            lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
+            wtime = MPI_Wtime() - wtime;
 
-            double end = MPI_Wtime();// End of step
             //compute my own time
-            it_time = (end - begin);
             //everybody share their time
-	    double maxv;
+	        double maxv;
             
-	    MPI_Allreduce(&wtime,&maxv, 1, MPI_DOUBLE, MPI_MAX, comm);
-	    max.push_back(maxv);
-
-	    MPI_Allgather(&wtime, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
+	        MPI_Allreduce(&wtime,&maxv, 1, MPI_DOUBLE, MPI_MAX, comm);
+	        max.push_back(maxv);
+	        MPI_Allgather(&wtime, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
             avg.push_back(std::accumulate(times.begin(), times.end(), 0.0) / nproc);
-
             double true_iteration_time = *std::max_element(times.begin(), times.end());
-
             frame_time += true_iteration_time;
-
-            std::tie(complexity, received, sent) = computation_info;
-
-            std::vector<double> complexities(nproc);
-            double cmplx = complexity;
-            MPI_Allgather(&cmplx, 1, MPI_DOUBLE, &complexities.front(), 1, MPI_DOUBLE, comm);
-
-            current_dataset_entry = metric::all_compute_metrics<double>(window_times, window_gini_times,
-                                                             window_gini_complexities, window_gini_communications,
-                                                             true_iteration_time, times, 0.0,
-                                                             sent, received, complexity, comm);
-
-            if(should_load_balance_now) last_positive_dataset_entry = current_dataset_entry;
-
-            current_dataset_entry.push_back((previous_dataset_entry.at(0) - current_dataset_entry.at(0)));
-            current_dataset_entry.push_back((previous_dataset_entry.at(1) - current_dataset_entry.at(1)));
-            current_dataset_entry.push_back((previous_dataset_entry.at(2) - current_dataset_entry.at(2)));
-            current_dataset_entry.push_back((previous_dataset_entry.at(3) - current_dataset_entry.at(3)));
-
-            //TODO:Compute the difference of the total time between
-            //TODO:last_positive... and current_data... iff !should_load_balance_now it is implicitly cpt by A*
-
-            a = std::make_unique<metric::LBMetrics<double>>(current_dataset_entry);
         }
 
         if(!rank) {
@@ -173,7 +132,7 @@ double simulate(FILE *fp,          // Output file (at 0)
 
     for(int i = 0; i < max.size(); ++i){
     
-       std::cout << max[i] << " " << avg[i] << std::endl;
+       //std::cout << max[i] << " " << avg[i] << std::endl;
 
     }
 

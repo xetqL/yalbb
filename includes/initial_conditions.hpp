@@ -220,30 +220,94 @@ public:
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         int number_of_element_generated = 0;
-        std::normal_distribution<elements::ElementRealType> temp_dist(0.0, condition->T0 * condition->T0);
-        std::uniform_real_distribution<elements::ElementRealType> udistx(condition->xmin, condition->xmax),
-                udisty(condition->ymin, condition->ymax),
-                udistz(condition->zmin, condition->zmax);
+        std::normal_distribution<Real> temp_dist(0.0, condition->T0 * condition->T0);
+        std::uniform_real_distribution<Real>
+            udistx(condition->xmin, condition->xmax),
+            udisty(condition->ymin, condition->ymax),
+            udistz(condition->zmin, condition->zmax);
 
-        statistic::NormalSphericalDistribution<N, elements::ElementRealType>
+        statistic::NormalSphericalDistribution<N, Real>
                 sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
+
         std::mt19937 my_gen(seed);
         int trial = 0;
-        while(elements.size() < n) {
+        std::array<Real, N>  element_position;
+
+
+        Integer lcxyz, lc[N];
+        Real cut_off = (2.5 * condition->sig);
+        lc[0] = (condition->xmax - condition->xmin) / cut_off;
+        lc[1] = (condition->ymax - condition->ymin) / cut_off;
+        lcxyz = lc[0] * lc[1];
+        if constexpr (N==3){
+            lc[2] = (condition->zmax - condition->zmin) / cut_off;
+            lcxyz *= lc[2];
+        }
+        const Integer EMPTY = -1;
+        std::vector<Integer> head(lcxyz, -1), lscl(n, -1);
+        Integer generated = 0;
+        while(generated < n) {
             while(trial < max_trial) {
-                std::array<elements::ElementRealType, N>  element_position;
-                if(N>2)
-                    element_position = {udistx(my_gen), udisty(my_gen), udistz(my_gen)} ;
-                else
-                    element_position = {udistx(my_gen), udisty(my_gen)};
+
+                if constexpr (N==3){
+                    element_position = { udistx(my_gen), udisty(my_gen), udistz(my_gen) };
+                } else {
+                    element_position = { udistx(my_gen), udisty(my_gen)};
+                }
 
                 auto element = elements::Element<N>(element_position, sphere_dist_velocity(my_gen), elements.size(), elements.size());
-                if(condition->predicate(element)) {
+
+                bool accepted = true;
+
+                std::array<Real, 3> delta_dim;
+                Integer c, c1, ic[N], ic1[N], j;
+                elements::Element<N> receiver;
+                c = position_to_cell<N>(element.position, cut_off, lc[0], lc[1]);
+                for (auto d = 0; d < N; ++d)
+                    ic[d] = c / lc[d];
+                for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
+                    for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
+                        if constexpr (N==3) {
+                            for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
+                                if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) ||
+                                    (ic1[2] < 0 || ic1[2] >= lc[2]))
+                                    continue;
+                                c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+                                j = head[c1];
+                                while (j != EMPTY) {
+                                    if (generated < j) {
+                                        receiver = elements[j];
+                                        accepted =
+                                                accepted && elements::distance2(receiver, element) >= condition->min_r2;
+                                    }
+                                    j = lscl[j];
+                                }
+                            }
+                        } else {
+                            if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]))
+                                continue;
+                            c1 = (ic1[0]) + (lc[0] * ic1[1]);
+                            j = head[c1];
+                            while (j != EMPTY) {
+                                if (generated < j) {
+                                    receiver = elements[j];
+                                    accepted = accepted && elements::distance2(receiver, element) >= condition->min_r2;
+                                }
+                                j = lscl[j];
+                            }
+                        }
+                    }
+                }
+
+
+                if(accepted) {
                     trial = 0;
                     std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist, &my_gen]{return temp_dist(my_gen);});
                     elements.push_back(element);
+                    algorithm::CLL_append(generated, c, element, lscl.data(), head.data());
+                    generated++;
                     break;
-                } else{
+                } else {
                     trial++;
                 }
             }
