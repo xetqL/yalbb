@@ -52,7 +52,7 @@ double simulate(FILE *fp,          // Output file (at 0)
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries = retrieve_domain_boundaries<N>(load_balancer, nproc, params);
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
 
-    //double rm = 3.2 * params->sig_lj; // r_m = 3.2 * sig
+    Real cut_off = params->rc; // r_m = 3.2 * sig
 
     std::vector<elements::Element<N>> recv_buf(params->npart);
     auto date = get_date_as_string();
@@ -62,7 +62,7 @@ double simulate(FILE *fp,          // Output file (at 0)
                                            datatype.elements_datatype, comm);
     if (params->record && !rank) {
         std::string mkdir_cmd = "mkdir -p data/time-series/"+std::to_string(params->seed);
-        system(mkdir_cmd.c_str());
+        int err = system(mkdir_cmd.c_str());
         frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv.0", std::ofstream::out | std::ofstream::trunc);
         frame_formater.write_header(frame_file, params->npframe, params->simsize);
         write_frame_data<N>(frame_file, recv_buf, frame_formater, params);
@@ -76,6 +76,16 @@ double simulate(FILE *fp,          // Output file (at 0)
     double total_time = 0.0;
     int complexity, received, sent;
     std::vector<double> max, avg;
+    Real cut_off_radius = params->rc; // cut_off
+    auto cell_per_row = (Integer) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
+    auto n_cells = cell_per_row * cell_per_row * cell_per_row;
+    Integer lc[N];
+    lc[0] = cell_per_row;
+    lc[1] = cell_per_row;
+    if constexpr (N==3){
+        lc[2] = cell_per_row;
+    }
+    std::vector<Integer> lscl(mesh_data->els.size()), head(n_cells);
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         for (int i = 0; i < npframe; ++i) {
@@ -91,7 +101,7 @@ double simulate(FILE *fp,          // Output file (at 0)
             }
 
 	        double wtime = MPI_Wtime();
-            lennard_jones::compute_one_step<N>(mesh_data, plklist, load_balancer, datatype, params, comm, frame);
+            lennard_jones::compute_one_step<N>(mesh_data, lscl.data(), head.data(), load_balancer, datatype, params, comm, frame);
             wtime = MPI_Wtime() - wtime;
 
             //compute my own time

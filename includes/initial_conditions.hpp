@@ -33,6 +33,7 @@ public:
     const elements::ElementRealType xmax;
     const elements::ElementRealType ymax;
     const elements::ElementRealType zmax;
+    const sim_param_t* params;
 
     RejectionCondition(const std::vector<elements::Element<N>>* others,
                        const elements::ElementRealType sig,
@@ -43,11 +44,12 @@ public:
                        const elements::ElementRealType zmin,
                        const elements::ElementRealType xmax,
                        const elements::ElementRealType ymax,
-                       const elements::ElementRealType zmax) :
+                       const elements::ElementRealType zmax,
+                       const sim_param_t* params) :
             others(others),
             sig(sig), min_r2(min_r2), T0(T0),
             xmin(xmin), ymin(ymin), zmin(zmin),
-            xmax(xmax), ymax(ymax), zmax(zmax) {}
+            xmax(xmax), ymax(ymax), zmax(zmax), params(params) {}
 
     const bool predicate(const elements::Element<N>& c) const override {
         if (N > 2) {
@@ -220,22 +222,20 @@ public:
     void generate_elements(std::vector<elements::Element<N>>& elements, const int n,
                            const std::shared_ptr<lennard_jones::RejectionCondition<N>> condition) override {
         int number_of_element_generated = 0;
-        std::normal_distribution<Real> temp_dist(0.0, condition->T0 * condition->T0);
+        const Real dblT0Sqr = 2.0 * condition->T0 * condition->T0;
+        std::normal_distribution<Real> temp_dist(0.0, dblT0Sqr);
+        std::uniform_real_distribution<Real> utemp_dist(0.0, dblT0Sqr);
         std::uniform_real_distribution<Real>
             udistx(condition->xmin, condition->xmax),
             udisty(condition->ymin, condition->ymax),
             udistz(condition->zmin, condition->zmax);
 
-        statistic::NormalSphericalDistribution<N, Real>
-                sphere_dist_velocity(2.0 * condition->T0 * condition->T0, 0, 0, 0);
-
         std::mt19937 my_gen(seed);
         int trial = 0;
-        std::array<Real, N>  element_position;
-
+        std::array<Real, N>  element_position, velocity;
 
         Integer lcxyz, lc[N];
-        Real cut_off = (2.5 * condition->sig);
+        Real cut_off = condition->params->rc;
         lc[0] = (condition->xmax - condition->xmin) / cut_off;
         lc[1] = (condition->ymax - condition->ymin) / cut_off;
         lcxyz = lc[0] * lc[1];
@@ -251,11 +251,22 @@ public:
 
                 if constexpr (N==3){
                     element_position = { udistx(my_gen), udisty(my_gen), udistz(my_gen) };
+                    auto strength    = utemp_dist(my_gen);
+                    velocity         = {
+                            ((condition->xmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[0]) * strength,
+                            ((condition->ymin + (Real)condition->params->simsize/(Real) 2.0) - element_position[1]) * strength,
+                            ((condition->zmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[2]) * strength
+                    };
                 } else {
+                    auto strength    = utemp_dist(my_gen);
                     element_position = { udistx(my_gen), udisty(my_gen)};
+                    velocity         = {
+                            ((condition->xmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[0]) * strength,
+                            ((condition->ymin + (Real)condition->params->simsize/(Real) 2.0) - element_position[1]) * strength,
+                    };
                 }
 
-                auto element = elements::Element<N>(element_position, sphere_dist_velocity(my_gen), elements.size(), elements.size());
+                auto element = elements::Element<N>(element_position, velocity, elements.size(), elements.size());
 
                 bool accepted = true;
 
@@ -299,10 +310,8 @@ public:
                     }
                 }
 
-
                 if(accepted) {
                     trial = 0;
-                    std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist, &my_gen]{return temp_dist(my_gen);});
                     elements.push_back(element);
                     algorithm::CLL_append(generated, c, element, lscl.data(), head.data());
                     generated++;
@@ -373,7 +382,7 @@ public:
 
 template<int N>
 class ParticleWallElementsGenerator : public RandomElementsGenerator<N> {
-    const double pw_pos;
+    const Real pw_pos;
     const bool direction; //true is positive, false is negative
     int seed;
     const int max_trial;

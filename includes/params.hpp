@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 #include <unistd.h>
+
 /*@T
  * \section{System parameters}
  *
@@ -28,6 +29,7 @@ typedef struct sim_param_t {
     float G;       /* Gravitational strength (1) */
     float T0;      /* Initial temperature (1)    */
     float simsize; /* Borders of the simulation  */
+    float rc;
     bool  record;  /* record the simulation in a binary file */
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
@@ -91,6 +93,7 @@ static void default_params(sim_param_t* params) {
     params->dt = 1e-4;
     params->eps_lj = 1;
     params->sig_lj = 1e-2;
+    params->rc     = 3.5f * params->sig_lj;
     params->G = 1;
     params->T0 = 1;
     params->simsize = 1.0;
@@ -146,11 +149,13 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_int_arg('C', particle_init_conf);
 
             get_flt_arg('d', simsize);
+
             get_flt_arg('D', frozen_factor);
 
             get_flt_arg('e', eps_lj);
 
             get_int_arg('f', npframe);
+
             get_int_arg('F', nframes);
 
             get_flt_arg('g', G);
@@ -178,6 +183,7 @@ int get_params(int argc, char** argv, sim_param_t* params) {
                 print_usage();
                 return -1;
         }
+        params->rc     = 3.5f * params->sig_lj;
     }
     return 0;
 }

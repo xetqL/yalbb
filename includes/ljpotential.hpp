@@ -423,7 +423,8 @@ namespace lennard_jones {
     template<int N>
     inline std::tuple<int, int, int> compute_one_step(
             MESH_DATA<N> *mesh_data,
-            std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > &plklist,
+            Integer *lscl,
+            Integer *head,
             Zoltan_Struct *load_balancer,
             const partitioning::CommunicationDatatype &datatype,
             sim_param_t *params,
@@ -431,7 +432,7 @@ namespace lennard_jones {
             const int step = -1 /* by default we don't care about the step*/ ) {
 
         int received, sent;
-        Real cut_off_radius = 3.5 * params->sig_lj; // cut_off
+        Real cut_off_radius = params->rc; // cut_off
         auto cell_per_row = (Integer) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
         Real cell_size = cut_off_radius; //cell size
         const Real dt = params->dt;
@@ -451,9 +452,8 @@ namespace lennard_jones {
             lc[2] = cell_per_row;
         }
 
-        std::vector<Integer> lscl(nb_elements), head(n_cells);
-        algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, lc, cut_off_radius, lscl.data(), head.data());
-        algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, lc, cut_off_radius, lscl.data(), head.data(), params);
+        algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, lc, cut_off_radius, lscl, head);
+        algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, lc, cut_off_radius, lscl, head, params);
 
         leapfrog2(dt, mesh_data->els);
         leapfrog1(dt, mesh_data->els, cut_off_radius);

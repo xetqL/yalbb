@@ -63,6 +63,7 @@ int main(int argc, char** argv) {
             std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>> condition;
             const int MAX_TRIAL = 100000;
             int NB_CLUSTERS;
+
             std::vector<int> clusters;
             using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<DIMENSION>>, int>;
             std::queue<ElementGeneratorCfg> elements_generators;
@@ -70,7 +71,7 @@ int main(int argc, char** argv) {
                 case 1: //uniformly distributed
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
                             std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
                 case 2: //Half full half empty
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
                             std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(
@@ -88,7 +89,7 @@ int main(int argc, char** argv) {
                 case 3: //Wall of particle
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
                             std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(
@@ -97,7 +98,7 @@ int main(int argc, char** argv) {
                 case 4: //cluster(s)
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, 6.25 * params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     NB_CLUSTERS = 1;
                     clusters.resize(NB_CLUSTERS);
@@ -109,7 +110,7 @@ int main(int argc, char** argv) {
                 case 5: //custom various density
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     NB_CLUSTERS = 2;
                     clusters.resize(NB_CLUSTERS);
@@ -124,7 +125,7 @@ int main(int argc, char** argv) {
                 case 6: //custom various density
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
-                            params.simsize, params.simsize, params.simsize
+                            params.simsize, params.simsize, params.simsize, &params
                     );
                     NB_CLUSTERS = 1;
                     clusters.resize(NB_CLUSTERS);
