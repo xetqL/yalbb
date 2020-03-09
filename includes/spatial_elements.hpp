@@ -9,17 +9,14 @@
 #include <iostream>
 #include <algorithm>
 #include <mpi.h>
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
 #include <type_traits>
-#include "partitioner.hpp"
+
 #include "utils.hpp"
+#include "communication_datatype.hpp"
 
 namespace elements {
 
     using ElementRealType = Real;
-    using Point3D = boost::geometry::model::point<ElementRealType, 3, boost::geometry::cs::cartesian>;
-    using Box3D = boost::geometry::model::box<Point3D>;
 
     template<int N>
     struct Element {
@@ -161,6 +158,31 @@ namespace elements {
             return os;
         }
 
+        std::string to_string(Real lsub) {
+            std::string pos = std::to_string(this->position.at(0));
+            for(int i = 1; i < N; i++){
+                pos += " " + std::to_string(this->position.at(i));
+            }
+
+            std::string idx = std::to_string(std::floor(this->position.at(0) / lsub));
+            for(int i = 1; i < N; i++){
+                idx += " " + std::to_string(std::floor(this->position.at(i) / lsub));
+            }
+
+            std::string vel = std::to_string(this->velocity.at(0));
+            for(int i = 1; i < N; i++){
+                vel += " " + std::to_string(this->velocity.at(i));
+            }
+
+            std::string acc = std::to_string(this->acceleration.at(0));
+            for(int i = 1; i < N; i++){
+                acc += " " + std::to_string(this->acceleration.at(i));
+            }
+
+
+
+            return "(" + pos + ") " + "(" + idx + ") " + "(" + vel + ") " + "(" + acc + ") " + std::to_string(this->gid) + ";";
+        }
 
     };
 
@@ -245,24 +267,15 @@ namespace elements {
 
     template<int N>
     const inline ElementRealType distance2(const std::array<ElementRealType, N>& e1, const std::array<ElementRealType, N>& e2)  {
-        Point3D point1(e1.at(0),  e1.at(1), N > 2 ? e1.at(2) : 0.0);
-        Point3D point2(e2.at(0),  e2.at(1), N > 2 ? e2.at(2) : 0.0);
-        return std::pow(boost::geometry::distance(point1, point2), 2);
+
+        std::array<Real, N> e1e2;
+        for(int i = 0; i < N; ++i) e1e2[i] = e1[0] - e2[0];
+        return std::accumulate(e1e2.cbegin(), e1e2.cend(), 0.0, [](Real prev, Real v){ return prev + v*v; });
     }
 
     template<int N>
     const inline ElementRealType distance2(const elements::Element<N> &e1, const elements::Element<N> &e2)  {
         return elements::distance2<N>(e1.position, e2.position);
-    }
-
-    template<int N>
-    const inline ElementRealType distance2(const std::array<std::pair<ElementRealType, ElementRealType>, N> &domain, const Element<N> &e1) {
-
-        Point3D minA(domain.at(0).first,  domain.at(1).first, N > 2 ? domain.at(2).first : 0.0);
-        Point3D maxA(domain.at(0).second, domain.at(1).second, N > 2 ? domain.at(2).second : 0.0);
-        Box3D bdomain(minA, maxA);
-        Point3D point(e1.position.at(0),  e1.position.at(1),N > 2 ? e1.position.at(2) : 0.0);
-        return std::pow(boost::geometry::distance(point, bdomain), 2);
     }
 
     template<int N, typename T>
@@ -277,10 +290,10 @@ namespace elements {
 
     template<int N, typename T>
     std::vector<Element<N>> transform(const int length, const T* positions, const T* velocities, const T* acceleration) {
-        std::vector<Element<N>> elements(length);
-        for(int i=0; i < length; ++i){
-            Element<N> e({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, {acceleration[2*i], acceleration[2*i+1]}, i, i);
-            elements[i] = e;
+        std::vector<Element<N>> elements;
+        elements.reserve(length);
+        for(int i=0; i < length; ++i) {
+            elements.emplace_back({positions[2*i], positions[2*i+1]}, {velocities[2*i],velocities[2*i+1]}, {acceleration[2*i], acceleration[2*i+1]}, i, i);
         }
         return elements;
     }
@@ -345,7 +358,7 @@ namespace elements {
     }
 
     template<int N, bool UseDoublePrecision = std::is_same<ElementRealType, double>::value>
-    partitioning::CommunicationDatatype register_datatype() {
+    CommunicationDatatype register_datatype() {
         MPI_Datatype element_datatype,
                 vec_datatype,
                 range_datatype,
@@ -386,7 +399,7 @@ namespace elements {
         MPI_Type_contiguous(N, range_datatype, &domain_datatype);
         MPI_Type_commit(&domain_datatype);
 
-        return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype, domain_datatype);
+        return {vec_datatype, element_datatype, range_datatype, domain_datatype};
     }
 }
 

@@ -2,14 +2,11 @@
 #include <mpi.h>
 #include <random>
 
-#include <zoltan.h>
-
 #include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
-#include "../includes/nbody_io.hpp"
-#include "../includes/params.hpp"
 
 int main(int argc, char** argv) {
+
     constexpr int DIMENSION = 3;
     sim_param_t params;
     FILE* fp = NULL;
@@ -17,7 +14,9 @@ int main(int argc, char** argv) {
     float ver;
     MESH_DATA<DIMENSION> mesh_data;
 
-    MPI_Init(&argc, &argv);
+    // Initialize the MPI environment
+    MPI_Init(NULL, NULL);
+
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
@@ -37,13 +36,16 @@ int main(int argc, char** argv) {
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
+    CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
+
     if(rc != ZOLTAN_OK){
         MPI_Finalize();
         exit(0);
     }
+
+    params.simsize = std::round(params.simsize / params.rc) * params.rc;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
@@ -51,9 +53,9 @@ int main(int argc, char** argv) {
 
     if (rank == 0) {
         const std::string IMPORT_FILENAME
-                        = std::to_string(params.npart) + "-" +
-                          std::to_string(params.particle_init_conf) + "-" +
-                          std::to_string(params.simsize) + ".particles";
+                = std::to_string(params.npart) + "-" +
+                  std::to_string(params.particle_init_conf) + "-" +
+                  std::to_string(params.simsize) + ".particles";
         if(file_exists(IMPORT_FILENAME)) {
             std::cout << "importing from file ..." << std::endl;
             elements::import_from_file<DIMENSION, elements::ElementRealType >(IMPORT_FILENAME, mesh_data.els);
@@ -133,7 +135,6 @@ int main(int argc, char** argv) {
                     elements_generators.push(std::make_pair(
                             std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
                                     clusters, params.seed, MAX_TRIAL), params.npart));
-
                     break;
                 default:
                     MPI_Finalize();
@@ -148,6 +149,7 @@ int main(int argc, char** argv) {
             std::cout << "Done !" << std::endl;
         }
     }
+
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
@@ -209,5 +211,7 @@ int main(int argc, char** argv) {
     if (fp) fclose(fp);
 
     MPI_Finalize();
+
     return 0;
+
 }

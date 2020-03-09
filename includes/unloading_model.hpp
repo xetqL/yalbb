@@ -85,7 +85,7 @@ namespace load_balancing {
         Zoltan_Struct* divide_data_into_top_bottom(std::vector<elements::Element<N>>  *data_bottom, //becomes bottom
                                          std::vector<elements::Element<N>>  *data_top,
                                          const std::vector<int>& increasing_cpus,
-                                         const partitioning::CommunicationDatatype datatype,
+                                         const CommunicationDatatype datatype,
                                          MPI_Comm bottom, MPI_Comm top) {
             const int TAG = 900;
             MESH_DATA<N> top_mesh_data;
@@ -136,7 +136,7 @@ namespace load_balancing {
         Zoltan_Struct* divide_data_into_top_bottom2(std::vector<elements::Element<N>>  *data_bottom, //becomes bottom
                                                    std::vector<elements::Element<N>>  *data_top,
                                                    const std::vector<int>& increasing_cpus,
-                                                   const partitioning::CommunicationDatatype datatype,
+                                                   const CommunicationDatatype datatype,
                                                    MPI_Comm bottom) {
             const int TAG = 900;
             MESH_DATA<N> top_mesh_data;
@@ -168,7 +168,7 @@ namespace load_balancing {
                   Zoltan_Struct* zoltan_bottom, Zoltan_Struct* zoltan_top,
                   MPI_Comm bottom,
                   const std::vector<int>& increasing_cpus,
-                  const partitioning::CommunicationDatatype datatype,
+                  const CommunicationDatatype datatype,
                   const double cell_size = 0.000625) {
             int my_bottom_rank; MPI_Comm_rank(bottom, &my_bottom_rank);
             int wsize; MPI_Comm_size(bottom, &wsize);
@@ -350,7 +350,7 @@ namespace load_balancing {
                      Zoltan_Struct* zoltan_bottom, Zoltan_Struct* zoltan_top, // both in the same comm
                      MPI_Comm bottom,
                      const std::vector<int>& increasing_cpus,
-                     const partitioning::CommunicationDatatype datatype) {
+                     const CommunicationDatatype datatype) {
 
             int wsize; MPI_Comm_size(bottom, &wsize);
             int my_bottom_rank; MPI_Comm_rank(bottom, &my_bottom_rank);

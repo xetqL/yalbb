@@ -87,7 +87,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
     double it_start, true_iteration_time, my_iteration_time;
     MESH_DATA<N> mesh_data = *p_mesh_data, tmp_data;
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    CommunicationDatatype datatype = elements::register_datatype<N>();
     std::unordered_map<long long, std::unique_ptr<std::vector<elements::Element<N> > > > plklist;
     std::multiset<std::shared_ptr<LBNode<N> >, Compare<MESH_DATA<N>> > queue;
 
@@ -246,7 +246,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
 
     using Domain = std::vector<partitioning::geometric::Domain<N>>;
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    CommunicationDatatype datatype = elements::register_datatype<N>();
     Domain domain_boundaries(nproc);
     {
         int dim;

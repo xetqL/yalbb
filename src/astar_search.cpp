@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
+    CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
     if (rc != ZOLTAN_OK) {

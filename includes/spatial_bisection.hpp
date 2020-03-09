@@ -250,7 +250,7 @@ public:
     /**
      * Register a MPI data type for a 2D or 3D particle structure.
      */
-    virtual partitioning::CommunicationDatatype register_datatype() const {
+    virtual CommunicationDatatype register_datatype() const {
 
         MPI_Datatype element_datatype,
                      vec_datatype,
@@ -289,7 +289,7 @@ public:
         MPI_Type_contiguous(N, range_datatype, &domain_datatype);
         MPI_Type_commit(&domain_datatype);
 
-        return partitioning::CommunicationDatatype(vec_datatype, element_datatype, range_datatype, domain_datatype);
+        return CommunicationDatatype(vec_datatype, element_datatype, range_datatype, domain_datatype);
     }
 };
 }

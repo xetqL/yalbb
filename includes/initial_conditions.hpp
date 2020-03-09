@@ -4,8 +4,12 @@
 
 #ifndef NBMPI_INITIAL_CONDITIONS_HPP
 #define NBMPI_INITIAL_CONDITIONS_HPP
+
+#include "ljpotential.hpp"
 #include "spatial_elements.hpp"
 #include "utils.hpp"
+
+#include <memory>
 
 namespace initial_condition {
 

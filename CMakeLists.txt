@@ -1,7 +1,8 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 project(nbmpi)
-include_directories("/usr/local/include")
-link_directories("/usr/local/lib")
+
+#include_directories("/usr/local/include")
+#link_directories("/usr/local/lib")
 
 if (ASTAR_IMPL STREQUAL STD)
     MESSAGE("Compile with A* standard implementation")
@@ -17,16 +18,17 @@ else ()
     ADD_DEFINITIONS(-DASTAR_STD_IMPL)
 endif ()
 
-set(DATASET_SCIENTIFIC_PRECISION 8)
-MESSAGE("Setting scientific precision to " ${DATASET_SCIENTIFIC_PRECISION})
-ADD_DEFINITIONS(-DDATASET_SCIENTIFC_PRECISION=${DATASET_SCIENTIFIC_PRECISION})
-
 find_package(MPI REQUIRED)
-find_package(GSL REQUIRED)
 
 set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
+set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -DDEBUG -pg -std=c++17 ")
+if(${CMAKE_BUILD_TYPE} STREQUAL Sanitize)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
+    message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
+endif()
+
+
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -35,12 +37,10 @@ set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
-set(BOOST_INCLUDE_DIRECTORY "" CACHE String "Boost include directory (local)")
+set(BOOST_INCLUDE_DIRECTORY "" CACHE STRING "Boost include directory (local)")
 include_directories(${BOOST_INCLUDE_DIRECTORY} /usr/local/include)
-set(BOOST_LIBRARY_DIRECTORY "" CACHE String "Boost library directory (local)")
-link_directories(${BOOST_LIBRARY_DIRECTORY} /usr/local/lib/libmlpack.so.3.0)
-
-set(CMAKE_PREFIX_PATH  "~/libraries/")
+set(BOOST_LIBRARY_DIRECTORY "" CACHE STRING "Boost library directory (local)")
+#link_directories(${BOOST_LIBRARY_DIRECTORY})
 
 find_library(ARMADILLO
         NAMES armadillo libarmadillo
@@ -124,45 +124,34 @@ set_target_properties(build_tests_lj
 ## Main build
 
 add_executable(build
-        Makefile
         ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp
         ${INCLUDE_DIRECTORY}/utils.hpp
-        ${INCLUDE_DIRECTORY}/spatial_bisection.hpp
         includes/geometric_load_balancer.hpp
-        includes/partitioner.hpp
         includes/spatial_elements.hpp
         includes/ljpotential.hpp
         includes/physics.hpp
         includes/nbody_io.hpp
         includes/params.hpp
-        includes/runners/box_runner.hpp
         includes/report.hpp
-        includes/graph.hpp
         includes/zoltan_fn.hpp
-        includes/metrics.hpp
-        includes/runners/simulator.hpp
-        includes/runners/dataset_generator.hpp
-        includes/unloading_model.hpp
-        includes/decision_makers/ml_strategy.hpp)
+        includes/runners/simulator.hpp includes/communication_datatype.hpp)
 
 set_target_properties(build 
         PROPERTIES
         OUTPUT_NAME "nbmpi")
 
-set(ZOLTAN_LIBRARY_PATH zoltan CACHE String "zoltan library path (zoltan.a)")
-set(ARMADILLO_LIBRARY_PATH armadillo CACHE String "armadillo library path (libarmadillo.so)")
-set(MLPACK_LIBRARY_PATH mlpack CACHE String "armadillo library path (libmlpack.so)")
+set(ZOLTAN_LIBRARY_PATH zoltan CACHE STRING "zoltan library path (zoltan.a)")
+set(ARMADILLO_LIBRARY_PATH armadillo CACHE STRING "armadillo library path (libarmadillo.so)")
+set(MLPACK_LIBRARY_PATH mlpack CACHE STRING "armadillo library path (libmlpack.so)")
 
-target_link_libraries(build
-        PRIVATE
+target_link_libraries(build PRIVATE
         ${MPI_C_LIBRARIES}
-        ${ZOLTAN_LIBRARY_PATH}
-        ${GSL_LIBRARIES})
+        ${ZOLTAN_LIBRARY_PATH})
 
-set(MLPACK_INCLUDE_DIRECTORY "" CACHE String "MLpack include directory")
-set(LIBRL_INCLUDE_DIRECTORY  "" CACHE String "librl include directory")
-set(ARMADILLO_INCLUDE_DIRECTORY "" CACHE String "armadillo include directory")
-set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE String "zoltan include directory")
+set(MLPACK_INCLUDE_DIRECTORY "" CACHE STRING "MLpack include directory")
+set(LIBRL_INCLUDE_DIRECTORY  "" CACHE STRING "librl include directory")
+set(ARMADILLO_INCLUDE_DIRECTORY "" CACHE STRING "armadillo include directory")
+set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
 
 find_library(ARMADILLO
         NAMES armadillo libarmadillo
@@ -200,6 +189,7 @@ add_executable(dataset
         includes/zoltan_fn.hpp
         includes/metrics.hpp
         src/dataset_builder.cpp includes/runners/simulator.hpp includes/runners/dataset_generator.hpp)
+
 target_include_directories(dataset
         PRIVATE
         ${MPI_C_INCLUDE_PATH}

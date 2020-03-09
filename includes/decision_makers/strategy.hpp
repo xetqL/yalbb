@@ -8,11 +8,12 @@
 
 #include <random>
 #include <queue>
-#include "../metrics.hpp"
+#include "../utils.hpp"
+
 namespace decision_making {
     class Policy {
     public:
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) = 0;
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) = 0;
 
         virtual void print(std::string prefix) {
             std::cout << prefix << " ";
@@ -20,16 +21,16 @@ namespace decision_making {
     };
 
     class RandomPolicy : public Policy {
-        const float lb_probability;
+        const Real lb_probability;
         std::mt19937 gen = std::mt19937(0);
-        std::uniform_real_distribution<float> dist = std::uniform_real_distribution<float>(0.0, 1.0);
+        std::uniform_real_distribution<Real> dist = std::uniform_real_distribution<Real>(0.0, 1.0);
     public:
-        RandomPolicy(float lb_probability, int seed = 0 /* seed MUST be the same on all MPI ranks */) :
+        RandomPolicy(Real lb_probability, int seed = 0 /* seed MUST be the same on all MPI ranks */) :
             lb_probability(lb_probability) {
             gen.seed(seed);
         }
 
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
             return dist(gen) < lb_probability;
         }
 
@@ -42,16 +43,13 @@ namespace decision_making {
 
     class ThresholdHeuristicPolicy : public Policy{
         const float threshold;
-        inline bool is_greater_than_threshold(std::unique_ptr<metric::LBMetrics<double>> mc) {
-            if (mc)
-                return mc->get_gini_times() > threshold;
-            else return false;
+        bool is_greater_than_threshold(Real metric) {
+            return metric > threshold;
         }
-
     public:
         ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
-            return is_greater_than_threshold(std::move(mc));
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
+            return is_greater_than_threshold(metrics[n_metrics-1]);
         }
         void print(std::string prefix) override {
             Policy::print(prefix);
@@ -94,7 +92,7 @@ namespace decision_making {
             dataset.close();
         }
 
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
             if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
@@ -112,7 +110,7 @@ namespace decision_making {
         const int period;
     public:
         PeriodicPolicy(int period) : period(period) {}
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
             return (it % period) == 0;
         }
         void print(std::string prefix) override {
@@ -124,12 +122,10 @@ namespace decision_making {
     class NoLBPolicy : public Policy{
     public:
         NoLBPolicy() {}
-        virtual inline bool should_load_balance(int it, std::unique_ptr<metric::LBMetrics<double>> mc) override {
+        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
             return false;
         }
     };
-
-
 } // end of namespace decision_making
 
 #endif //NBMPI_STRATEGY_HPP

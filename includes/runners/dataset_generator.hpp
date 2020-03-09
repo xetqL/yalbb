@@ -70,7 +70,7 @@ void generate_dataset(MESH_DATA<N> *mesh_data,
     double xmin, ymin, zmin, xmax, ymax, zmax;
     // END OF ZOLTAN VARIABLES
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
@@ -242,7 +242,7 @@ void compute_dataset_base_gain(FILE *fp,          // Output file (at 0)
     }
     std::vector<float> dataset_entry(N_FEATURES + N_LABEL);
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
@@ -389,7 +389,7 @@ void zoltan_run_box_dataset(FILE *fp,          // Output file (at 0)
     double xmin, ymin, zmin, xmax, ymax, zmax;
     // END OF ZOLTAN VARIABLES
 
-    partitioning::CommunicationDatatype datatype = elements::register_datatype<N>();
+    CommunicationDatatype datatype = elements::register_datatype<N>();
     std::vector<partitioning::geometric::Domain<N>> domain_boundaries(nproc);
 
     // get boundaries of all domains
