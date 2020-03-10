@@ -8,7 +8,6 @@
 
 #include <random>
 #include <queue>
-#include <optional>
 #include "../utils.hpp"
 
 namespace decision_making {
@@ -57,13 +56,13 @@ namespace decision_making {
         }
 
         template<class DataHolder>
-        bool should_load_balance(int it, std::optional<DataHolder> holder){
+        bool should_load_balance(int it, DataHolder* holder){
             return p->apply(it, holder);
         };
 
-        bool should_load_balance(int it){
-            std::optional<char> holder = std::nullopt;
-            return p->apply(it, holder);
+        template<class DataHolder = std::nullptr_t>
+        bool should_load_balance(int it) {
+            return should_load_balance<DataHolder>(it, nullptr);
         };
     };
 
@@ -77,7 +76,7 @@ namespace decision_making {
             gen.seed(seed);
         }
         template<class DataHolder>
-        bool apply(int it, std::optional<DataHolder> holder) {
+        bool apply(int it, DataHolder *holder) {
             return dist(gen) < lb_probability;
         }
 
@@ -88,9 +87,9 @@ namespace decision_making {
     public:
         ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
         template<class DataHolder>
-        bool apply(int it, std::optional<DataHolder> holder) {
+        bool apply(int it, DataHolder *holder) {
             using ok = std::enable_if<std::is_same<DataHolder, LBMetrics>::value >;
-            if(holder.has_value())
+            if(holder)
                 return holder->get_gini_times() > threshold;
             else
                 return false;
@@ -98,7 +97,6 @@ namespace decision_making {
     };
 
     class InFilePolicy{
-
     public:
         std::queue<bool> decisions;
         int period;
@@ -134,7 +132,7 @@ namespace decision_making {
         }
 
         template<class DataHolder>
-        bool apply(int it, std::optional<DataHolder> holder) {
+        bool apply(int it, DataHolder *holder) {
             if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
@@ -148,7 +146,7 @@ namespace decision_making {
     public:
         PeriodicPolicy(int period) : period(period) {}
         template<class DataHolder>
-        bool apply(int it, std::optional<DataHolder> holder) {
+        bool apply(int it, DataHolder *holder) {
             return (it % period) == 0;
         }
 
@@ -158,7 +156,7 @@ namespace decision_making {
     public:
         NoLBPolicy() {}
         template<class DataHolder>
-        bool apply(int it, std::optional<DataHolder> holder) {
+        bool apply(int it, DataHolder *holder) {
             return false;
         }
     };
