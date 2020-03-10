@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
                     );
                     elements_generators.push(std::make_pair(
                             std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(
-                                    params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                                    params.simsize * 0.99, false, params.seed, MAX_TRIAL), params.npart));
                     break;
                 case 4: //cluster(s)
                     condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(

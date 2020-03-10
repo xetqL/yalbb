@@ -99,15 +99,16 @@ double simulate(FILE *fp,          // Output file (at 0)
             lennard_jones::compute_one_step<N>(mesh_data, lscl.data(), head.data(), load_balancer, datatype, params, comm, frame);
         }
         frame_time = MPI_Wtime() - frame_time;
+        if(!rank) std::cout << std::fixed << std::setprecision(7) << "Frame: " << frame << " "<< frame_time << std::endl;
         my_frame_times[frame] = frame_time;
 
         // Write metrics to report file
-        if (params->record)
+        if (params->record) {
             gather_elements_on<N, elements::Element<N>>(nproc, rank, params->npart,
-                                               mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
-        if (rank == 0) {
-	        if (params->record) {
-                frame_file.open("data/time-series/"+std::to_string(params->seed)+"/run_cpp.csv."+std::to_string(frame+1), std::ofstream::out | std::ofstream::trunc);
+                                                        mesh_data->els, 0, recv_buf, datatype.elements_datatype, comm);
+            if (rank == 0) {
+                frame_file.open("data/time-series/" + std::to_string(params->seed) + "/run_cpp.csv." +
+                                std::to_string(frame + 1), std::ofstream::out | std::ofstream::trunc);
                 frame_formater.write_header(frame_file, params->npframe, params->simsize);
                 write_frame_data(frame_file, recv_buf, frame_formater, params);
                 frame_file.close();

@@ -418,7 +418,7 @@ namespace lennard_jones {
     }
 
     template<int N>
-    inline std::tuple<int, int, int> compute_one_step(
+    std::tuple<int, int, int> compute_one_step(
             MESH_DATA<N> *mesh_data,
             Integer *lscl,
             Integer *head,

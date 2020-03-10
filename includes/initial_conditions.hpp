@@ -250,6 +250,8 @@ public:
         const Integer EMPTY = -1;
         std::vector<Integer> head(lcxyz, -1), lscl(n, -1);
         Integer generated = 0;
+        std::array<Real, N> singularity;
+        std::generate(singularity.begin(), singularity.end(), [&my_gen, &udist=udistx](){return udist(my_gen);});
         while(generated < n) {
             while(trial < max_trial) {
 
@@ -257,16 +259,16 @@ public:
                     element_position = { udistx(my_gen), udisty(my_gen), udistz(my_gen) };
                     auto strength    = utemp_dist(my_gen);
                     velocity         = {
-                            ((condition->xmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[0]) * strength,
-                            ((condition->ymin + (Real)condition->params->simsize/(Real) 2.0) - element_position[1]) * strength,
-                            ((condition->zmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[2]) * strength
+                            ((condition->xmin + singularity[0]) - element_position[0]) * strength,
+                            ((condition->ymin + singularity[1]) - element_position[1]) * strength,
+                            ((condition->zmin + singularity[2]) - element_position[2]) * strength
                     };
                 } else {
                     auto strength    = utemp_dist(my_gen);
                     element_position = { udistx(my_gen), udisty(my_gen)};
                     velocity         = {
-                            ((condition->xmin + (Real)condition->params->simsize/(Real) 2.0) - element_position[0]) * strength,
-                            ((condition->ymin + (Real)condition->params->simsize/(Real) 2.0) - element_position[1]) * strength,
+                            ((condition->xmin + singularity[0]) - element_position[0]) * strength,
+                            ((condition->ymin + singularity[1]) - element_position[1]) * strength,
                     };
                 }
 
@@ -410,19 +412,77 @@ public:
         } else {
             element_velocity = {direction ? temp_dist(my_gen) : -temp_dist(my_gen), 0.0};
         }
-        while(elements.size() < n) {
+
+        std::array<Real, N>  element_position, velocity;
+
+        Integer lcxyz, lc[N];
+        Real cut_off = condition->params->rc;
+        lc[0] = (condition->xmax - condition->xmin) / cut_off;
+        lc[1] = (condition->ymax - condition->ymin) / cut_off;
+        lcxyz = lc[0] * lc[1];
+        if constexpr (N==3){
+            lc[2] = (condition->zmax - condition->zmin) / cut_off;
+            lcxyz *= lc[2];
+        }
+        const Integer EMPTY = -1;
+        std::vector<Integer> head(lcxyz, -1), lscl(n, -1);
+        Integer generated = 0;
+        while(generated < n) {
             while(trial < max_trial) {
-                std::array<elements::ElementRealType, N>  element_position;
                 if(N>2) {
                     element_position = {pw_pos, udisty(my_gen), udistz(my_gen)};
                 } else {
                     element_position = {pw_pos, udisty(my_gen)};
                 }
                 auto element = elements::Element<N>(element_position, element_velocity, elements.size(), elements.size());
-                if(condition->predicate(element)) {
+
+                bool accepted = true;
+
+                std::array<Real, 3> delta_dim;
+                Integer c, c1, ic[N], ic1[N], j;
+                elements::Element<N> receiver;
+                c = position_to_cell<N>(element.position, cut_off, lc[0], lc[1]);
+                for (auto d = 0; d < N; ++d)
+                    ic[d] = c / lc[d];
+                for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
+                    for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
+                        if constexpr (N==3) {
+                            for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
+                                if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) ||
+                                    (ic1[2] < 0 || ic1[2] >= lc[2]))
+                                    continue;
+                                c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+                                j = head[c1];
+                                while (j != EMPTY) {
+                                    if (generated < j) {
+                                        receiver = elements[j];
+                                        accepted =
+                                                accepted && elements::distance2(receiver, element) >= condition->min_r2;
+                                    }
+                                    j = lscl[j];
+                                }
+                            }
+                        } else {
+                            if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]))
+                                continue;
+                            c1 = (ic1[0]) + (lc[0] * ic1[1]);
+                            j = head[c1];
+                            while (j != EMPTY) {
+                                if (generated < j) {
+                                    receiver = elements[j];
+                                    accepted = accepted && elements::distance2(receiver, element) >= condition->min_r2;
+                                }
+                                j = lscl[j];
+                            }
+                        }
+                    }
+                }
+
+                if(accepted) {
                     trial = 0;
-                    //std::generate(element.velocity.begin(), element.velocity.end(), [&temp_dist, &my_gen]{return temp_dist(my_gen);});
                     elements.push_back(element);
+                    algorithm::CLL_append(generated, c, element, lscl.data(), head.data());
+                    generated++;
                     break;
                 } else {
                     trial++;
