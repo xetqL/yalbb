@@ -27,10 +27,8 @@ namespace algorithm {
         if constexpr (N == 3) {
             lcxyz *= lc[2];
         }
-
         Integer c;
         for (size_t i = 0; i < lcxyz; ++i) head[i] = EMPTY;
-
         for (size_t i = 0; i < n_elements; ++i) {
             c = position_to_cell<N>(elements[i].position, rc, lc[0], lc[1]);
             lscl[i] = head[c];
@@ -59,6 +57,7 @@ namespace algorithm {
             for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
                 for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
                     for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
+                        /* this is for bounce back, to avoid heap-buffer over/under flow*/
                         if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
                         c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
                         j = head[c1];
@@ -80,8 +79,6 @@ namespace algorithm {
                     }
                 }
             }
-
-
         }
     }
 

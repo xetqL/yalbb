@@ -8,19 +8,66 @@
 
 #include <random>
 #include <queue>
+#include <optional>
 #include "../utils.hpp"
 
 namespace decision_making {
-    class Policy {
-    public:
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) = 0;
+    struct LBMetrics{
 
-        virtual void print(std::string prefix) {
-            std::cout << prefix << " ";
+        const std::vector<Real> metrics;
+
+        LBMetrics(const std::vector<Real> metrics) : metrics(metrics) {};
+
+        Real get_gini_times(){
+            return metrics.at(0);
+        }
+        Real get_gini_complexities(){
+            return metrics.at(1);
+        }
+        Real get_gini_communications(){
+            return metrics.at(2);
+        }
+        Real get_last_time_per_iteration(){
+            return metrics.at(3);
+        }
+        Real get_variance_avg_time_per_iteration(){
+            return metrics.at(4);
+        }
+        Real get_macd_gini_times(){
+            return metrics.at(5);
+        }
+        Real get_macd_gini_complexities(){
+            return metrics.at(6);
+        }
+        Real get_macd_times(){
+            return metrics.at(7);
+        }
+        Real get_macd_gini_communications(){
+            return metrics.at(8);
         }
     };
 
-    class RandomPolicy : public Policy {
+    template<class Policy>
+    class PolicyRunner {
+        std::unique_ptr<Policy> p;
+    public:
+        template<class... Args>
+        PolicyRunner(Args... args){
+           p = std::make_unique<Policy>(args...);
+        }
+
+        template<class DataHolder>
+        bool should_load_balance(int it, std::optional<DataHolder> holder){
+            return p->apply(it, holder);
+        };
+
+        bool should_load_balance(int it){
+            std::optional<char> holder = std::nullopt;
+            return p->apply(it, holder);
+        };
+    };
+
+    class RandomPolicy {
         const Real lb_probability;
         std::mt19937 gen = std::mt19937(0);
         std::uniform_real_distribution<Real> dist = std::uniform_real_distribution<Real>(0.0, 1.0);
@@ -29,35 +76,28 @@ namespace decision_making {
             lb_probability(lb_probability) {
             gen.seed(seed);
         }
-
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
+        template<class DataHolder>
+        bool apply(int it, std::optional<DataHolder> holder) {
             return dist(gen) < lb_probability;
         }
 
-        void print(std::string prefix) override {
-            Policy::print(prefix);
-            std::cout << "Random Policy:" << std::endl;
-        }
-
     };
 
-    class ThresholdHeuristicPolicy : public Policy{
+    class ThresholdHeuristicPolicy{
         const float threshold;
-        bool is_greater_than_threshold(Real metric) {
-            return metric > threshold;
-        }
     public:
         ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
-            return is_greater_than_threshold(metrics[n_metrics-1]);
-        }
-        void print(std::string prefix) override {
-            Policy::print(prefix);
-            std::cout << "Threshold Policy:" << std::endl;
+        template<class DataHolder>
+        bool apply(int it, std::optional<DataHolder> holder) {
+            using ok = std::enable_if<std::is_same<DataHolder, LBMetrics>::value >;
+            if(holder.has_value())
+                return holder->get_gini_times() > threshold;
+            else
+                return false;
         }
     };
 
-    class InFilePolicy : public Policy {
+    class InFilePolicy{
 
     public:
         std::queue<bool> decisions;
@@ -68,7 +108,8 @@ namespace decision_making {
             decisions = std::queue<bool>();
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
-            if(!dataset.good()) throw std::runtime_error("bad repr. file");
+            if(!dataset.good())
+                throw std::runtime_error("bad repr. file");
             std::string line;
             std::string buf;
             int decision_cnt = 0;
@@ -92,37 +133,32 @@ namespace decision_making {
             dataset.close();
         }
 
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
+        template<class DataHolder>
+        bool apply(int it, std::optional<DataHolder> holder) {
             if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
                 return decision;
             } else return false;
         }
-
-        void print(std::string prefix) override {
-            Policy::print(prefix);
-            std::cout << "InFile Policy:" << std::endl;
-        }
     };
 
-    class PeriodicPolicy : public Policy{
+    class PeriodicPolicy{
         const int period;
     public:
         PeriodicPolicy(int period) : period(period) {}
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
+        template<class DataHolder>
+        bool apply(int it, std::optional<DataHolder> holder) {
             return (it % period) == 0;
         }
-        void print(std::string prefix) override {
-            Policy::print(prefix);
-            std::cout << "Periodic Policy ("<< std::to_string(period) << "):" << std::endl;
-        }
+
     };
 
-    class NoLBPolicy : public Policy{
+    class NoLBPolicy{
     public:
         NoLBPolicy() {}
-        virtual inline bool should_load_balance(int it, Real* metrics, int n_metrics) override {
+        template<class DataHolder>
+        bool apply(int it, std::optional<DataHolder> holder) {
             return false;
         }
     };

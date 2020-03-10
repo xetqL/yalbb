@@ -26,11 +26,11 @@
 #include "../spatial_elements.hpp"
 #include "../zoltan_fn.hpp"
 
-template<int N>
+template<int N, class T>
 double simulate(FILE *fp,          // Output file (at 0)
             MESH_DATA<N> *mesh_data,
             Zoltan_Struct *load_balancer,
-            std::shared_ptr<decision_making::Policy> lb_policy,
+            decision_making::PolicyRunner<T> lb_policy,
             sim_param_t *params,
             const MPI_Comm comm = MPI_COMM_WORLD,
             bool automatic_migration = false) {
@@ -78,43 +78,28 @@ double simulate(FILE *fp,          // Output file (at 0)
     }
 
     std::vector<Integer> lscl(mesh_data->els.size()), head(n_cells);
-    int prev_size = mesh_data->els.size();
+    std::vector<double>  my_frame_times(nframes);
+    auto prev_size = mesh_data->els.size();
 
     for (int frame = 0; frame < nframes; ++frame) {
-        double frame_time = 0.0;
-        double wtime = MPI_Wtime();
+        auto frame_time = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
-            //bool should_load_balance_now = lb_policy->should_load_balance(i + frame * npframe, nullptr);
-            if (false) {
+            bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
+            if (lb_decision) {
                 zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
                 nb_lb ++;
             } else {
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
-
             // resize linked_list
             if(mesh_data->els.size() > prev_size) {
-                lscl.resize(mesh_data->els.size());
+                lscl.resize(std::pow(2, std::ceil(std::log2(mesh_data->els.size()))));
                 prev_size = mesh_data->els.size();
             }
-
             lennard_jones::compute_one_step<N>(mesh_data, lscl.data(), head.data(), load_balancer, datatype, params, comm, frame);
         }
-
-        wtime = MPI_Wtime() - wtime;
-        double maxv;
-        MPI_Allreduce(&wtime,&maxv, 1, MPI_DOUBLE, MPI_MAX, comm);
-        max.push_back(maxv);
-        MPI_Allgather(&wtime, 1, MPI_DOUBLE, &times.front(), 1, MPI_DOUBLE, comm);
-        avg.push_back(std::accumulate(times.begin(), times.end(), 0.0) / nproc);
-        double true_iteration_time = *std::max_element(times.begin(), times.end());
-        frame_time += true_iteration_time;
-
-        if(!rank) {
-            printf("Frame [%d] completed in %f seconds\n", frame, true_iteration_time);
-        }
-
-        total_time += frame_time;
+        frame_time = MPI_Wtime() - frame_time;
+        my_frame_times[frame] = frame_time;
 
         // Write metrics to report file
         if (params->record)
@@ -131,8 +116,24 @@ double simulate(FILE *fp,          // Output file (at 0)
     }
 
     MPI_Barrier(comm);
-    if (!rank) std::cout << "nb lb = " << nb_lb << std::endl;
-    if (rank == 0 && frame_file.is_open()) frame_file.close();
+    std::vector<double> max_times(nframes), avg_times(nframes);
+    double sum;
+    std::ofstream ftimes;
+    if(!rank) ftimes.open("times.txt");
+    for (int frame = 0; frame < nframes; ++frame){
+        MPI_Reduce(&my_frame_times[frame], &max_times[frame], 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_times[frame], &sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        if(!rank){
+            avg_times[frame] = sum / nproc;
+            ftimes << std::fixed << std::setprecision(7) << max_times[frame] << "\t" << avg_times[frame] << "\t" << (max_times[frame]/avg_times[frame]-1.0) << std::endl;
+        }
+
+    }
+
+
+
+    if (rank == 0 && frame_file.is_open())
+        frame_file.close();
 
     return total_time;
 }
