@@ -79,6 +79,7 @@ double simulate(FILE *fp,          // Output file (at 0)
 
     std::vector<Integer> lscl(mesh_data->els.size()), head(n_cells);
     int prev_size = mesh_data->els.size();
+
     for (int frame = 0; frame < nframes; ++frame) {
         double frame_time = 0.0;
         double wtime = MPI_Wtime();
@@ -88,9 +89,7 @@ double simulate(FILE *fp,          // Output file (at 0)
                 zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
                 nb_lb ++;
             } else {
-
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
-
             }
 
             // resize linked_list
