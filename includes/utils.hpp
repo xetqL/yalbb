@@ -63,10 +63,23 @@ bool file_exists(const std::string fileName) {
 }
 
 template<int N>
+using BoundingBox = std::array<Real, 2*N>;
+
+template<int N>
+Integer position_to_local_cell_index(std::array<Real, N> const &position, Real rc, const BoundingBox<N>& bbox, const Integer c, const Integer r){
+    Integer lidx = (Integer) std::floor((position.at(0) - bbox[0]) / rc),
+            lidy = (Integer) std::floor((position.at(1) - bbox[2]) / rc),
+            lidz = 0;
+    if constexpr(N==3)
+        lidz = (Integer) std::floor((position.at(2) - bbox[4]) / rc);
+    return lidx + c*lidy + c*r*lidz;
+}
+
+template<int N>
 inline Integer
 position_to_cell(std::array<Real, N> const &position, const Real lsub, const Integer c, const Integer r = 0) {
     Integer idx = (Integer) std::floor(position.at(0) / lsub);
-    idx += c * (Integer) std::floor(position.at(1) / lsub);
+    idx += c *    (Integer) std::floor(position.at(1) / lsub);
     if constexpr(N==3)
         idx += c * r * (Integer) std::floor(position.at(2) / lsub);
     return idx;

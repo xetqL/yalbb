@@ -61,25 +61,13 @@ double simulate(FILE *fp,          // Output file (at 0)
         frame_file.close();
     }
 
-    int nb_lb = 0;
-    //std::vector<elements::Element<N>> remote_el;
     std::vector<double> times(nproc);
     MESH_DATA<N> tmp_data;
     double total_time = 0.0;
     std::vector<double> max, avg;
-    Real cut_off_radius = params->rc; // cut_off
-    auto cell_per_row = (Integer) std::ceil(params->simsize / cut_off_radius); // number of cell in a row
-    auto n_cells = cell_per_row * cell_per_row * cell_per_row;
-    Integer lc[N];
-    lc[0] = cell_per_row;
-    lc[1] = cell_per_row;
-    if constexpr (N==3) {
-        lc[2] = cell_per_row;
-    }
 
-    std::vector<Integer> lscl(mesh_data->els.size()), head(n_cells);
+    std::vector<Integer> lscl(mesh_data->els.size()), head;
     std::vector<double>  my_frame_times(nframes);
-    auto prev_size = mesh_data->els.size();
 
     for (int frame = 0; frame < nframes; ++frame) {
         auto frame_time = MPI_Wtime();
@@ -87,19 +75,17 @@ double simulate(FILE *fp,          // Output file (at 0)
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
             if (lb_decision) {
                 zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
-                nb_lb ++;
             } else {
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
-            // resize linked_list
-            if(mesh_data->els.size() > prev_size) {
-                lscl.resize(std::pow(2, std::ceil(std::log2(mesh_data->els.size()))));
-                prev_size = mesh_data->els.size();
-            }
-            lennard_jones::compute_one_step<N>(mesh_data, lscl.data(), head.data(), load_balancer, datatype, params, comm, frame);
+
+            lennard_jones::compute_one_step<N>(mesh_data, &lscl, &head, load_balancer, datatype, params, comm, frame);
         }
+
         frame_time = MPI_Wtime() - frame_time;
+
         if(!rank) std::cout << std::fixed << std::setprecision(7) << "Frame: " << frame << " "<< frame_time << std::endl;
+
         my_frame_times[frame] = frame_time;
 
         // Write metrics to report file

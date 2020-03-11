@@ -288,7 +288,6 @@ void zoltan_migrate_particles(
 
     int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
 
-
     int cpt = 0;
     std::vector<MPI_Request> reqs(nb_reqs);
     for (size_t PE = 0; PE < wsize; PE++) {
