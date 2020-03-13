@@ -14,9 +14,6 @@
 
 #include "params.hpp"
 
-//TODO: REWRITE THE DATA FRAME WRITER MODULE IN A EASIEST AND C++er WAY. Then, in Python create a viewer.
-
-
 /*@T
  * \section{Binary output}
  *
@@ -95,31 +92,8 @@ void write_header(FILE* fp, const int n, double simsize)
     fwrite(&nn,     sizeof(nn),     1, fp);
     fwrite(&nscale, sizeof(nscale), 1, fp);
 }
-/*@T
- *
- * After the header is a sequence of frames, each of which contains
- * $n_{\mathrm{particles}}$ pairs of 32-bit int floating point numbers.
- * There are no markers, end tags, etc; just the raw data.
- * The [[write_frame_data]] routine writes $n$ pairs of floats;
- * note that writing a single frame of output may involve multiple
- * calls to [[write_frame_data]]
- * Frame data just consists
- * integer) and a scale parameter (a 32-bit floating point number).
- * The scale parameter tells the viewer how big the view box is supposed
- * to be in the coordinate system of the simulation; right now, it is
- * always set to be 1 (i.e. the view box is $[0,1] \times [0,1]$)
- *@c
-void write_frame_data(FILE* fp, const int n, float* x)
-{
-    for (int i = 0; i < n; ++i) {
-        uint32_t xi = htonf(x++);
-        uint32_t yi = htonf(x++);
 
-        fwrite(&xi, sizeof(xi), 1, fp);
-        fwrite(&yi, sizeof(yi), 1, fp);
-    }
-}
-*/
+
 /**
  * Please accept this silly solution as it is and do not ask any question.
  * I gave up..
@@ -153,7 +127,7 @@ void write_frame_data_bin(std::ofstream &stream, std::vector<elements::Element<N
     for(elements::Element<N> &el : els ) {
         stream.write(reinterpret_cast<const char *>(&el.position[0]), sizeof(double));
         stream.write(reinterpret_cast<const char *>(&el.position[1]), sizeof(double));
-        if (N == 3) stream.write(reinterpret_cast<const char *>(&el.position[0]), sizeof(double));
+        if constexpr (N == 3) stream.write(reinterpret_cast<const char *>(&el.position[0]), sizeof(double));
     }
 }
 
@@ -181,28 +155,30 @@ struct SimpleCSVFormatter {
     SimpleCSVFormatter(char separator) : separator(separator){}
 
     template<int N>
-    inline void write_data(std::ofstream &stream, elements::Element<N>& el){
+    inline void write_data(std::ostream &stream, elements::Element<N>& el){
         stream << el.position[0] << separator << el.position[1];
-        if(N > 2) stream << separator <<  el.position[2];
+        if constexpr (N == 3) stream << separator <<  el.position[2];
         stream << std::endl;
     }
-    inline void write_header(std::ofstream &stream, const int n, float simsize){
+
+    inline void write_header(std::ostream &stream, const int n, float simsize){
         configure_stream(stream);
     }
+
     template<int N>
-    inline void write_frame_header(std::ofstream &stream, std::vector<elements::Element<N>>& els, const sim_param_t* params){
+    inline void write_frame_header(std::ostream &stream, std::vector<elements::Element<N>>& els, const sim_param_t* params){
         stream << "x coord" << separator << "y coord";
-        if(N > 2) stream << separator << "z coord";
+        if constexpr (N == 3) stream << separator << "z coord";
         stream << std::endl;
     }
 private:
-    inline void configure_stream(std::ofstream &stream, int precision = 6){
+    inline void configure_stream(std::ostream &stream, int precision = 6){
         stream << std::fixed << std::setprecision(6);
     }
 };
 
 template<int N, class FrameFormatter>
-void write_frame_data(std::ofstream &stream, std::vector<elements::Element<N>>& els, FrameFormatter& formatter, const sim_param_t* params) {
+void write_frame_data(std::ostream &stream, std::vector<elements::Element<N>>& els, FrameFormatter& formatter, const sim_param_t* params) {
     formatter.write_frame_header(stream, els, params);
     for(elements::Element<N> &el : els ) {
         formatter.write_data(stream, el);

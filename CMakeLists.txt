@@ -20,12 +20,14 @@ endif ()
 
 find_package(MPI REQUIRED)
 
+
+
 set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(${CMAKE_BUILD_TYPE} STREQUAL Sanitize)
+if("${CMAKE_BUILD_TYPE}" STREQUAL Sanitize)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
 endif()
@@ -66,6 +68,7 @@ find_library(MLPACK
 find_path(MLPACK_INCLUDES
         NAMES mlpack/core.hpp
         HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/mlpack/include)
+
 
 
 ########################################################################################################################
@@ -135,6 +138,14 @@ add_executable(build
         includes/report.hpp
         includes/zoltan_fn.hpp
         includes/runners/simulator.hpp includes/communication_datatype.hpp)
+
+# speedlog build toolchain and link
+execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
+execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
+execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
+target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a)
+target_include_directories(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/include)
+# end of processing speedlog
 
 set_target_properties(build 
         PROPERTIES

@@ -5,6 +5,7 @@
 #include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
 
+
 int main(int argc, char** argv) {
 
     constexpr int DIMENSION = 3;
@@ -17,7 +18,6 @@ int main(int argc, char** argv) {
     // Initialize the MPI environment
     MPI_Init(NULL, NULL);
 
-
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
@@ -25,6 +25,8 @@ int main(int argc, char** argv) {
         MPI_Finalize();
         return -1;
     }
+
+    MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     params.world_size = nproc;
 
@@ -40,7 +42,7 @@ int main(int argc, char** argv) {
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
 
-    if(rc != ZOLTAN_OK){
+    if(rc != ZOLTAN_OK) {
         MPI_Finalize();
         exit(0);
     }

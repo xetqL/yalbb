@@ -5,6 +5,7 @@ dataset*
 data/
 # Application
 *.out
+logs
 
 # IDEA
 .idea
@@ -50,3 +51,4 @@ CMakeCache.txt
 CMakeFiles
 *.cmake
 *.cbp
+.dep.inc
