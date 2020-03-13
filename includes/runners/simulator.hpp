@@ -87,6 +87,7 @@ double simulate(FILE *fp,          // Output file (at 0)
         frame_time = MPI_Wtime() - frame_time;
 
         time_logger->info("{:0.12f}", frame_time);
+        if(frame % 5 == 0) time_logger->flush();
         my_frame_times[frame] = frame_time;
 
         // Write metrics to report file
