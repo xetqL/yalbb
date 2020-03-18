@@ -200,6 +200,7 @@ int main(int argc, char** argv) {
 
     using namespace decision_making;
     PolicyRunner<NoLBPolicy> lb_policy;
+
     auto time_spent = simulate<DIMENSION>(nullptr, &mesh_data, zz,  std::move(lb_policy), &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
 
     MPI_Barrier(MPI_COMM_WORLD);

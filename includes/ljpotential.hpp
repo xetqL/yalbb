@@ -118,7 +118,7 @@ namespace algorithm {
         }
     }
 
-    void CLL_compute_forces3d(elements::Element<3> *elements, Integer n_elements,
+    Integer CLL_compute_forces3d(elements::Element<3> *elements, Integer n_elements,
                               const elements::Element<3> *remote_elements, Integer remote_n_elements,
                               const BoundingBox<3>& bbox, Real rc,
                               const Integer *lscl, const Integer *head,
@@ -130,6 +130,7 @@ namespace algorithm {
         Real sig2 = params->sig_lj*params->sig_lj;
         Integer c, c1, ic[3], ic1[3], j;
         elements::Element<3> source, receiver;
+        Integer cmplx = 1;
         for (size_t i = 0; i < n_elements; ++i) {
             c = position_to_local_cell_index<3>(elements[i].position, rc, bbox, lc[0], lc[1]);
             receiver = elements[i];
@@ -154,6 +155,7 @@ namespace algorithm {
                                 for (int dim = 0; dim < 3; ++dim) {
                                     receiver.acceleration[dim] += (C_LJ * delta_dim[dim]);
                                 }
+                                cmplx++;
                             }
                             j = lscl[j];
                         }
@@ -161,6 +163,7 @@ namespace algorithm {
                 }
             }
         }
+        return cmplx;
     }
 
     void CLL_compute_forces2d(elements::Element<2> *elements, Integer n_elements, Integer lc[2], Real rc,
@@ -176,15 +179,16 @@ namespace algorithm {
     }
 
     template<int N>
-    void CLL_compute_forces(elements::Element<N> *elements, Integer n_elements,
+    Integer CLL_compute_forces(elements::Element<N> *elements, Integer n_elements,
                             const elements::Element<N> *remote_elements, Integer remote_n_elements,
                             const BoundingBox<N>& bbox, Real rc,
                             const Integer *lscl, const Integer *head,
                             const sim_param_t* params) {
         if constexpr(N==3) {
-            CLL_compute_forces3d(elements, n_elements, remote_elements, remote_n_elements, bbox, rc, lscl, head, params);
+            return CLL_compute_forces3d(elements, n_elements, remote_elements, remote_n_elements, bbox, rc, lscl, head, params);
         }else {
             CLL_compute_forces2d(elements,n_elements, bbox, rc, lscl, head, params);
+            return 0;
         }
     }
 
@@ -205,7 +209,7 @@ namespace algorithm {
 namespace lennard_jones {
 
     template<int N>
-    void compute_one_step (
+    Integer compute_one_step (
             MESH_DATA<N> *mesh_data,
             std::vector<Integer> *lscl,             //the particle linked list
             std::vector<Integer> *head,             //the cell starting point
@@ -239,11 +243,14 @@ namespace lennard_jones {
         }
 
         algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data());
-        algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
+
+        auto cmplx = algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
 
         leapfrog2(dt, mesh_data->els);
         leapfrog1(dt, mesh_data->els, cut_off_radius);
         apply_reflect(mesh_data->els, params->simsize);
+
+        return mesh_data->els.size();
     };
 
 
