@@ -3,6 +3,7 @@
 *.ovito
 dataset*
 data/
+
 # Application
 *.out
 logs
@@ -46,6 +47,7 @@ bin/
 *.data
 
 # CMake
+Makefile
 cmake-build-debug
 CMakeCache.txt
 CMakeFiles
