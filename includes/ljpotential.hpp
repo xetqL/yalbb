@@ -130,7 +130,7 @@ namespace algorithm {
         Real sig2 = params->sig_lj*params->sig_lj;
         Integer c, c1, ic[3], ic1[3], j;
         elements::Element<3> source, receiver;
-        Integer cmplx = 1;
+        Integer cmplx = n_elements;
         for (size_t i = 0; i < n_elements; ++i) {
             c = position_to_local_cell_index<3>(elements[i].position, rc, bbox, lc[0], lc[1]);
             receiver = elements[i];
