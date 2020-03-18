@@ -47,6 +47,19 @@ inline void gather_elements_on(const int world_size,
  std::cout << name << " took " << diff << " milliseconds" << std::endl;\
 };\
 
+#define START_TIMER(var)\
+double var = MPI_Wtime();\
+
+#define END_TIMER(var)\
+var = MPI_Wtime() - var;
+
+#define PAR_START_TIMER(var, comm)\
+MPI_Barrier(comm);\
+double var = MPI_Wtime();\
+
+#define PAR_END_TIMER(var, comm)\
+MPI_Barrier(comm);\
+var = MPI_Wtime() - var;
 
 inline std::string get_date_as_string() {
     auto t = std::time(nullptr);

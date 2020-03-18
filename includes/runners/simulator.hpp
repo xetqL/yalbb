@@ -29,14 +29,15 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
+
 template<int N, class T>
-double simulate(FILE *fp,          // Output file (at 0)
-            MESH_DATA<N> *mesh_data,
-            Zoltan_Struct *load_balancer,
-            decision_making::PolicyRunner<T> lb_policy,
-            sim_param_t *params,
-            const MPI_Comm comm = MPI_COMM_WORLD,
-            bool automatic_migration = false) {
+void simulate(FILE *fp,          // Output file (at 0)
+                MESH_DATA<N> *mesh_data,
+                Zoltan_Struct *load_balancer,
+                decision_making::PolicyRunner<T> lb_policy,
+                sim_param_t *params,
+                const MPI_Comm comm = MPI_COMM_WORLD,
+                bool automatic_migration = false) {
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -50,6 +51,7 @@ double simulate(FILE *fp,          // Output file (at 0)
     auto cmplx_logger = spdlog::basic_logger_mt("frame_cmplx_logger", "logs/"+std::to_string(params->seed)+"/complexity/frame-p"+std::to_string(rank)+".txt");
 
     time_logger->set_pattern("%v");
+    cmplx_logger->set_pattern("%v");
 
     CommunicationDatatype datatype = elements::register_datatype<N>();
 
@@ -67,17 +69,17 @@ double simulate(FILE *fp,          // Output file (at 0)
         particle_logger->info(str.str());
     }
 
-    std::vector<double> times(nproc);
+    std::vector<Time> times(nproc);
     MESH_DATA<N> tmp_data;
-    double total_time = 0.0;
 
     std::vector<Integer> lscl(mesh_data->els.size()), head;
 
-    std::vector<double>  my_frame_times(nframes);
-    std::vector<Integer> my_frame_cmplx(nframes);
-    Integer cmplx = 0;
+    std::vector<Time>  my_frame_times(nframes);
+    std::vector<Complexity> my_frame_cmplx(nframes);
+    Complexity cmplx = 0;
+    Time comm_time = 0.0, comp_time = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
-        auto frame_time = MPI_Wtime();
+        Time frame_time = MPI_Wtime();
         for (int i = 0; i < npframe; ++i) {
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
             if (lb_decision) {
@@ -85,12 +87,13 @@ double simulate(FILE *fp,          // Output file (at 0)
             } else {
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
-            cmplx = lennard_jones::compute_one_step<N>(mesh_data, &lscl, &head, load_balancer, datatype, params, comm, frame);
+            std::tie(cmplx, comp_time, comm_time) = lennard_jones::compute_one_step<N>(mesh_data, &lscl, &head, load_balancer, datatype, params, comm, frame);
         }
+
         frame_time = MPI_Wtime() - frame_time;
 
-        time_logger->info("{}", frame_time);
-        cmplx_logger->info("{}", cmplx);
+        time_logger->info("{:0.6f}", frame_time);
+        cmplx_logger->info("{} {:0.6f} {:0.6f}", cmplx, comp_time, comm_time);
 
         if(frame % 5 == 0) {
             time_logger->flush();
@@ -124,8 +127,8 @@ double simulate(FILE *fp,          // Output file (at 0)
     std::vector<decltype(my_frame_cmplx)::value_type> min_cmplx(nframes);
     decltype(my_frame_cmplx)::value_type sum_cmplx;
 
-    std::vector<double>  avg_times(nframes);
-    std::vector<double>  avg_cmplx(nframes);
+    std::vector<Time>  avg_times(nframes);
+    std::vector<Time>  avg_cmplx(nframes);
 
     std::shared_ptr<spdlog::logger> lb_time_logger;
     std::shared_ptr<spdlog::logger> lb_cmplx_logger;
@@ -152,8 +155,6 @@ double simulate(FILE *fp,          // Output file (at 0)
             lb_cmplx_logger->info("{}\t{}\t{}\t{}", max_cmplx[frame], min_cmplx[frame], avg_cmplx[frame], (max_cmplx[frame]/avg_cmplx[frame]-1.0));
         }
     }
-
-    return total_time;
 }
 
 #endif //NBMPI_SIMULATE_HPP

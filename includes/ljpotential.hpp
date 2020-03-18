@@ -139,11 +139,11 @@ namespace algorithm {
             for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
                 for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
                     for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
-                        /* this is for bounce back, to avoid heap-buffer over/under flow*/
+                        /* this is for bounce back, to avoid heap-buffer over/under flow */
                         if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
                         c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
                         j = head[c1];
-                        while(j != EMPTY){
+                        while(j != EMPTY) {
                             if(i < j) {
                                 delta = 0.0;
                                 source = j < n_elements ? elements[j] : remote_elements[j - n_elements];
@@ -206,10 +206,13 @@ namespace algorithm {
     }
 }
 
+using Complexity        = Integer;
+using Time = double;
+
 namespace lennard_jones {
 
     template<int N>
-    Integer compute_one_step (
+    std::tuple<::Complexity, ::Time, ::Time> compute_one_step (
             MESH_DATA<N> *mesh_data,
             std::vector<Integer> *lscl,             //the particle linked list
             std::vector<Integer> *head,             //the cell starting point
@@ -230,7 +233,9 @@ namespace lennard_jones {
         const size_t nb_elements = mesh_data->els.size();
         for (size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
 
+        START_TIMER(comm_time);
         auto remote_el = zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cut_off_radius);
+        END_TIMER(comm_time);
 
         bbox = elements::get_bounding_box<N>(mesh_data->els, remote_el, params->rc);
         const auto n_cells = elements::get_total_cell_number<N>(bbox, params->rc);
@@ -244,13 +249,15 @@ namespace lennard_jones {
 
         algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data());
 
-        auto cmplx = algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
+        START_TIMER(comp_time);
+        Complexity cmplx = algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
+        END_TIMER(comp_time);
 
         leapfrog2(dt, mesh_data->els);
         leapfrog1(dt, mesh_data->els, cut_off_radius);
         apply_reflect(mesh_data->els, params->simsize);
 
-        return cmplx;
+        return {cmplx, comp_time, comm_time};
     };
 
 
