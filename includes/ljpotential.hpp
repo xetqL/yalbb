@@ -250,7 +250,7 @@ namespace lennard_jones {
         leapfrog1(dt, mesh_data->els, cut_off_radius);
         apply_reflect(mesh_data->els, params->simsize);
 
-        return mesh_data->els.size();
+        return cmplx;
     };
 
 
