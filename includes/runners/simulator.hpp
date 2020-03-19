@@ -76,24 +76,29 @@ void simulate(FILE *fp,          // Output file (at 0)
 
     std::vector<Time>  my_frame_times(nframes);
     std::vector<Complexity> my_frame_cmplx(nframes);
-    Complexity cmplx = 0;
-    Time comm_time = 0.0, comp_time = 0.0;
+
     for (int frame = 0; frame < nframes; ++frame) {
-        Time frame_time = MPI_Wtime();
+        Time it_comm_time = 0.0, it_comp_time = 0.0, comm_time = 0.0,    comp_time = 0.0;
+        Complexity it_cmplx = 0, cmplx = 0;
+        START_TIMER(frame_time);
         for (int i = 0; i < npframe; ++i) {
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
+            START_TIMER(migration_time);
             if (lb_decision) {
                 zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
             } else {
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
-            std::tie(cmplx, comp_time, comm_time) = lennard_jones::compute_one_step<N>(mesh_data, &lscl, &head, load_balancer, datatype, params, comm, frame);
+            END_TIMER(migration_time);
+            std::tie(it_cmplx, it_comp_time, it_comm_time) = lj::compute_one_step<N>(mesh_data, &lscl, &head, load_balancer, datatype, params, comm, frame);
+            cmplx     += it_cmplx;
+            comm_time += it_comm_time + migration_time;
+            comp_time += it_comp_time;
         }
+        END_TIMER(frame_time);
 
-        frame_time = MPI_Wtime() - frame_time;
-
-        time_logger->info("{:0.6f}", frame_time);
-        cmplx_logger->info("{} {:0.6f} {:0.6f}", cmplx, comp_time, comm_time);
+        time_logger->info("{:0.6f} {:0.6f} {:0.6f}", frame_time, comp_time, comm_time);
+        cmplx_logger->info("{}", cmplx);
 
         if(frame % 5 == 0) {
             time_logger->flush();

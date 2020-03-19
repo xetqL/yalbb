@@ -320,6 +320,8 @@ const std::vector<elements::Element<N>> zoltan_exchange_data(std::vector<element
                                                              int &nb_elements_recv,
                                                              int &nb_elements_sent,
                                                              double cell_size = 0.000625) {
+    const auto nb_elements = data.size();
+
     int wsize, caller_rank;
     MPI_Comm_size(LB_COMM, &wsize);
     MPI_Comm_rank(LB_COMM, &caller_rank);
@@ -327,57 +329,70 @@ const std::vector<elements::Element<N>> zoltan_exchange_data(std::vector<element
     std::vector<elements::Element<N>> buffer;
     std::vector<elements::Element<N>> remote_data_gathered;
 
-    if(wsize == 1) return remote_data_gathered;
+    if (wsize == 1) return remote_data_gathered;
 
-    std::vector< std::vector<elements::Element<N>> > data_to_migrate(wsize);
-    std::for_each(data_to_migrate.begin(), data_to_migrate.end(), [size=data.size(), wsize](auto& buf){buf.reserve(size / wsize);});
+    std::vector<std::vector<elements::Element<N> > > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+
     int num_found, num_known = 0;
-    size_t data_id = 0;
-    std::vector<int> PEs(wsize, -1),
-                     export_gids, export_lids, export_procs;
+    ZOLTAN_ID_PTR found_gids, found_lids;
+    int *found_procs, *found_parts;
+    {
 
-    // so much memory could be allocated here... potentially PE * n * DIM * 44 bytes => so linear in N
-    // as DIM << PE <<<< n
-    while (data_id < data.size()) {
-        auto pos_in_double = get_as_double_array<N>(data.at(data_id).position);
-        Zoltan_LB_Box_Assign(load_balancer,
-                             pos_in_double.at(0) - cell_size,
-                             pos_in_double.at(1) - cell_size,
-                             N == 3 ? pos_in_double.at(2) - cell_size : 0.0,
-                             pos_in_double.at(0) + cell_size,
-                             pos_in_double.at(1) + cell_size,
-                             N == 3 ? pos_in_double.at(2) + cell_size : 0.0,
-                             &PEs.front(), &num_found);
-
-        for(int PE_idx = 0; PE_idx < num_found; PE_idx++) {
-            int PE = PEs[PE_idx];
-            if(PE >= 0) {
+        std::vector<int> PEs(wsize, -1),
+                export_gids, export_lids, export_procs;
+        export_gids.reserve(nb_elements / wsize);
+        export_lids.reserve(nb_elements / wsize);
+        export_procs.reserve(nb_elements / wsize);
+        // so much memory could be allocated here... potentially PE * n * DIM * 44 bytes => so linear in N
+        // as DIM << PE <<<< n
+        size_t data_id = 0;
+        while (data_id < nb_elements) {
+            auto pos_in_double = get_as_double_array<N>(data.at(data_id).position);
+            if constexpr (N == 3) {
+                Zoltan_LB_Box_Assign(load_balancer,
+                                     pos_in_double.at(0) - cell_size, pos_in_double.at(1) - cell_size,
+                                     pos_in_double.at(2) - cell_size,
+                                     pos_in_double.at(0) + cell_size, pos_in_double.at(1) + cell_size,
+                                     pos_in_double.at(2) + cell_size,
+                                     &PEs.front(), &num_found);
+            } else {
+                Zoltan_LB_Box_Assign(load_balancer,
+                                     pos_in_double.at(0) - cell_size, pos_in_double.at(1) - cell_size, 0.0,
+                                     pos_in_double.at(0) + cell_size, pos_in_double.at(1) + cell_size, 0.0,
+                                     &PEs.front(), &num_found);
+            }
+            for (int PE_idx = 0; PE_idx < num_found; ++PE_idx) {
+                int PE = PEs[PE_idx];
                 if (PE != caller_rank) {
                     export_gids.push_back(data.at(data_id).gid);
                     export_lids.push_back(data.at(data_id).lid);
                     export_procs.push_back(PE);
-                    //get the value and copy it into the "to migrate" vector
                     data_to_migrate.at(PE).push_back(data.at(data_id));
                     num_known++;
                 }
             }
+            data_id++; //if the element must stay with me then check the next one
         }
-        data_id++; //if the element must stay with me then check the next one
+
+        export_gids.shrink_to_fit();
+        export_lids.shrink_to_fit();
+        export_procs.shrink_to_fit();
+
+        ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) export_gids.data();
+        ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) export_lids.data();
+
+        // Compute who has to send me something via Zoltan.
+        Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, export_procs.data(), export_procs.data(),
+                            &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
     }
 
-    ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) &export_gids.front();
-    ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) &export_lids.front();
-    ZOLTAN_ID_PTR found_gids, found_lids;
-
-    int *found_procs, *found_parts;
-
-    // Compute who has to send me something via Zoltan.
-    int ierr = Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, &export_procs[0], &export_procs[0],
-                                   &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
-
-    std::vector<int> num_import_from_procs(wsize);
+    std::vector<int> num_import_from_procs(wsize, 0);
     std::vector<int> import_from_procs;
 
+    if(num_found)
+        import_from_procs.reserve(num_found);
     // Compute how many elements I have to import from others, and from whom.
     for (size_t i = 0; i < num_found; ++i) {
         num_import_from_procs[found_procs[i]]++;
@@ -402,16 +417,17 @@ const std::vector<elements::Element<N>> zoltan_exchange_data(std::vector<element
             cpt++;
         }
     }
+
     // Import the data from neighbors
     nb_elements_recv = 0;
+    remote_data_gathered.reserve(num_found);
     for (int proc_id : import_from_procs) {
-        size_t size = num_import_from_procs[proc_id];
+        auto size = num_import_from_procs[proc_id];
         nb_elements_recv += size;
         buffer.resize(size);
-        MPI_Recv(&buffer.front(), size, datatype.elements_datatype, proc_id, 400, LB_COMM, MPI_STATUS_IGNORE);
+        MPI_Recv(buffer.data(), size, datatype.elements_datatype, proc_id, 400, LB_COMM, MPI_STATUS_IGNORE);
         std::move(buffer.begin(), buffer.end(), std::back_inserter(remote_data_gathered));
     }
-
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
     return remote_data_gathered;
 }

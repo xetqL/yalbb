@@ -60,25 +60,26 @@ typedef struct sim_param_t {
 static void print_usage() {
     fprintf(stderr,
             "Lennard-Jones n-body simulation\n"
-            "\t-h: print this message\n"
-            "\t-o: output file name (run.out)\n"
-            "\t-n: number of particles (500)\n"
-            "\t-F: number of frames (400)\n"
-            "\t-f: steps per frame (100)\n"
-            "\t-t: time step (1e-4)\n"
-            "\t-e: epsilon parameter in LJ potential (1)\n"
-            "\t-s: distance parameter in LJ potential (1e-2)\n"
-            "\t-S: RNG seed\n"
-            "\t-g: gravitational field strength (1)\n"
-            "\t-T: initial temperature (1)\n"
-            "\t-I: Load balancing call interval (0, never) \n"
-            "\t-d: simulation dimension (0-1;0-1)\n"
-            "\t-D: Frozen Decrease factor (0.0 default, i.e., do not freeze simulation over time)\n"
-            "\t-r: record the simulation (false)\n"
             "\t-B: Number of Best path to retrieve (A*)\n"
             "\t-C: Initial particle configuration 1: Uniform (default), 2:Half, 3:Wall, 4: Cluster\n"
-            "\t-R: LB reproduction file (default: none)\n"
+            "\t-d: simulation dimension (0-1;0-1)\n"
+            "\t-D: Frozen Decrease factor (0.0 default, i.e., do not freeze simulation over time)\n"
+            "\t-e: epsilon parameter in LJ potential (1)\n"
+            "\t-f: steps per frame (100)\n"
+            "\t-F: number of frames (400)\n"
+            "\t-g: gravitational field strength (1)\n"
+            "\t-h: print this message\n"
+            "\t-I: Load balancing call interval (0, never) \n"
+            "\t-l: lattice size (3.5*sig_lj) \n"
+            "\t-n: number of particles (500)\n"
+            "\t-o: output file name (run.out)\n"
             "\t-P: LB Policy 1: Random, 2: Threshold, 3: Fixed (-I interval), 4: Reproduce from file\n"
+            "\t-r: record the simulation (false)\n"
+            "\t-R: LB reproduction file (default: none)\n"
+            "\t-s: distance parameter in LJ potential (1e-2)\n"
+            "\t-S: RNG seed\n"
+            "\t-t: time step (1e-4)\n"
+            "\t-T: initial temperature (1)\n"
     );
 }
 
@@ -122,7 +123,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:D:";
+    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:D:l:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -143,6 +144,8 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             case 'R':
                 strcpy(params->lb_dataset = new char[(strlen(optarg) + 1)], optarg);
                 break;
+
+            get_flt_arg('l', rc);
 
             get_int_arg('B', nb_best_path);
 
@@ -183,7 +186,6 @@ int get_params(int argc, char** argv, sim_param_t* params) {
                 print_usage();
                 return -1;
         }
-        params->rc     = 3.5f * params->sig_lj;
     }
     return 0;
 }

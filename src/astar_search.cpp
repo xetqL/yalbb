@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     }
 
     if(rank == 0) {
-        auto condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(&(mesh_data.els),
+        auto condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(&(mesh_data.els),
                                                                                   params.sig_lj,
                                                                                   params.sig_lj*params.sig_lj,
                                                                                   params.T0,
@@ -62,29 +62,29 @@ int main(int argc, char **argv) {
         std::queue<ElementGeneratorCfg> elements_generators;
         switch(params.particle_init_conf) {
             case 1: //uniformly distributed
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
                 break;
             case 2: //Half full half empty
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 3: //Wall of particle
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::ParticleWallElementsGenerator<DIMENSION>>(params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 4: //cluster(s)
                 NB_CLUSTERS = 1;
                 clusters.resize(NB_CLUSTERS);
                 std::fill(clusters.begin(), clusters.end(), params.npart);
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart));
                 break;
             case 5: //custom various density
                 NB_CLUSTERS = 2;
                 clusters.resize(NB_CLUSTERS);
                 std::fill(clusters.begin(), clusters.end(), params.npart / 4);
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart / 4));
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 10, false, params.seed, MAX_TRIAL), 3*params.npart / 4));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<DIMENSION>>(clusters, params.seed, MAX_TRIAL), params.npart / 4));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::HalfLoadedRandomElementsGenerator<DIMENSION>>(params.simsize / 10, false, params.seed, MAX_TRIAL), 3*params.npart / 4));
                 break;
             default:
-                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
+                elements_generators.push(std::make_pair(std::make_shared<initial_condition::lj::UniformRandomElementsGenerator<DIMENSION>>(params.seed, MAX_TRIAL), params.npart));
         }
         while(elements_generators.size() > 0) {
             ElementGeneratorCfg el_gen = elements_generators.front();

@@ -93,8 +93,8 @@ int main(int argc, char **argv) {
             elements::import_from_file<DIMENSION, elements::ElementRealType >(IMPORT_FILENAME, mesh_data.els);
         } else {
             std::cout << "Generating data ..." << std::endl;
-            std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+            std::shared_ptr<initial_condition::lj::RejectionCondition<DIMENSION>>
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                                     &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                                     params.simsize, params.simsize, params.simsize);
             auto elements_generators = init_generator(condition, params.particle_init_conf, &params);

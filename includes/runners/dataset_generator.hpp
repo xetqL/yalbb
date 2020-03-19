@@ -176,8 +176,8 @@ void generate_dataset(MESH_DATA<N> *mesh_data,
 
         // update local ids
         for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
-        lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-        float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+        lj::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+        float complexity = (float) lj::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
 
         leapfrog2(dt, mesh_data->els);
         leapfrog1(dt, mesh_data->els, 3.2*params->sig_lj);
@@ -279,8 +279,8 @@ void compute_dataset_base_gain(FILE *fp,          // Output file (at 0)
                                                                     received, sent, lsub);
             // update local ids
             for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
-            lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
+            lj::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+            float complexity = (float) lj::compute_forces(M, lsub, mesh_data->els, remote_el, plklist, params);
             leapfrog2(dt, mesh_data->els);
             leapfrog1(dt, mesh_data->els, 3.2 * params->sig_lj);
             apply_reflect(mesh_data->els, params->simsize);
@@ -470,8 +470,8 @@ void zoltan_run_box_dataset(FILE *fp,          // Output file (at 0)
             // update local ids
             for (size_t i = 0; i < mesh_data->els.size(); ++i) mesh_data->els[i].lid = i;
 
-            lennard_jones::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
-            float complexity = (float) lennard_jones::compute_forces(M, lsub, mesh_data->els, remote_el, plklist,
+            lj::create_cell_linkedlist(M, lsub, mesh_data->els, remote_el, plklist);
+            float complexity = (float) lj::compute_forces(M, lsub, mesh_data->els, remote_el, plklist,
                                                                      params);
 
             leapfrog2(dt, mesh_data->els);

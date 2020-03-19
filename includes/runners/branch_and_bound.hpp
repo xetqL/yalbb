@@ -163,7 +163,7 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                             it_start = MPI_Wtime();
                             load_balancing::geometric::zoltan_migrate_particles<N>(mesh_data.els, child->lb, datatype, comm);
                             MPI_Barrier(comm);
-                            computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, child->lb, datatype,
+                            computation_info = lj::compute_one_step<N>(&mesh_data, plklist, child->lb, datatype,
                                                                                   params, comm, frame);
                             my_iteration_time = MPI_Wtime() - it_start;
                             std::tie(complexity, received, sent) = computation_info;
@@ -311,7 +311,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
             for(int step = 0; step < npframe; step++){
                 it_start = MPI_Wtime();
                 load_balancing::geometric::migrate_particles<N>(p_tmp_data->els, tmp_domain_boundary, datatype, foreman_comm);
-                auto computation_info = lennard_jones::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
+                auto computation_info = lj::compute_one_step<N>(p_tmp_data, plklist, tmp_domain_boundary, datatype,
                                                                            params, foreman_comm);
                 frame_time  += (MPI_Wtime() - it_start);
             }
@@ -379,7 +379,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
 
                 try {
                     double cpt_step_start_time = MPI_Wtime();
-                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                    computation_info = lj::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                           params, comm);
                     int complexity = std::get<0>(computation_info),
                             received = std::get<1>(computation_info),
@@ -434,7 +434,7 @@ std::list<std::shared_ptr<NodeWithoutParticles<std::vector<partitioning::geometr
                 std::tuple<int, int, int> computation_info;
                 try {
                     double cpt_step_start_time = MPI_Wtime();
-                    computation_info = lennard_jones::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
+                    computation_info = lj::compute_one_step<N>(&mesh_data, plklist, domain_boundaries, datatype,
                                                                           params, comm);
                     int complexity = std::get<0>(computation_info),
                             received = std::get<1>(computation_info),

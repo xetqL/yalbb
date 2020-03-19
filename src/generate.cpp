@@ -26,13 +26,13 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>> condition;
+    std::shared_ptr<initial_condition::lj::RejectionCondition<DIMENSION>> condition;
     const int MAX_TRIAL = 100000;
     int NB_CLUSTERS;
     std::vector<int> clusters;
     using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<DIMENSION>>, int>;
     std::queue<ElementGeneratorCfg> elements_generators;
-    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
             &(mesh_data.els), params.sig_lj, 6.25 * params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
             params.simsize, params.simsize, params.simsize
     );

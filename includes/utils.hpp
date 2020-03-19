@@ -48,7 +48,10 @@ inline void gather_elements_on(const int world_size,
 };\
 
 #define START_TIMER(var)\
-double var = MPI_Wtime();\
+double var = MPI_Wtime();
+
+#define RESTART_TIMER(v) \
+v = MPI_Wtime() - v;
 
 #define END_TIMER(var)\
 var = MPI_Wtime() - var;

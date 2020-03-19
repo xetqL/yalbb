@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
             std::cout << "Done !" << std::endl;
         } else {
             std::cout << "Generating data ..." << std::endl;
-            std::shared_ptr<initial_condition::lennard_jones::RejectionCondition<DIMENSION>> condition;
+            std::shared_ptr<initial_condition::lj::RejectionCondition<DIMENSION>> condition;
             const int MAX_TRIAL = 100000;
             int NB_CLUSTERS;
 
@@ -73,34 +73,34 @@ int main(int argc, char** argv) {
             std::queue<ElementGeneratorCfg> elements_generators;
             switch (params.particle_init_conf) {
                 case 1: //uniformly distributed
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::UniformRandomElementsGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::UniformRandomElementsGenerator<DIMENSION>>(
                                     params.seed, MAX_TRIAL), params.npart));
                     break;
                 case 2: //Half full half empty
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::HalfLoadedRandomElementsGenerator<DIMENSION>>(
                                     params.simsize / 2, false, params.seed, MAX_TRIAL), params.npart));
                     break;
                 case 3: //Wall of particle
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::ParticleWallElementsGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::ParticleWallElementsGenerator<DIMENSION>>(
                                     params.simsize * 0.99, false, params.seed, MAX_TRIAL), params.npart));
                     break;
                 case 4: //cluster(s)
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, 6.25 * params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
@@ -108,11 +108,11 @@ int main(int argc, char** argv) {
                     clusters.resize(NB_CLUSTERS);
                     std::fill(clusters.begin(), clusters.end(), params.npart);
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<DIMENSION>>(
                                     clusters, params.seed, MAX_TRIAL), params.npart));
                     break;
                 case 5: //custom various density
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
@@ -120,14 +120,14 @@ int main(int argc, char** argv) {
                     clusters.resize(NB_CLUSTERS);
                     std::fill(clusters.begin(), clusters.end(), params.npart / 4);
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<DIMENSION>>(
                                     clusters, params.seed, MAX_TRIAL), params.npart / 4));
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::HalfLoadedRandomElementsGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::HalfLoadedRandomElementsGenerator<DIMENSION>>(
                                     params.simsize / 10, false, params.seed, MAX_TRIAL), 3 * params.npart / 4));
                     break;
                 case 6: //custom various density
-                    condition = std::make_shared<initial_condition::lennard_jones::RejectionCondition<DIMENSION>>(
+                    condition = std::make_shared<initial_condition::lj::RejectionCondition<DIMENSION>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
                     clusters.resize(NB_CLUSTERS);
                     std::fill(clusters.begin(), clusters.end(), params.npart);
                     elements_generators.push(std::make_pair(
-                            std::make_shared<initial_condition::lennard_jones::RandomElementsInNClustersGenerator<DIMENSION>>(
+                            std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<DIMENSION>>(
                                     clusters, params.seed, MAX_TRIAL), params.npart));
                     break;
                 default:

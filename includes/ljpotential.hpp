@@ -209,7 +209,7 @@ namespace algorithm {
 using Complexity        = Integer;
 using Time = double;
 
-namespace lennard_jones {
+namespace lj {
 
     template<int N>
     std::tuple<::Complexity, ::Time, ::Time> compute_one_step (
@@ -237,6 +237,7 @@ namespace lennard_jones {
         auto remote_el = zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cut_off_radius);
         END_TIMER(comm_time);
 
+        START_TIMER(comp_time);
         bbox = elements::get_bounding_box<N>(mesh_data->els, remote_el, params->rc);
         const auto n_cells = elements::get_total_cell_number<N>(bbox, params->rc);
 
@@ -248,15 +249,13 @@ namespace lennard_jones {
         }
 
         algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data());
-
-        START_TIMER(comp_time);
         Complexity cmplx = algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
-        END_TIMER(comp_time);
 
         leapfrog2(dt, mesh_data->els);
         leapfrog1(dt, mesh_data->els, cut_off_radius);
         apply_reflect(mesh_data->els, params->simsize);
 
+        END_TIMER(comp_time);
         return {cmplx, comp_time, comm_time};
     };
 

@@ -10,7 +10,7 @@
 #include "../includes/ljpotential.hpp"
 #include <algorithm>
 #include <unordered_map>
-using namespace lennard_jones;
+using namespace l;
 int main(int argc, char **argv) {
 
     constexpr int DIM=2;
