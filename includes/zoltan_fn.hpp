@@ -242,38 +242,48 @@ void zoltan_migrate_particles(
     std::vector< std::vector<elements::Element<N>> > data_to_migrate(wsize);
 
     size_t data_id = 0;
-    int PE;
-    int num_known = 0;
-    std::vector<int> export_gids, export_lids, export_procs;
-    while (data_id < data.size()) {
-        auto pos_in_double = get_as_double_array<N>(data.at(data_id).position);
-        Zoltan_LB_Point_Assign(load_balancer, &pos_in_double.front(), &PE);
-        if (PE != caller_rank) {
-            export_gids.push_back(data.at(data_id).gid);
-            export_lids.push_back(data.at(data_id).lid);
-            export_procs.push_back(PE);
-            //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
-            //swap iterator values in constant time
-            std::iter_swap(data.begin() + data_id, data.end() - 1);
-            //get the value and push it in the "to migrate" vector
-            data_to_migrate.at(PE).push_back(*(data.end() - 1));
-            //pop the head of the list in constant time
-            data.pop_back();
-            num_known++;
-        } else data_id++; //if the element must stay with me then check the next one
-    }
-
-    ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) &export_gids.front();
-    ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) &export_lids.front();
+    auto nb_elements = data.size();
+    int PE, num_known = 0;
     ZOLTAN_ID_PTR found_gids, found_lids;
-
     int *found_procs, *found_parts, num_found;
-
-    int ierr = Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, &export_procs[0], &export_procs[0],
-                                   &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
-
     std::vector<int> num_import_from_procs(wsize);
     std::vector<int> import_from_procs;
+    {
+        std::vector<int> export_gids, export_lids, export_procs;
+        export_gids.reserve(nb_elements / wsize);
+        export_lids.reserve(nb_elements / wsize);
+        export_procs.reserve(nb_elements / wsize);
+
+        while (data_id < nb_elements) {
+            auto pos_in_double = get_as_double_array<N>(data.at(data_id).position);
+            Zoltan_LB_Point_Assign(load_balancer, &pos_in_double.front(), &PE);
+            if (PE != caller_rank) {
+                export_gids.push_back(data.at(data_id).gid);
+                export_lids.push_back(data.at(data_id).lid);
+                export_procs.push_back(PE);
+                //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+                //swap iterator values in constant time
+                std::iter_swap(data.begin() + data_id, data.end() - 1);
+                //get the value and push it in the "to migrate" vector
+                data_to_migrate.at(PE).push_back(*(data.end() - 1));
+                //pop the head of the list in constant time
+                data.pop_back();
+                nb_elements--;
+                num_known++;
+            } else data_id++; //if the element must stay with me then check the next one
+        }
+        export_gids.shrink_to_fit();
+        export_lids.shrink_to_fit();
+        export_procs.shrink_to_fit();
+
+        ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) &export_gids.front();
+        ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) &export_lids.front();
+
+        Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, &export_procs[0], &export_procs[0],
+                                       &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
+    }
+    data.reserve(nb_elements + num_found);
+    import_from_procs.reserve(num_found);
 
     for (size_t i = 0; i < num_found; ++i) {
         num_import_from_procs[found_procs[i]]++;
@@ -289,6 +299,7 @@ void zoltan_migrate_particles(
     int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
 
     int cpt = 0;
+
     std::vector<MPI_Request> reqs(nb_reqs);
     for (size_t PE = 0; PE < wsize; PE++) {
         int send_size = data_to_migrate.at(PE).size();
@@ -298,6 +309,7 @@ void zoltan_migrate_particles(
             cpt++;
         }
     }
+
     std::vector<elements::Element<N>> buffer;
     for (int proc_id : import_from_procs) {
         size_t size = num_import_from_procs[proc_id];
@@ -310,7 +322,6 @@ void zoltan_migrate_particles(
     for(int i = 0; i < nb_data; ++i) data[i].lid = i;
 
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
-
 }
 template<int N>
 const std::vector<elements::Element<N>> zoltan_exchange_data(std::vector<elements::Element<N>> &data,
