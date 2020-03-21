@@ -187,85 +187,6 @@ namespace elements {
     };
 
     template<int N>
-    using BoundingBox = std::array<Real, 2*N>;
-
-    template<int dim, int N>
-    constexpr Real get_size(const BoundingBox<N>& bbox) {
-        return bbox[2*dim+1] - bbox[2*dim];
-    }
-
-    template<int N>
-    BoundingBox<N> get_bounding_box(const std::vector<elements::Element<N>>& elements, Real rc){
-        BoundingBox<N> new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
-                                   std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
-                                   std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
-        for(const auto& el : elements) {
-            new_bbox[0] = std::min(new_bbox[0], el.position[0]);
-            new_bbox[1] = std::max(new_bbox[1], el.position[0]);
-            new_bbox[2] = std::min(new_bbox[2], el.position[1]);
-            new_bbox[3] = std::max(new_bbox[3], el.position[1]);
-            new_bbox[4] = std::min(new_bbox[4], el.position[2]);
-            new_bbox[5] = std::max(new_bbox[5], el.position[2]);
-        }
-
-        /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-        for(int i = 0; i < N; ++i) {
-            new_bbox[2*i]   = std::max((Real) 0.0, std::floor(new_bbox[2*i] / rc) * rc - 2*rc);
-            new_bbox[2*i+1] = std::ceil(new_bbox[2*i+1] / rc) * rc + 2*rc;
-        }
-
-        return new_bbox;
-    }
-
-    template<int N>
-    BoundingBox<N> get_bounding_box(const std::vector<elements::Element<N>>& elements1,
-                                    const std::vector<elements::Element<N>>& elements2,Real rc){
-        BoundingBox<N> new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
-                                   std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
-                                   std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
-        for(const auto& el : elements1) {
-            new_bbox[0] = std::min(new_bbox[0], el.position[0]);
-            new_bbox[1] = std::max(new_bbox[1], el.position[0]);
-            new_bbox[2] = std::min(new_bbox[2], el.position[1]);
-            new_bbox[3] = std::max(new_bbox[3], el.position[1]);
-            new_bbox[4] = std::min(new_bbox[4], el.position[2]);
-            new_bbox[5] = std::max(new_bbox[5], el.position[2]);
-        }
-
-        for(const auto& el : elements2) {
-            new_bbox[0] = std::min(new_bbox[0], el.position[0]);
-            new_bbox[1] = std::max(new_bbox[1], el.position[0]);
-            new_bbox[2] = std::min(new_bbox[2], el.position[1]);
-            new_bbox[3] = std::max(new_bbox[3], el.position[1]);
-            new_bbox[4] = std::min(new_bbox[4], el.position[2]);
-            new_bbox[5] = std::max(new_bbox[5], el.position[2]);
-        }
-
-        /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-        for(int i = 0; i < N; ++i) {
-            new_bbox[2*i]   = std::max((Real) 0.0, std::floor(new_bbox[2*i] / rc) * rc - 2*rc);
-            new_bbox[2*i+1] = std::ceil(new_bbox[2*i+1] / rc) * rc + 2*rc;
-        }
-
-        return new_bbox;
-    }
-
-    template<int N>
-    std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
-        std::array<Integer, N> lc;
-        lc [0] = get_size<0, N>(bbox) / rc;
-        lc [1] = get_size<1, N>(bbox) / rc;
-        if constexpr(N==3) lc [2] = get_size<2, N>(bbox) / rc;
-        return lc;
-    }
-
-    template<int N>
-    Integer get_total_cell_number(const BoundingBox<N>& bbox, Real rc){
-        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
-        return std::accumulate(lc.begin(), lc.end(), 1, [](auto prev, auto v){return prev*v;});
-    }
-
-    template<int N>
     void import_from_file_float(std::string filename, std::vector<Element<N>>& particles) {
 
         std::ifstream pfile;
@@ -435,7 +356,7 @@ namespace elements {
     }
 
     template<int N, bool UseDoublePrecision = std::is_same<ElementRealType, double>::value>
-    CommunicationDatatype register_datatype() {
+    MPI_Datatype register_datatype() {
         MPI_Datatype element_datatype,
                 vec_datatype,
                 range_datatype,
@@ -476,7 +397,7 @@ namespace elements {
         MPI_Type_contiguous(N, range_datatype, &domain_datatype);
         MPI_Type_commit(&domain_datatype);
 
-        return {vec_datatype, element_datatype, range_datatype, domain_datatype};
+        return element_datatype;
     }
 }
 

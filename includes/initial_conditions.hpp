@@ -240,11 +240,11 @@ public:
 
         Integer lcxyz, lc[N];
         Real cut_off = condition->params->rc;
-        lc[0] = (condition->xmax - condition->xmin) / cut_off;
-        lc[1] = (condition->ymax - condition->ymin) / cut_off;
+        lc[0] = std::round((condition->xmax - condition->xmin) / cut_off);
+        lc[1] = std::round((condition->ymax - condition->ymin) / cut_off);
         lcxyz = lc[0] * lc[1];
         if constexpr (N==3){
-            lc[2] = (condition->zmax - condition->zmin) / cut_off;
+            lc[2] = std::round((condition->zmax - condition->zmin) / cut_off);
             lcxyz *= lc[2];
         }
         const Integer EMPTY = -1;
@@ -280,6 +280,7 @@ public:
                 Integer c, c1, ic[N], ic1[N], j;
                 elements::Element<N> receiver;
                 c = position_to_cell<N>(element.position, cut_off, lc[0], lc[1]);
+
                 for (auto d = 0; d < N; ++d)
                     ic[d] = c / lc[d];
                 for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
@@ -319,7 +320,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, lscl.data(), head.data());
+                    algorithm::CLL_append(generated, c, element, &lscl, &head);
                     generated++;
                     break;
                 } else {
@@ -481,7 +482,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, lscl.data(), head.data());
+                    algorithm::CLL_append(generated, c, element, &lscl, &head);
                     generated++;
                     break;
                 } else {

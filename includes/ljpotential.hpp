@@ -51,7 +51,7 @@ namespace algorithm {
                   const BoundingBox<N>& bbox, Real rc,
                   Integer *lscl,
                   Integer *head) {
-        auto lc = elements::get_cell_number_by_dimension<N>(bbox, rc);
+        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
         Integer lcxyz = std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto prev, auto v){ return prev*v; }),
                 c;
         for (size_t i = 0; i < lcxyz; ++i) head[i] = EMPTY;
@@ -70,9 +70,31 @@ namespace algorithm {
     }
 
     template<int N>
-    inline void CLL_append(Integer i, Integer cell, const elements::Element<N>& elements, Integer *lscl, Integer *head) {
-        lscl[i] = head[cell];
-        head[cell] = i;
+    void CLL_init(std::initializer_list<std::pair<elements::Element<N>*, size_t>>&& elements,
+                  const BoundingBox<N>& bbox, Real rc,
+                  Integer *lscl,
+                  Integer *head) {
+        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+        Integer lcxyz = std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto prev, auto v){ return prev*v; }),
+                c;
+        for (size_t i = 0; i < lcxyz; ++i) head[i] = EMPTY;
+        Integer acc = 0;
+        for(const auto& span : elements){
+            auto el_ptr = span.first;
+            auto n_els  = span.second;
+            for (size_t i = 0; i < n_els; ++i) {
+                c = position_to_local_cell_index<N>(el_ptr[i].position, rc, bbox, lc[0], lc[1]);
+                lscl[i+acc] = head[c];
+                head[c] = i+acc;
+            }
+            acc += n_els;
+        }
+    }
+
+    template<int N>
+    inline void CLL_append(Integer i, Integer cell, const elements::Element<N>& elements, std::vector<Integer>* lscl, std::vector<Integer>* head) {
+        lscl->at(i) = head->at(cell);
+        head->at(cell) = i;
     }
 
     void CLL_compute_forces3d(elements::Element<3> *elements, Integer n_elements,
@@ -123,7 +145,7 @@ namespace algorithm {
                               const BoundingBox<3>& bbox, Real rc,
                               const Integer *lscl, const Integer *head,
                               const sim_param_t* params) {
-        auto lc = elements::get_cell_number_by_dimension<3>(bbox, rc);
+        auto lc = get_cell_number_by_dimension<3>(bbox, rc);
 
         std::array<Real, 3> delta_dim;
         Real delta;
@@ -206,57 +228,44 @@ namespace algorithm {
     }
 }
 
-using Complexity        = Integer;
-using Time = double;
+using Complexity = Integer;
+using Time       = double;
 
 namespace lj {
 
     template<int N>
-    std::tuple<::Complexity, ::Time, ::Time> compute_one_step (
-            MESH_DATA<N> *mesh_data,
-            std::vector<Integer> *lscl,             //the particle linked list
-            std::vector<Integer> *head,             //the cell starting point
-            Zoltan_Struct *load_balancer,           //load balancing structure
-            const CommunicationDatatype &datatype,  //structure holding the datatypes //TODO replace by mpi datatype
+    Complexity compute_one_step (
+            std::vector<elements::Element<N>>&        elements,
+            const std::vector<elements::Element<N>>& remote_el,
+            std::vector<Integer> *head,             //the particle linked list
+            std::vector<Integer> *lscl,             //the cell starting point
+            BoundingBox<N>& bbox,                   //bounding box of particles
+            Borders& borders,                       //bordering cells and neighboring processors
             sim_param_t *params,                    //simulation parameters
-            const MPI_Comm comm,                    //mpi communicator for workers
             const int step = -1)                    //current step to compute (used for debugging purposes)
     {
-        elements::BoundingBox<N> bbox;
-
-        int received, sent;
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         Real cut_off_radius = params->rc; // cut_off
-
         const Real dt = params->dt;
+        const size_t nb_elements = elements.size();
 
-        // update local ids
-        const size_t nb_elements = mesh_data->els.size();
-        for (size_t i = 0; i < nb_elements; ++i) mesh_data->els[i].lid = i;
-
-        START_TIMER(comm_time);
-        auto remote_el = zoltan_exchange_data<N>(mesh_data->els, load_balancer, datatype, comm, received, sent, cut_off_radius);
-        END_TIMER(comm_time);
-
-        START_TIMER(comp_time);
-        bbox = elements::get_bounding_box<N>(mesh_data->els, remote_el, params->rc);
-        const auto n_cells = elements::get_total_cell_number<N>(bbox, params->rc);
-
-        if(head->size() < n_cells){
+        update_bounding_box<N>(bbox, params->rc, remote_el);
+        if(const auto n_cells = get_total_cell_number<N>(bbox, params->rc); head->size() < n_cells){
             head->resize(n_cells);
         }
-        if((mesh_data->els.size()+remote_el.size()) > lscl->size()) {
-            lscl->resize(mesh_data->els.size()+remote_el.size());
+        if((elements.size()+remote_el.size()) > lscl->size()) {
+            lscl->resize(elements.size()+remote_el.size());
         }
+        algorithm::CLL_init<N>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, bbox, cut_off_radius, lscl->data(), head->data());
 
-        algorithm::CLL_init<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data());
-        Complexity cmplx = algorithm::CLL_compute_forces<N>(mesh_data->els.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
+        Complexity cmplx = algorithm::CLL_compute_forces<N>(elements.data(), nb_elements, remote_el.data(), remote_el.size(), bbox, cut_off_radius, lscl->data(), head->data(), params);
 
-        leapfrog2(dt, mesh_data->els);
-        leapfrog1(dt, mesh_data->els, cut_off_radius);
-        apply_reflect(mesh_data->els, params->simsize);
+        leapfrog2(dt, elements);
+        leapfrog1(dt, elements, cut_off_radius);
+        apply_reflect(elements, params->simsize);
 
-        END_TIMER(comp_time);
-        return {cmplx, comp_time, comm_time};
+        return cmplx;
     };
 
 

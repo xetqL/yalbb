@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
 
-    CommunicationDatatype datatype = elements::register_datatype<DIMENSION>();
+    auto datatype = elements::register_datatype<DIMENSION>();
 
     int rc = Zoltan_Initialize(argc, argv, &ver);
 
@@ -48,7 +48,22 @@ int main(int argc, char** argv) {
     }
 
     params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
-
+    if (rank == 0) {
+        std::cout << "==============================================" << std::endl;
+        std::cout << "= Parameters: " << std::endl;
+        std::cout << "= Particles: " << params.npart << std::endl;
+        std::cout << "= Seed: " << params.seed << std::endl;
+        std::cout << "= PEs: " << params.world_size << std::endl;
+        std::cout << "= Simulation size: " << params.simsize << std::endl;
+        std::cout << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
+        std::cout << "= Initial conditions: " << std::endl;
+        std::cout << "= SIG:" << params.sig_lj << std::endl;
+        std::cout << "= EPS:  " << params.eps_lj << std::endl;
+        std::cout << "= Borders: collisions " << std::endl;
+        std::cout << "= Gravity:  " << params.G << std::endl;
+        std::cout << "= Temperature: " << params.T0 << std::endl;
+        std::cout << "==============================================" << std::endl;
+    }
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,29 +167,12 @@ int main(int argc, char** argv) {
         }
     }
 
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    if (rank == 0) {
-        std::cout << "==============================================" << std::endl;
-        std::cout << "= Simulation is starting now...                 " << std::endl;
-        std::cout << "= Parameters: " << std::endl;
-        std::cout << "= Particles: " << params.npart << std::endl;
-        std::cout << "= Seed: " << params.seed << std::endl;
-        std::cout << "= PEs: " << params.world_size << std::endl;
-        std::cout << "= Simulation size: " << params.simsize << std::endl;
-        std::cout << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
-        std::cout << "= Initial conditions: " << std::endl;
-        std::cout << "= SIG:" << params.sig_lj << std::endl;
-        std::cout << "= EPS:  " << params.eps_lj << std::endl;
-        std::cout << "= Borders: collisions " << std::endl;
-        std::cout << "= Gravity:  " << params.G << std::endl;
-        std::cout << "= Temperature: " << params.T0 << std::endl;
-        std::cout << "==============================================" << std::endl;
-    }
+
 
     auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
 
@@ -197,6 +195,7 @@ int main(int argc, char** argv) {
 
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+    std::cout << rank << " starts the computation" << std::endl;
 
     using namespace decision_making;
     PolicyRunner<NoLBPolicy> lb_policy;
