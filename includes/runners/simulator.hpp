@@ -39,7 +39,7 @@ std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
     const size_t nb_elements = elements.size();
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }
-    algorithm::CLL_init<N>({{elements.data(), nb_elements}}, bbox, rc, lscl->data(), head->data());
+    algorithm::CLL_init<N>({{elements.data(), nb_elements}}, bbox, rc, head->data(), lscl->data());
     return zoltan_exchange_data<N>(elements, load_balancer, head->data(), lscl->data(), borders, datatype, comm, r, s);
 }
 
@@ -93,27 +93,30 @@ void simulate(FILE *fp,          // Output file (at 0)
     BoundingBox<N> bbox = get_bounding_box<N>(params->rc, mesh_data->els);
     Borders borders     = get_border_cells_index<N>(load_balancer, bbox, params->rc);
     auto remote_el      = get_ghost_data(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
-
+    const int nb_data = mesh_data->els.size();
+    for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
     for (int frame = 0; frame < nframes; ++frame) {
         Time comm_time = 0.0, comp_time = 0.0;
         Complexity cmplx = 0;
         START_TIMER(frame_time);
         for (int i = 0; i < npframe; ++i) {
-
             START_TIMER(compute_time)
             cmplx += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params, frame);
             END_TIMER(compute_time)
 
             START_TIMER(migration_time);
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
+
             if (lb_decision) {
                 zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
             } else {
+                //auto new_data_it = zoltan_migrate_particles<N>(mesh_data->els, load_balancer, head.data(), lscl.data(), borders, datatype, comm);
                 zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
+                //add_to_bounding_box<N>(bbox, params->rc, new_data_it, mesh_data->els.cend());
             }
             bbox      = get_bounding_box<N>(params->rc, mesh_data->els);
             borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
-            remote_el = get_ghost_data(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+            remote_el = get_ghost_data<N>(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
             END_TIMER(migration_time);
 
             comp_time += compute_time;
@@ -128,7 +131,7 @@ void simulate(FILE *fp,          // Output file (at 0)
             cmplx_logger->flush();
         }
 
-        my_frame_times[frame] = frame_time;
+        my_frame_times[frame] = comp_time;
         my_frame_cmplx[frame] = cmplx;
 
         // Write metrics to report file
@@ -155,8 +158,8 @@ void simulate(FILE *fp,          // Output file (at 0)
     std::vector<decltype(my_frame_cmplx)::value_type> min_cmplx(nframes);
     decltype(my_frame_cmplx)::value_type sum_cmplx;
 
-    std::vector<Time>  avg_times(nframes);
-    std::vector<Time>  avg_cmplx(nframes);
+    std::vector<Time> avg_times(nframes);
+    std::vector<Time> avg_cmplx(nframes);
 
     std::shared_ptr<spdlog::logger> lb_time_logger;
     std::shared_ptr<spdlog::logger> lb_cmplx_logger;

@@ -320,7 +320,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, &lscl, &head);
+                    algorithm::CLL_append(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {
@@ -482,7 +482,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, &lscl, &head);
+                    algorithm::CLL_append(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {

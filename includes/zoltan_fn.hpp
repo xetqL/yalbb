@@ -29,8 +29,9 @@ struct Borders {
     std::vector<std::vector<Rank>> neighbors;
     std::vector<Index> bordering_cells;
 };
+
 template<int N>
-Borders get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N>& bbox, const Real rc) {
+Borders __get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N>& bbox, const Real rc) {
     int caller_rank, wsize, num_found;
     MPI_Comm_rank(MPI_COMM_WORLD, &caller_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &wsize) ;
@@ -68,10 +69,62 @@ Borders get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N
                                      pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
                                      &PEs.front(), &num_found);
             }
-            if(num_found > 1 || (num_found == 1 && PEs[0] != caller_rank)){
+            if(num_found){
                 bordering_cell_index.push_back(cell_id);
                 neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
                 border_cell_cnt++;
+            }
+        }
+    }
+    return {neighbors, bordering_cell_index};
+}
+
+template<int N>
+Borders get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N>& bbox, const Real rc) {
+    int caller_rank, wsize, num_found;
+    MPI_Comm_rank(MPI_COMM_WORLD, &caller_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &wsize) ;
+    if (wsize == 1) return {};
+    auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+
+    std::vector<Index> bordering_cell_index;
+    // number of bordering cell in 3D is xyz - (x-2)(y-2)(z-2)
+    int nb_local_cells     = std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p*v;});
+    int nb_bordering_cells = std::min(nb_local_cells, nb_local_cells - std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p * (v-2);}));
+
+    // If I have no bordering cell (impossible, but we never know (: )
+    if(nb_bordering_cells <= 0) return {};
+
+    bordering_cell_index.reserve(nb_bordering_cells);
+
+    std::vector<Rank> PEs(wsize);
+    std::vector< std::vector<Rank> > neighbors(nb_bordering_cells);
+
+    Integer border_cell_cnt = 0;
+    for(Integer z = 0; z < lc[2]; ++z){
+        for(Integer y = 0; y < lc[1]; ++y){
+            Integer condition = !(y^0)|!(y^(lc[1]-1)) | !(z^0)|!(z^(lc[2]-1));
+            for(int x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
+                Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
+                std::array<double, N> pos_in_double =
+                        get_as_double_array<N>(CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
+                if constexpr (N == 3) {
+                    Zoltan_LB_Box_Assign(load_balancer,
+                                         pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                                         pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
+                                         pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
+                                         &PEs.front(), &num_found);
+                } else {
+                    Zoltan_LB_Box_Assign(load_balancer,
+                                         pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                                         pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
+                                         &PEs.front(), &num_found);
+                }
+                if(num_found){
+                    bordering_cell_index.push_back(cell_id);
+                    neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                    border_cell_cnt++;
+                }
             }
         }
     }
@@ -282,37 +335,40 @@ inline T dto(double v) {
 
 
 template<int N>
-void zoltan_migrate_particles(
+typename std::vector<elements::Element<N>>::const_iterator zoltan_migrate_particles(
         std::vector<elements::Element<N>> &data,
         Zoltan_Struct *load_balancer,
         const Integer* head,
         const Integer* lscl,
         const Borders& bordering_cells,
         MPI_Datatype datatype,
-        MPI_Comm LB_COMM) {
+        MPI_Comm LB_COMM)
+{
+
     int wsize;
     MPI_Comm_size(LB_COMM, &wsize);
     int caller_rank;
     MPI_Comm_rank(LB_COMM, &caller_rank);
 
-    if(wsize == 1) return;
+    if(wsize == 1) return data.cend();
 
-    std::vector< std::vector<elements::Element<N>> > data_to_migrate(wsize);
-
-    size_t data_id = 0;
     auto nb_elements = data.size();
+    const auto prev_size = data.size();
+    std::vector< std::vector<elements::Element<N>> > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+    size_t data_id = 0;
+
     int PE, num_known = 0;
     ZOLTAN_ID_PTR found_gids, found_lids;
     int *found_procs, *found_parts, num_found;
-    std::vector<int> num_import_from_procs(wsize);
-    std::vector<int> import_from_procs;
 
     std::vector<int> export_gids, export_lids, export_procs;
     int cell_cnt = 0;
     for(auto cidx : bordering_cells.bordering_cells) {
         auto p = head[cidx];
         while(p != -1) {
-            num_known += bordering_cells.neighbors.at(cell_cnt).size();
+            num_known ++;
             p = lscl[p];
         }
         cell_cnt++;
@@ -320,18 +376,21 @@ void zoltan_migrate_particles(
     export_gids.reserve(num_known);
     export_lids.reserve(num_known);
     export_procs.reserve(num_known);
+    cell_cnt = 0;
+    num_known = 0;
     for(auto cidx : bordering_cells.bordering_cells){
         auto p = head[cidx];
-        while(p != -1){
-            for(auto rank : bordering_cells.neighbors.at(cell_cnt)) {
-                const auto& el = data[p];
+        while(p != -1) {
+            if(p < nb_elements) {
+                const elements::Element<N>& el = data.at(p);
                 auto pos_in_double = get_as_double_array<N>(el.position);
                 Zoltan_LB_Point_Assign(load_balancer, &pos_in_double.front(), &PE);
                 if(PE != caller_rank){
                     export_gids.push_back(el.gid);
-                    export_lids.push_back(el.lid);
-                    export_procs.push_back(rank);
-                    data_to_migrate.at(rank).push_back(el);
+                    export_lids.push_back(p);
+                    export_procs.push_back(PE);
+                    data_to_migrate.at(PE).push_back(el);
+                    num_known ++;
                 }
             }
             p = lscl[p];
@@ -342,25 +401,25 @@ void zoltan_migrate_particles(
     export_lids.shrink_to_fit();
     export_procs.shrink_to_fit();
 
-    ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) &export_gids.front();
-    ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) &export_lids.front();
+    std::sort(export_lids.begin(), export_lids.end(), std::greater<int>());
 
-    Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, &export_procs[0], &export_procs[0],
-                        &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
-
-
-    data.reserve(nb_elements + num_found);
-    import_from_procs.reserve(num_found);
-
-    for (size_t i = 0; i < num_found; ++i) {
-        num_import_from_procs[found_procs[i]]++;
-        if (std::find(import_from_procs.begin(), import_from_procs.end(), found_procs[i]) == import_from_procs.end())
-            import_from_procs.push_back(found_procs[i]);
+    for(auto lid : export_lids) {
+        std::iter_swap(data.begin()+lid, data.end()-1);
+        data.pop_back();
     }
 
-    /* Let's Migrate ma boi ! */
+    ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) export_gids.data();
+    ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) export_lids.data();
 
-    if(num_found > 0)
+    Zoltan_Invert_Lists(load_balancer, export_procs.size(), known_gids, known_lids, export_procs.data(), export_procs.data(),
+                        &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
+
+    data.reserve(data.size() + num_found);
+
+    std::set<int> import_from_procs(found_procs, found_procs+num_found);
+
+    /* Let's Migrate ma boi ! */
+    if(num_found)
         Zoltan_LB_Free_Part(&found_gids, &found_lids, &found_procs, &found_parts);
 
     int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
@@ -371,8 +430,7 @@ void zoltan_migrate_particles(
     for (size_t PE = 0; PE < wsize; PE++) {
         int send_size = data_to_migrate.at(PE).size();
         if (send_size) {
-            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 300, LB_COMM,
-                      &reqs[cpt]);
+            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 300, LB_COMM, &reqs[cpt]);
             cpt++;
         }
     }
@@ -398,13 +456,15 @@ void zoltan_migrate_particles(
     }
 
     const int nb_data = data.size();
-    for(int i = 0; i < nb_data; ++i) data[i].lid = i;
+    for(int i = 0; i < nb_data; ++i) data.at(i).lid = i;
+    data.shrink_to_fit();
 
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
+    return std::next(data.cbegin(), nb_data - prev_size);
 }
 
 template<int N>
-void zoltan_migrate_particles(
+typename std::vector<elements::Element<N>>::const_iterator zoltan_migrate_particles(
         std::vector<elements::Element<N>> &data,
         Zoltan_Struct *load_balancer,
         MPI_Datatype datatype,
@@ -413,18 +473,19 @@ void zoltan_migrate_particles(
     MPI_Comm_size(LB_COMM, &wsize);
     int caller_rank;
     MPI_Comm_rank(LB_COMM, &caller_rank);
-
-    if(wsize == 1) return;
+    const auto prev_size = data.size();
+    if(wsize == 1) return data.cend();
+    auto nb_elements = data.size();
 
     std::vector< std::vector<elements::Element<N>> > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
     size_t data_id = 0;
-    auto nb_elements = data.size();
     int PE, num_known = 0;
     ZOLTAN_ID_PTR found_gids, found_lids;
     int *found_procs, *found_parts, num_found;
-    std::vector<int> num_import_from_procs(wsize);
-    std::vector<int> import_from_procs;
+
     {
         std::vector<int> export_gids, export_lids, export_procs;
         export_gids.reserve(nb_elements / wsize);
@@ -460,14 +521,9 @@ void zoltan_migrate_particles(
                                        &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
     }
 
-    data.reserve(nb_elements + num_found);
-    import_from_procs.reserve(num_found);
+    std::set<int> import_from_procs(found_procs, found_procs+num_found);
 
-    for (size_t i = 0; i < num_found; ++i) {
-        num_import_from_procs[found_procs[i]]++;
-        if (std::find(import_from_procs.begin(), import_from_procs.end(), found_procs[i]) == import_from_procs.end())
-            import_from_procs.push_back(found_procs[i]);
-    }
+    data.reserve(nb_elements + num_found);
 
     /* Let's Migrate ma boi ! */
 
@@ -512,6 +568,8 @@ void zoltan_migrate_particles(
     for(int i = 0; i < nb_data; ++i) data[i].lid = i;
 
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
+
+    return std::next(data.begin(), nb_data - prev_size);
 }
 
 
@@ -548,9 +606,6 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
     int *found_procs, *found_parts;
 
     std::vector<int> export_gids, export_lids, export_procs;
-    //export_gids.reserve(nb_elements / wsize);
-    //export_lids.reserve(nb_elements / wsize);
-    //export_procs.reserve(nb_elements / wsize);
     int cell_cnt = 0;
     for(auto cidx : bordering_cells.bordering_cells) {
         auto p = head[cidx];
@@ -560,47 +615,41 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
         }
         cell_cnt++;
     }
-    export_gids.reserve(num_known);
-    export_lids.reserve(num_known);
-    export_procs.reserve(num_known);
+     export_gids.resize(num_known);
+     export_lids.resize(num_known);
+    export_procs.resize(num_known);
+
+    cell_cnt = 0;
+    num_known = 0;
     for(auto cidx : bordering_cells.bordering_cells){
         auto p = head[cidx];
         while(p != -1){
             for(auto rank : bordering_cells.neighbors.at(cell_cnt)) {
-                const auto& el = data[p];
-                export_gids.push_back(el.gid);
-                export_lids.push_back(el.lid);
-                export_procs.push_back(rank);
-                data_to_migrate.at(rank).push_back(el);
+                if(rank != caller_rank){
+                    const auto& el = data[p];
+                     export_gids[num_known] = el.gid;
+                     export_lids[num_known] = el.lid;
+                    export_procs[num_known] = rank;
+                    data_to_migrate.at(rank).push_back(el);
+                    num_known ++;
+                }
             }
             p = lscl[p];
         }
         cell_cnt++;
     }
 
-    //export_gids.shrink_to_fit();
-    //export_lids.shrink_to_fit();
-    //export_procs.shrink_to_fit();
-
-    ZOLTAN_ID_PTR known_gids = (ZOLTAN_ID_PTR) export_gids.data();
-    ZOLTAN_ID_PTR known_lids = (ZOLTAN_ID_PTR) export_lids.data();
+    auto known_gids = (ZOLTAN_ID_PTR) export_gids.data();
+    auto known_lids = (ZOLTAN_ID_PTR) export_lids.data();
 
     // Compute who has to send me something via Zoltan.
-    Zoltan_Invert_Lists(load_balancer, export_gids.size(), known_gids, known_lids, export_procs.data(), export_procs.data(),
+    int err = Zoltan_Invert_Lists(load_balancer, num_known, known_gids, known_lids, export_procs.data(), export_procs.data(),
                         &num_found, &found_gids, &found_lids, &found_procs, &found_parts);
 
-    std::vector<int> num_import_from_procs(wsize, 0);
-    std::vector<int> import_from_procs;
+    std::set<int> import_from_procs(found_procs, found_procs+num_found);
 
     if(num_found)
-        import_from_procs.reserve(num_found);
-    // Compute how many elements I have to import from others, and from whom.
-    for (size_t i = 0; i < num_found; ++i) {
-        num_import_from_procs[found_procs[i]]++;
-        if (std::find(import_from_procs.begin(), import_from_procs.end(), found_procs[i]) == import_from_procs.end())
-            import_from_procs.push_back(found_procs[i]);
-    }
-    if(num_found) Zoltan_LB_Free_Part(&found_gids, &found_lids, &found_procs, &found_parts);
+        Zoltan_LB_Free_Part(&found_gids, &found_lids, &found_procs, &found_parts);
 
     int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
     int cpt = 0;
@@ -612,8 +661,7 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
         int send_size = data_to_migrate.at(PE).size();
         if (send_size) {
             nb_elements_sent += send_size;
-            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 400, LB_COMM,
-                      &reqs[cpt]);
+            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 400, LB_COMM, &reqs[cpt]);
             cpt++;
         }
     }

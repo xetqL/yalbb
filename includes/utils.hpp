@@ -78,9 +78,14 @@ bool file_exists(const std::string fileName) {
     return infile.good();
 }
 
+template<class IntegerType, typename = std::enable_if<std::numeric_limits<IntegerType>::is_integer>>
+inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue, IntegerType falsereturnvalue) {
+    return (truereturnvalue & -condition) | (falsereturnvalue & ~(-condition)); //a when TRUE
+}
+
 template<int N>
 using BoundingBox = std::array<Real, 2*N>;
-template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) { return bbox.at(2*D+1) - bbox.at(2*D); }
+template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
@@ -130,8 +135,29 @@ void update_bounding_box(BoundingBox<N>& bbox, Real rc, T&... elementContainers)
     }
 }
 
+template<int N, class T>
+void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
+    while(begin != end){
+        bbox[0] = std::min(bbox[0], (*begin).position.at(0));
+        bbox[1] = std::max(bbox[1], (*begin).position.at(0));
+        bbox[2] = std::min(bbox[2], (*begin).position.at(1));
+        bbox[3] = std::max(bbox[3], (*begin).position.at(1));
+        if constexpr (N==3) {
+            bbox[4] = std::min(bbox[4], (*begin).position.at(2));
+            bbox[5] = std::max(bbox[5], (*begin).position.at(2));
+        }
+        begin++;
+    }
+
+    /* hook to grid, resulting bbox is divisible by lc[i] forall i */
+    for(int i = 0; i < N; ++i) {
+        bbox[2*i]   = std::max((Real) 0.0, std::floor(bbox[2*i] / rc) * rc - 2*rc);
+        bbox[2*i+1] = std::ceil(bbox[2*i+1] / rc) * rc + 2*rc;
+    }
+}
+
 template<int N>
-std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
+inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
     std::array<Integer, N> lc;
     lc [0] = get_size<0, N>(bbox) / rc;
     lc [1] = get_size<1, N>(bbox) / rc;
@@ -148,16 +174,23 @@ Integer get_total_cell_number(const BoundingBox<N>& bbox, Real rc){
 class CoordinateTranslater {
 public:
     static std::tuple<Integer, Integer, Integer>
-    translate_linear_index_into_xyz(const Integer index, const Integer ncols, const Integer nrows) {
+    inline translate_linear_index_into_xyz(const Integer index, const Integer ncols, const Integer nrows) {
         return {(index % ncols), std::floor(index % (ncols * nrows) / nrows), std::floor(index / (ncols * nrows))};    // depth
     };
     static std::tuple<Real, Real, Real>
-    translate_xyz_into_position(const std::tuple<Integer, Integer, Integer>&& xyz, const Real rc) {
+    inline translate_xyz_into_position(const std::tuple<Integer, Integer, Integer>&& xyz, const Real rc) {
         return {std::get<0>(xyz) * rc, std::get<1>(xyz) * rc, std::get<2>(xyz) * rc};
+    };
+
+    template<int N>
+    static inline Integer translate_xyz_into_linear_index(const std::tuple<Integer, Integer, Integer>&& xyz, const BoundingBox<N>& bbox, const Real rc) {
+        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+        return std::get<0>(xyz) + std::get<1>(xyz) * lc[0] + lc[0]*lc[1]*std::get<2>(xyz);
     };
 
     template<int N> static Integer
     translate_position_into_local_index(const std::array<Real, N>& position){}
+
     template<int N> static std::array<Real, N>
     translate_local_index_into_position(const Integer local_index, const BoundingBox<N>& bbox, const Real rc){
         auto lc = get_cell_number_by_dimension<N>(bbox, rc);
@@ -169,6 +202,7 @@ public:
             position[2] = local_pos_x+bbox[4];
         return position;
     }
+
     template<int N> static Integer
     translate_position_into_global_index(const std::array<Real, N>& position){}
     template<int N> static std::array<Real, N>
