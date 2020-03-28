@@ -21,6 +21,7 @@
 using Real = float;
 using Integer = long long int;
 
+
 template<int N, class T>
 inline void gather_elements_on(const int world_size,
                                const int my_rank,

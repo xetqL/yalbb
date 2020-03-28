@@ -5,65 +5,38 @@
 #include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
 
-
 int main(int argc, char** argv) {
 
     constexpr int DIMENSION = 3;
     sim_param_t params;
-    FILE* fp = NULL;
-    int rank, nproc, dim;
+    int rank, nproc;
     float ver;
     MESH_DATA<DIMENSION> mesh_data;
 
     // Initialize the MPI environment
-    MPI_Init(NULL, NULL);
-
+    MPI_Init(nullptr, nullptr);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
     if (get_params(argc, argv, &params) != 0) {
         MPI_Finalize();
-        return -1;
+        exit(EXIT_FAILURE);
     }
-
-    MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     params.world_size = nproc;
-
-    if (rank == 0 && params.record) {
-        fp = fopen(params.fname, "w");
-    }
-
-    int changes, numGidEntries, numLidEntries, numImport, numExport;
-    ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
-    int *importProcs, *importToPart, *exportProcs, *exportToPart;
-
-    auto datatype = elements::register_datatype<DIMENSION>();
-
-    int rc = Zoltan_Initialize(argc, argv, &ver);
-
-    if(rc != ZOLTAN_OK) {
-        MPI_Finalize();
-        exit(0);
-    }
-
     params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
+    MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
     if (rank == 0) {
-        std::cout << "==============================================" << std::endl;
-        std::cout << "= Parameters: " << std::endl;
-        std::cout << "= Particles: " << params.npart << std::endl;
-        std::cout << "= Seed: " << params.seed << std::endl;
-        std::cout << "= PEs: " << params.world_size << std::endl;
-        std::cout << "= Simulation size: " << params.simsize << std::endl;
-        std::cout << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
-        std::cout << "= Initial conditions: " << std::endl;
-        std::cout << "= SIG:" << params.sig_lj << std::endl;
-        std::cout << "= EPS:  " << params.eps_lj << std::endl;
-        std::cout << "= Borders: collisions " << std::endl;
-        std::cout << "= Gravity:  " << params.G << std::endl;
-        std::cout << "= Temperature: " << params.T0 << std::endl;
-        std::cout << "==============================================" << std::endl;
+        print_params(params);
     }
+
+    if(Zoltan_Initialize(argc, argv, &ver) != ZOLTAN_OK) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+    auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,49 +143,25 @@ int main(int argc, char** argv) {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    using namespace decision_making;
+    IterationStatistics it_stats(nproc);
 
+    PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
+    Zoltan_LB(&mesh_data, zz);
+    PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
+    MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
 
-
-
-    auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
-
-    zoltan_fn_init<DIMENSION>(zz, &mesh_data, ENABLE_AUTOMATIC_MIGRATION);
-
-    Zoltan_LB_Partition(zz,                 // input (all remaining fields are output)
-                        &changes,           // 1 if partitioning was changed, 0 otherwise
-                        &numGidEntries,     // Number of integers used for a global ID
-                        &numLidEntries,     // Number of integers used for a local ID
-                        &numImport,         // Number of vertices to be sent to me
-                        &importGlobalGids,  // Global IDs of vertices to be sent to me
-                        &importLocalGids,   // Local IDs of vertices to be sent to me
-                        &importProcs,       // Process rank for source of each incoming vertex
-                        &importToPart,      // New partition for each incoming vertex
-                        &numExport,         // Number of vertices I must send to other processes
-                        &exportGlobalGids,  // Global IDs of the vertices I must send
-                        &exportLocalGids,   // Local IDs of the vertices I must send
-                        &exportProcs,       // Process to which I send each of the vertices
-                        &exportToPart);     // Partition to which each vertex will belong
-
-    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
-    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
     std::cout << rank << " starts the computation" << std::endl;
 
-    using namespace decision_making;
-    PolicyRunner<NoLBPolicy> lb_policy;
+    PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
+            [](IterationStatistics* stats){return stats->get_cumulative_load_imbalance_slowdown();},//get data func
+            [](IterationStatistics* stats){return stats->compute_avg_lb_time();});                  //get threshold func
 
     PAR_START_TIMER(time_spent, MPI_COMM_WORLD);
-    simulate<DIMENSION>(nullptr, &mesh_data, zz,  std::move(lb_policy), &params, MPI_COMM_WORLD, ENABLE_AUTOMATIC_MIGRATION);
+    simulate<DIMENSION>(&mesh_data, zz,  std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
     PAR_END_TIMER(time_spent, MPI_COMM_WORLD);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids,
-                        &importProcs,      &importToPart);
-    Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids,
-                        &exportProcs,      &exportToPart);
     Zoltan_Destroy(&zz);
-
-    if (fp) fclose(fp);
 
     MPI_Finalize();
 

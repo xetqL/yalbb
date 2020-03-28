@@ -11,94 +11,61 @@
 #include "../utils.hpp"
 
 namespace decision_making {
-    struct LBMetrics{
-
-        const std::vector<Real> metrics;
-
-        LBMetrics(const std::vector<Real> metrics) : metrics(metrics) {};
-
-        Real get_gini_times(){
-            return metrics.at(0);
-        }
-        Real get_gini_complexities(){
-            return metrics.at(1);
-        }
-        Real get_gini_communications(){
-            return metrics.at(2);
-        }
-        Real get_last_time_per_iteration(){
-            return metrics.at(3);
-        }
-        Real get_variance_avg_time_per_iteration(){
-            return metrics.at(4);
-        }
-        Real get_macd_gini_times(){
-            return metrics.at(5);
-        }
-        Real get_macd_gini_complexities(){
-            return metrics.at(6);
-        }
-        Real get_macd_times(){
-            return metrics.at(7);
-        }
-        Real get_macd_gini_communications(){
-            return metrics.at(8);
-        }
-    };
 
     template<class Policy>
     class PolicyRunner {
         std::unique_ptr<Policy> p;
     public:
-        template<class... Args>
-        PolicyRunner(Args... args){
-           p = std::make_unique<Policy>(args...);
-        }
-
-        template<class DataHolder>
-        bool should_load_balance(int it, DataHolder* holder){
-            return p->apply(it, holder);
-        };
-
-        template<class DataHolder = std::nullptr_t>
-        bool should_load_balance(int it) {
-            return should_load_balance<DataHolder>(it, nullptr);
-        };
+        template<class... Args> PolicyRunner(Args... args) : p(std::make_unique<Policy>(args...)) {}
+        bool should_load_balance(int it) { return p->apply(it); };
     };
 
     class RandomPolicy {
         const Real lb_probability;
-        std::mt19937 gen = std::mt19937(0);
-        std::uniform_real_distribution<Real> dist = std::uniform_real_distribution<Real>(0.0, 1.0);
+        std::mt19937 gen;
+        mutable std::uniform_real_distribution<Real> dist = std::uniform_real_distribution<Real>(0.0, 1.0);
     public:
-        RandomPolicy(Real lb_probability, int seed = 0 /* seed MUST be the same on all MPI ranks */) :
-            lb_probability(lb_probability) {
-            gen.seed(seed);
-        }
-        template<class DataHolder>
-        bool apply(int it, DataHolder *holder) {
-            return dist(gen) < lb_probability;
-        }
-
+        RandomPolicy(Real lb_probability, int seed = 0) : lb_probability(lb_probability), gen(std::mt19937(seed)) {}
+        bool apply(int it){ return dist(gen) < lb_probability; }
     };
 
-    class ThresholdHeuristicPolicy{
-        const float threshold;
+    class IterationStatistics {
+        std::array<double,  3> data = {0.0, 0.0, 0.0};
+        std::vector<double> lb_times;
+        int i = 0;
+        int nproc;
     public:
-        ThresholdHeuristicPolicy(float threshold) : threshold(threshold){};
-        template<class DataHolder>
-        bool apply(int it, DataHolder *holder) {
-            using ok = std::enable_if<std::is_same<DataHolder, LBMetrics>::value >;
-            if(holder)
-                return holder->get_gini_times() > threshold;
-            else
-                return false;
+        IterationStatistics(int nproc) : nproc(nproc) {}
+        double  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
+        double  get_cumulative_load_imbalance_slowdown() {return data[2]; }
+        void    update_cumulative_load_imbalance_slowdown() { data[2] += data[1] - data[0]/nproc; }
+        void    reset_load_imbalance_slowdown() { data[2] = 0.0; }
+        double* max_it_time() { return &data[1]; }
+        double* sum_it_time() { return &data[0]; }
+        double* get_lb_time_ptr() {
+            lb_times.push_back(std::numeric_limits<double>::lowest());
+            return &lb_times[i++];
         }
+    };
+
+    class ThresholdPolicy {
+        IterationStatistics* dataHolder;
+        const std::function<Real (IterationStatistics*)> getDataF;
+        const std::function<Real (IterationStatistics*)> getThresholdF;
+    public:
+        ThresholdPolicy(
+                IterationStatistics* dataHolder,
+                const std::function<Real (IterationStatistics*)> getDataF,
+                const std::function<Real (IterationStatistics*)> getThresholdF) :
+                dataHolder(dataHolder),
+                getDataF(getDataF),
+                getThresholdF(getThresholdF) {};
+        bool apply(int it) { return dataHolder != nullptr ? getDataF(dataHolder) >= getThresholdF(dataHolder) : false; }
     };
 
     class InFilePolicy{
     public:
-        std::queue<bool> decisions;
+        mutable std::queue<bool> decisions;
         int period;
         InFilePolicy(std::string filename, int nframes, int npframe) {
             period = npframe;
@@ -106,10 +73,8 @@ namespace decision_making {
             decisions = std::queue<bool>();
             std::ifstream dataset;
             dataset.open(filename, std::ofstream::in);
-            if(!dataset.good())
-                throw std::runtime_error("bad repr. file");
-            std::string line;
-            std::string buf;
+            if(!dataset.good()) throw std::runtime_error("bad repr. file");
+            std::string line, buf;
             int decision_cnt = 0;
             bool clear = false;
             while (std::getline(dataset, line)) {
@@ -117,22 +82,18 @@ namespace decision_making {
                 std::stringstream ss(line);       // Insert the string into a stream
                 std::vector<float> tokens; // Create vector to hold our words
                 while (ss >> buf) tokens.push_back(std::stof(buf.c_str()));
-
                 if(tokens.size() == 1) {
                     clear = true;
                     continue;
                 } else {
                     clear = false;
                 }
-
                 decisions.push( *(tokens.end() - 1) > 0 );
-
             }
             dataset.close();
         }
 
-        template<class DataHolder>
-        bool apply(int it, DataHolder *holder) {
+        bool apply(int it) {
             if(it % period == 0) {
                 auto decision = decisions.front();
                 decisions.pop();
@@ -145,20 +106,13 @@ namespace decision_making {
         const int period;
     public:
         PeriodicPolicy(int period) : period(period) {}
-        template<class DataHolder>
-        bool apply(int it, DataHolder *holder) {
-            return (it % period) == 0;
-        }
-
+        bool apply(int it) { return (it % period) == 0; }
     };
 
     class NoLBPolicy{
     public:
         NoLBPolicy() {}
-        template<class DataHolder>
-        bool apply(int it, DataHolder *holder) {
-            return false;
-        }
+        bool apply(int it) { return false; }
     };
 } // end of namespace decision_making
 

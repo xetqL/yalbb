@@ -44,13 +44,13 @@ std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
 }
 
 template<int N, class T>
-void simulate(FILE *fp,          // Output file (at 0)
-              MESH_DATA<N> *mesh_data,
+void simulate(MESH_DATA<N> *mesh_data,
               Zoltan_Struct *load_balancer,
               decision_making::PolicyRunner<T> lb_policy,
               sim_param_t *params,
-              const MPI_Comm comm = MPI_COMM_WORLD,
-              bool automatic_migration = false) {
+              decision_making::IterationStatistics* it_stats = nullptr,
+              const MPI_Comm comm = MPI_COMM_WORLD) {
+    constexpr bool automatic_migration = true;
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -82,12 +82,8 @@ void simulate(FILE *fp,          // Output file (at 0)
         particle_logger->info(str.str());
     }
 
-    std::vector<Time> times(nproc);
-    MESH_DATA<N> tmp_data;
-
-    std::vector<Integer> lscl(mesh_data->els.size()), head;
-
-    std::vector<Time>  my_frame_times(nframes);
+    std::vector<Time> times(nproc), my_frame_times(nframes);
+    std::vector<Index> lscl(mesh_data->els.size()), head;
     std::vector<Complexity> my_frame_cmplx(nframes);
 
     BoundingBox<N> bbox = get_bounding_box<N>(params->rc, mesh_data->els);
@@ -106,13 +102,14 @@ void simulate(FILE *fp,          // Output file (at 0)
 
             START_TIMER(migration_time);
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
-
             if (lb_decision) {
-                zoltan_load_balance<N>(mesh_data, load_balancer, datatype, comm, automatic_migration);
+                PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
+                Zoltan_LB(&mesh_data, load_balancer);
+                PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
+                MPI_Allreduce(&lb_time_spent, it_stats->get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+                it_stats->reset_load_imbalance_slowdown();
             } else {
-                //auto new_data_it = zoltan_migrate_particles<N>(mesh_data->els, load_balancer, head.data(), lscl.data(), borders, datatype, comm);
-                zoltan_migrate_particles<N>(mesh_data->els, load_balancer, datatype, comm);
-                //add_to_bounding_box<N>(bbox, params->rc, new_data_it, mesh_data->els.cend());
+                Zoltan_Migrate_Particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
             bbox      = get_bounding_box<N>(params->rc, mesh_data->els);
             borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
@@ -123,6 +120,10 @@ void simulate(FILE *fp,          // Output file (at 0)
             comm_time += migration_time;
         }
         END_TIMER(frame_time);
+        MPI_Allreduce(&comp_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(&comp_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
+        it_stats->update_cumulative_load_imbalance_slowdown();
+
         time_logger->info("{:0.6f} {:0.6f} {:0.6f}", frame_time, comp_time, comm_time);
         cmplx_logger->info("{}", cmplx);
 
@@ -151,15 +152,10 @@ void simulate(FILE *fp,          // Output file (at 0)
     }
 
     MPI_Barrier(comm);
-    std::vector<decltype(my_frame_times)::value_type> max_times(nframes);
-    std::vector<decltype(my_frame_times)::value_type> min_times(nframes);
-    decltype(my_frame_times)::value_type sum_times;
-    std::vector<decltype(my_frame_cmplx)::value_type> max_cmplx(nframes);
-    std::vector<decltype(my_frame_cmplx)::value_type> min_cmplx(nframes);
-    decltype(my_frame_cmplx)::value_type sum_cmplx;
-
-    std::vector<Time> avg_times(nframes);
-    std::vector<Time> avg_cmplx(nframes);
+    std::vector<Time> max_times(nframes), min_times(nframes), avg_times(nframes);
+    Time sum_times;
+    std::vector<Complexity > max_cmplx(nframes), min_cmplx(nframes), avg_cmplx(nframes);
+    Complexity sum_cmplx;
 
     std::shared_ptr<spdlog::logger> lb_time_logger;
     std::shared_ptr<spdlog::logger> lb_cmplx_logger;
@@ -171,13 +167,13 @@ void simulate(FILE *fp,          // Output file (at 0)
     }
 
     for (int frame = 0; frame < nframes; ++frame) {
-        MPI_Reduce(&my_frame_times[frame], &max_times[frame], 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&my_frame_times[frame], &min_times[frame], 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&my_frame_times[frame], &sum_times,        1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_times[frame], &max_times[frame], 1, MPI_TIME, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_times[frame], &min_times[frame], 1, MPI_TIME, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_times[frame], &sum_times,        1, MPI_TIME, MPI_SUM, 0, MPI_COMM_WORLD);
 
-        MPI_Reduce(&my_frame_cmplx[frame], &max_cmplx[frame], 1, MPI_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&my_frame_cmplx[frame], &min_cmplx[frame], 1, MPI_LONG_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
-        MPI_Reduce(&my_frame_cmplx[frame], &sum_cmplx,        1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_cmplx[frame], &max_cmplx[frame], 1, MPI_COMPLEXITY, MPI_MAX, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_cmplx[frame], &min_cmplx[frame], 1, MPI_COMPLEXITY, MPI_MIN, 0, MPI_COMM_WORLD);
+        MPI_Reduce(&my_frame_cmplx[frame], &sum_cmplx,        1, MPI_COMPLEXITY, MPI_SUM, 0, MPI_COMM_WORLD);
 
         if(!rank) {
             avg_times[frame] = sum_times / nproc;

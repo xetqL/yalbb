@@ -245,9 +245,10 @@ namespace algorithm {
     }
 }
 
-using Complexity = Integer;
-using Time       = double;
-
+using Complexity    = Integer;
+using Time          = double;
+auto MPI_TIME       = MPI_DOUBLE;
+auto MPI_COMPLEXITY = MPI_LONG_LONG;
 namespace lj {
 
     template<int N>

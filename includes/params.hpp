@@ -45,6 +45,25 @@ typedef struct sim_param_t {
     bool start_with_lb = false;
 } sim_param_t;
 
+void print_params(std::ostream& stream, const sim_param_t& params){
+    stream << "==============================================" << std::endl;
+    stream << "= Parameters: " << std::endl;
+    stream << "= Particles: " << params.npart << std::endl;
+    stream << "= Seed: " << params.seed << std::endl;
+    stream << "= PEs: " << params.world_size << std::endl;
+    stream << "= Simulation size: " << params.simsize << std::endl;
+    stream << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
+    stream << "= Initial conditions: " << std::endl;
+    stream << "= SIG:" << params.sig_lj << std::endl;
+    stream << "= EPS:  " << params.eps_lj << std::endl;
+    stream << "= Borders: collisions " << std::endl;
+    stream << "= Gravity:  " << params.G << std::endl;
+    stream << "= Temperature: " << params.T0 << std::endl;
+    stream << "==============================================" << std::endl;
+}
+void print_params(const sim_param_t& params) {
+    print_params(std::cout, params);
+}
 
 /*@T
  * \section{Option processing}

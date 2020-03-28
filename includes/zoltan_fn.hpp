@@ -23,8 +23,11 @@ std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array)
     else
         return {(double) real_array[0], (double) real_array[1], (double) real_array[2]};
 }
+
 using Rank = int;
 using Index = Integer;
+auto MPI_INDEX = MPI_LONG_LONG;
+
 struct Borders {
     std::vector<std::vector<Rank>> neighbors;
     std::vector<Index> bordering_cells;
@@ -104,7 +107,7 @@ Borders get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N
     for(Integer z = 0; z < lc[2]; ++z){
         for(Integer y = 0; y < lc[1]; ++y){
             Integer condition = !(y^0)|!(y^(lc[1]-1)) | !(z^0)|!(z^(lc[2]-1));
-            for(int x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
+            for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
                 Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
                 std::array<double, N> pos_in_double =
                         get_as_double_array<N>(CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
@@ -464,7 +467,7 @@ typename std::vector<elements::Element<N>>::const_iterator zoltan_migrate_partic
 }
 
 template<int N>
-typename std::vector<elements::Element<N>>::const_iterator zoltan_migrate_particles(
+typename std::vector<elements::Element<N>>::const_iterator Zoltan_Migrate_Particles(
         std::vector<elements::Element<N>> &data,
         Zoltan_Struct *load_balancer,
         MPI_Datatype datatype,
@@ -876,17 +879,12 @@ void migrate_zoltan(std::vector<elements::Element<N>> &data, int numImport, int 
 }
 
 template <int N>
-inline void zoltan_load_balance(MESH_DATA<N>* mesh_data,
-                                Zoltan_Struct* load_balancer,
-                                MPI_Datatype datatype,
-                                MPI_Comm comm,
-                                bool do_migration = true) {
+void Zoltan_LB(MESH_DATA<N>* mesh_data, Zoltan_Struct* load_balancer) {
 
     // ZOLTAN VARIABLES
     int changes, numGidEntries, numLidEntries, numImport, numExport;
     ZOLTAN_ID_PTR importGlobalGids, importLocalGids, exportGlobalGids, exportLocalGids;
-    int *importProcs, *importToPart, *exportProcs, *exportToPart, dim;
-    double xmin, ymin, zmin, xmax, ymax, zmax;
+    int *importProcs, *importToPart, *exportProcs, *exportToPart;
     // END OF ZOLTAN VARIABLES
 
     zoltan_fn_init(load_balancer, mesh_data, ENABLE_AUTOMATIC_MIGRATION);
