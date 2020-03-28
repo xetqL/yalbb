@@ -104,7 +104,7 @@ void simulate(MESH_DATA<N> *mesh_data,
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-                Zoltan_LB(&mesh_data, load_balancer);
+                Zoltan_LB<N>(mesh_data, load_balancer);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(&lb_time_spent, it_stats->get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
                 it_stats->reset_load_imbalance_slowdown();
