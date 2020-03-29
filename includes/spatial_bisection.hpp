@@ -20,7 +20,7 @@
 #include "spatial_elements.hpp"
 #include "utils.hpp"
 
-std::string to_string(const std::array<std::pair<elements::ElementRealType, elements::ElementRealType>, 2> &element) {
+std::string to_string(const std::array<std::pair<Real, Real>, 2> &element) {
     std::string x = "("+std::to_string(element.at(0).first)+", "+std::to_string(element.at(0).second) + ")";
     std::string y = "("+std::to_string(element.at(1).first)+", "+std::to_string(element.at(1).second) + ")";
     std::string retval = "X: "+x+" Y:"+y;
@@ -32,16 +32,16 @@ namespace geometric {
 using PartitionID=int;
 
 template<int N>
-using Domain = std::array<std::pair<elements::ElementRealType , elements::ElementRealType>, N>;
+using Domain = std::array<std::pair<Real , Real>, N>;
 
 template <int N>
-inline Domain<N> borders_to_domain(const elements::ElementRealType xmin,
-                                   const elements::ElementRealType ymin,
-                                   const elements::ElementRealType zmin,
-                                   const elements::ElementRealType xmax,
-                                   const elements::ElementRealType ymax,
-                                   const elements::ElementRealType zmax,
-                                   const elements::ElementRealType simsize){
+inline Domain<N> borders_to_domain(const Real xmin,
+                                   const Real ymin,
+                                   const Real zmin,
+                                   const Real xmax,
+                                   const Real ymax,
+                                   const Real zmax,
+                                   const Real simsize){
     Domain<N> res;
 /*  p-Min
     -----> o------o
@@ -66,9 +66,9 @@ inline double dist2(const std::pair<double, double> p1, const std::pair<double, 
 }
 
 template<size_t N>
-inline boost::geometry::model::box<boost::geometry::model::point<elements::ElementRealType, 3, boost::geometry::cs::cartesian>>
+inline boost::geometry::model::box<boost::geometry::model::point<Real, 3, boost::geometry::cs::cartesian>>
 domain_to_box (const Domain<N> &domain){
-    using Point3D = boost::geometry::model::point<elements::ElementRealType, 3, boost::geometry::cs::cartesian>;
+    using Point3D = boost::geometry::model::point<Real, 3, boost::geometry::cs::cartesian>;
     using Box3D = boost::geometry::model::box<Point3D>;
     Point3D minA(domain.at(0).first,  domain.at(1).first,N > 2 ? domain.at(2).first : 0.0);
     Point3D maxA(domain.at(0).second, domain.at(1).second, N > 2 ? domain.at(2).second : 0.0);
@@ -76,14 +76,14 @@ domain_to_box (const Domain<N> &domain){
 };
 
 template<size_t N>
-inline const bool are_domain_neighbors(const Domain<N> &A, const Domain<N> &B, const elements::ElementRealType min_d){
+inline const bool are_domain_neighbors(const Domain<N> &A, const Domain<N> &B, const Real min_d){
     auto boxA = domain_to_box(A);
     auto boxB = domain_to_box(B);
     return boost::geometry::distance(boxA, boxB) <= min_d;
 }
 
 template<size_t N>
-const std::vector<std::pair<size_t, Domain<N> > > get_neighboring_domains(const size_t my_domain_idx, const std::vector<Domain<N>> &domain_list, const elements::ElementRealType min_d = 0){
+const std::vector<std::pair<size_t, Domain<N> > > get_neighboring_domains(const size_t my_domain_idx, const std::vector<Domain<N>> &domain_list, const Real min_d = 0){
     std::vector<std::pair<size_t, Domain<N>>> retval;
     for(size_t domain_idx = 0; domain_idx < domain_list.size(); ++domain_idx){
         if(domain_idx != my_domain_idx) {

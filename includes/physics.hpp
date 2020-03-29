@@ -44,7 +44,7 @@ void leapfrog1(int n, RealType dt, RealType* x, RealType* v, RealType* a) {
 }
 
 template<int N>
-void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements, double cut_off, double ff = 1.0) {
+void leapfrog1(const double dt, double cut_off, std::vector<elements::Element<N>> &elements) {
     for(auto &el : elements){
         for(size_t dim = 0; dim < N; ++dim) {
             el.velocity[dim] += el.acceleration.at(dim) * dt / 2;
@@ -63,6 +63,29 @@ void leapfrog1(const double dt, std::vector<elements::Element<N>> &elements, dou
     }
 }
 
+template<int N>
+void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, std::vector<elements::Element<N>>& elements) {
+    int i = 0;
+    constexpr Real two = 2.0;
+    constexpr Real maxSpeedPercentage = 0.9;
+    for(auto &el : elements){
+        for(size_t dim = 0; dim < N; ++dim) {
+            el.velocity.at(dim) += acc.at(N*i+dim) * dt / two;
+            /**
+             * This is a mega-giga hotfix.
+             * Let say that particles are so close that they produce so much force on them such that the timestep
+             * is too big to prevent them to cross the min radius. If a particle cross the min radius of another one
+             * it creates an almost infinity repulsive force that breaks everything. */
+            if(std::abs(el.velocity.at(dim) * dt) >= cut_off ) {
+                el.velocity.at(dim) = maxSpeedPercentage * cut_off / dt; //max speed is 90% of cutoff per timestep
+            }
+            el.position.at(dim) += el.velocity.at(dim) * dt;
+
+        }
+    }
+}
+
+
 template<typename RealType>
 void leapfrog2(int n, RealType dt, RealType* v, RealType* a) {
     for (int i = 0; i < n; ++i, v += 2, a += 2) {
@@ -72,11 +95,23 @@ void leapfrog2(int n, RealType dt, RealType* v, RealType* a) {
 }
 
 template<int N>
-void leapfrog2(const double dt, std::vector<elements::Element<N>> &elements, double ff = 1.0) {
-    for(auto &el : elements){
+void leapfrog2(const double dt, std::vector<elements::Element<N>> &elements) {
+    for(auto &el : elements) {
         for(size_t dim = 0; dim < N; ++dim){
-            el.velocity[dim] += ff * el.acceleration.at(dim) * dt / 2;
+            el.velocity[dim] += el.acceleration.at(dim) * dt / 2;
         }
+    }
+}
+
+template<int N>
+void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<elements::Element<N>>& elements) {
+    int i = 0;
+    constexpr Real two = 2.0;
+    for(auto &el : elements){
+        for(size_t dim = 0; dim < N; ++dim) {
+            el.velocity.at(dim) += acc.at(N*i+dim) * dt / two;
+        }
+        i++;
     }
 }
 
@@ -88,10 +123,10 @@ void leapfrog2(const double dt, std::vector<elements::Element<N>> &elements, dou
  * @param a
  */
 template<typename RealType>
-static void reflect(RealType wall, RealType* x, RealType* v, RealType* a) {
-    *x = 2 * wall - (*x);
+void reflect(RealType wall, RealType* x, RealType* v) {
+    constexpr RealType two = 2.0;
+    *x = two * wall - (*x);
     *v = -(*v);
-    *a = -(*a);
 }
 
 /**
@@ -121,7 +156,7 @@ void apply_reflect(unsigned int n, RealType* x, RealType* v, RealType* a, RealTy
 }
 
 template<int N>
-void apply_reflect(std::vector<elements::Element<N>> &elements, const elements::ElementRealType simsize) {
+void apply_reflect(std::vector<elements::Element<N>> &elements, const Real simsize) {
     //unsigned int i = 0, repeat=0;
     //const unsigned int MAX_REPEAT = 4;
     for(auto &element: elements){
@@ -129,10 +164,10 @@ void apply_reflect(std::vector<elements::Element<N>> &elements, const elements::
         //repeat = 0;
         while(dim < N){
             if(element.position.at(dim) < 0.0)
-                reflect<elements::ElementRealType>(0.0, &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
+                reflect<Real>(0.0, &element.position[dim], &element.velocity[dim]);
 
             if(element.position.at(dim) >= simsize)
-                reflect<elements::ElementRealType>(simsize-std::numeric_limits<elements::ElementRealType>::epsilon(), &element.position[dim], &element.velocity[dim], &element.acceleration[dim]);
+                reflect<Real>(simsize-std::numeric_limits<Real>::epsilon(), &element.position[dim], &element.velocity[dim]);
 
             dim++;
         }

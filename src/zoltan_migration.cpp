@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
                   std::to_string(params.simsize) + ".particles";
         if(file_exists(IMPORT_FILENAME)) {
             std::cout << "importing from file ..." << std::endl;
-            elements::import_from_file<DIMENSION, elements::ElementRealType >(IMPORT_FILENAME, mesh_data.els);
+            elements::import_from_file<DIMENSION, Real >(IMPORT_FILENAME, mesh_data.els);
         } else {
             std::cout << "Generating data ..." << std::endl;
             std::shared_ptr<initial_condition::lj::RejectionCondition<DIMENSION>>

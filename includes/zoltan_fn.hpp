@@ -142,7 +142,7 @@ void init_mesh_data(int rank, int nprocs, MESH_DATA<N>& mesh_data, sim_param_t* 
 
         //std::random_device rd; //Will be used to obtain a seed for the random number engine
         std::mt19937 gen(params->seed); //Standard mersenne_twister_engine seeded with rd()
-        std::uniform_real_distribution<elements::ElementRealType> udist(0.0, params->simsize);
+        std::uniform_real_distribution<Real> udist(0.0, params->simsize);
         //std::normal_distribution<double> ndist(params->simsize/2, 0.5);
 
         std::vector<elements::Element<N>> elements(params->npart);
@@ -250,7 +250,7 @@ int cpt_obj_size( void *data,
                   ZOLTAN_ID_PTR local_id,
                   int *ierr) {
     ierr = ZOLTAN_OK;
-    return sizeof(int) * 2 + sizeof(elements::ElementRealType) * N * 3 /*pos, vel, acc*/;
+    return sizeof(int) * 2 + sizeof(Real) * N * 3 /*pos, vel, acc*/;
 }
 
 template<int N>
@@ -277,7 +277,7 @@ void unpack_particles ( void *data,
                         int *ierr) {
     auto all_mesh_data = (MESH_DATA<N>*) data;
     elements::Element<N> e;
-    memcpy(&e, buf, sizeof(int) * 2 + sizeof(elements::ElementRealType) * N * 3);
+    memcpy(&e, buf, /*gid, lid*/ sizeof(Integer) * 2 + /*position[x,y,(z)], velocity[x,y,(z)]*/sizeof(Real) * N * 2);
     all_mesh_data->els.push_back(e);
 }
 
@@ -308,33 +308,18 @@ void post_migrate_particles (
 }
 
 template<int N>
-void zoltan_fn_init(Zoltan_Struct* zz, MESH_DATA<N>* mesh_data, bool automatic_migration = false){
+void zoltan_fn_init(Zoltan_Struct* zz, MESH_DATA<N>* mesh_data){
     Zoltan_Set_Num_Obj_Fn(   zz, get_number_of_objects<N>, mesh_data);
     Zoltan_Set_Obj_List_Fn(  zz, get_object_list<N>,       mesh_data);
     Zoltan_Set_Num_Geom_Fn(  zz, get_num_geometry<N>,      mesh_data);
     Zoltan_Set_Geom_Multi_Fn(zz, get_geometry_list<N>,     mesh_data);
-    if(automatic_migration) {
-        Zoltan_Set_Obj_Size_Fn(zz, cpt_obj_size<N>, mesh_data);
-        Zoltan_Set_Pack_Obj_Fn(zz, pack_particles<N>, mesh_data);
-        Zoltan_Set_Unpack_Obj_Fn(zz, unpack_particles<N>, mesh_data);
-        Zoltan_Set_Post_Migrate_Fn(zz, post_migrate_particles<N>, mesh_data);
-    }
+    Zoltan_Set_Obj_Size_Fn(zz, cpt_obj_size<N>, mesh_data);
+    Zoltan_Set_Pack_Obj_Fn(zz, pack_particles<N>, mesh_data);
+    Zoltan_Set_Unpack_Obj_Fn(zz, unpack_particles<N>, mesh_data);
+    Zoltan_Set_Post_Migrate_Fn(zz, post_migrate_particles<N>, mesh_data);
 }
 
-template<typename T>
-inline T dto(double v) {
-    T ret = (T) v;
 
-    if(std::isinf(ret)){
-        if(ret == -INFINITY){
-            ret = std::numeric_limits<T>::lowest();
-        } else {
-            ret = std::numeric_limits<T>::max();
-        }
-    }
-
-    return ret;
-}
 
 
 template<int N>
@@ -879,7 +864,7 @@ void migrate_zoltan(std::vector<elements::Element<N>> &data, int numImport, int 
 }
 
 template <int N>
-void Zoltan_LB(MESH_DATA<N>* mesh_data, Zoltan_Struct* load_balancer) {
+void Zoltan_Do_LB(MESH_DATA<N>* mesh_data, Zoltan_Struct* load_balancer) {
 
     // ZOLTAN VARIABLES
     int changes, numGidEntries, numLidEntries, numImport, numExport;
@@ -887,7 +872,7 @@ void Zoltan_LB(MESH_DATA<N>* mesh_data, Zoltan_Struct* load_balancer) {
     int *importProcs, *importToPart, *exportProcs, *exportToPart;
     // END OF ZOLTAN VARIABLES
 
-    zoltan_fn_init(load_balancer, mesh_data, ENABLE_AUTOMATIC_MIGRATION);
+    zoltan_fn_init(load_balancer, mesh_data);
     Zoltan_LB_Partition(load_balancer,      /* input (all remaining fields are output) */
                         &changes,           /* 1 if partitioning was changed, 0 otherwise */
                         &numGidEntries,     /* Number of integers used for a global ID */
@@ -902,8 +887,8 @@ void Zoltan_LB(MESH_DATA<N>* mesh_data, Zoltan_Struct* load_balancer) {
                         &exportLocalGids,   /* Local IDs of the vertices I must send */
                         &exportProcs,       /* Process to which I send each of the vertices */
                         &exportToPart);     /* Partition to which each vertex will belong */
-
     Zoltan_LB_Free_Part(&importGlobalGids, &importLocalGids, &importProcs, &importToPart);
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
+
 }
 #endif //NBMPI_ZOLTAN_FN_HPP

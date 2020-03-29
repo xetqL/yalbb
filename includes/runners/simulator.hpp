@@ -97,14 +97,19 @@ void simulate(MESH_DATA<N> *mesh_data,
         START_TIMER(frame_time);
         for (int i = 0; i < npframe; ++i) {
             START_TIMER(compute_time)
-            cmplx += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params, frame);
+            cmplx += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params);
             END_TIMER(compute_time)
+
+            // Measure load imbalance
+            MPI_Allreduce(&compute_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+            MPI_Allreduce(&compute_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
+            it_stats->update_cumulative_load_imbalance_slowdown();
 
             START_TIMER(migration_time);
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-                Zoltan_LB<N>(mesh_data, load_balancer);
+                Zoltan_Do_LB<N>(mesh_data, load_balancer);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(&lb_time_spent, it_stats->get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
                 it_stats->reset_load_imbalance_slowdown();
@@ -120,9 +125,6 @@ void simulate(MESH_DATA<N> *mesh_data,
             comm_time += migration_time;
         }
         END_TIMER(frame_time);
-        MPI_Allreduce(&comp_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&comp_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
-        it_stats->update_cumulative_load_imbalance_slowdown();
 
         time_logger->info("{:0.6f} {:0.6f} {:0.6f}", frame_time, comp_time, comm_time);
         cmplx_logger->info("{}", cmplx);
@@ -182,6 +184,11 @@ void simulate(MESH_DATA<N> *mesh_data,
             lb_cmplx_logger->info("{}\t{}\t{}\t{}", max_cmplx[frame], min_cmplx[frame], avg_cmplx[frame], (max_cmplx[frame]/avg_cmplx[frame]-1.0));
         }
     }
+    spdlog::drop("particle_logger");
+    spdlog::drop("lb_times_logger");
+    spdlog::drop("lb_cmplx_logger");
+    spdlog::drop("frame_time_logger");
+    spdlog::drop("frame_cmplx_logger");
 }
 
 #endif //NBMPI_SIMULATE_HPP

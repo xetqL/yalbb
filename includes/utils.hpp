@@ -21,6 +21,10 @@
 using Real = float;
 using Integer = long long int;
 
+template<class T>
+inline void update_local_ids(std::vector<T>& els, std::function<void (T&, Integer)> setLidF) {
+    Integer i = 0; for(auto& el : els) setLidF(els->at(i), i++);
+}
 
 template<int N, class T>
 inline void gather_elements_on(const int world_size,
@@ -84,11 +88,42 @@ inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue,
     return (truereturnvalue & -condition) | (falsereturnvalue & ~(-condition)); //a when TRUE
 }
 
+template<typename T>
+inline T dto(double v) {
+    T ret = (T) v;
+
+    if(std::isinf(ret)){
+        if(ret == -INFINITY){
+            ret = std::numeric_limits<T>::lowest();
+        } else {
+            ret = std::numeric_limits<T>::max();
+        }
+    }
+
+    return ret;
+}
+
 template<int N>
 using BoundingBox = std::array<Real, 2*N>;
+
 template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
+
+// C++ template to print vector container elements
+template <typename T, size_t N>
+std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
+{
+    os << "[";
+    for (int i = 0; i < v.size(); ++i) {
+        os << v[i];
+        if (i != v.size() - 1)
+            os << ", ";
+    }
+    os << "]\n";
+    return os;
+}
+
 
 template<int N>
 void update_bbox_for_container(BoundingBox<N>& new_bbox) {}
@@ -120,8 +155,8 @@ BoundingBox<N> get_bounding_box(Real rc, T&... elementContainers){
     update_bbox_for_container<N>(new_bbox, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
-        new_bbox[2*i]   = std::max((Real) 0.0, std::floor(new_bbox[2*i] / rc) * rc - 2*rc);
-        new_bbox[2*i+1] = std::ceil(new_bbox[2*i+1] / rc) * rc + 2*rc;
+        new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor(new_bbox.at(2*i) / rc) * rc - (Real) 2.0*rc);
+        new_bbox.at(2*i+1) = std::ceil(new_bbox.at(2*i+1) / rc) * rc + (Real) 2.0 * rc;
     }
     return new_bbox;
 }
@@ -131,8 +166,8 @@ void update_bounding_box(BoundingBox<N>& bbox, Real rc, T&... elementContainers)
     update_bbox_for_container<N>(bbox, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
-        bbox[2*i]   = std::max((Real) 0.0, std::floor(bbox[2*i] / rc) * rc - 2*rc);
-        bbox[2*i+1] = std::ceil(bbox[2*i+1] / rc) * rc + 2*rc;
+        bbox.at(2*i)   = std::max((Real) 0.0, std::floor(bbox.at(2*i) / rc) * rc - 2*rc);
+        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc + 2*rc;
     }
 }
 

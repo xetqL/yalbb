@@ -60,7 +60,9 @@ namespace decision_making {
                 dataHolder(dataHolder),
                 getDataF(getDataF),
                 getThresholdF(getThresholdF) {};
-        bool apply(int it) { return dataHolder != nullptr ? getDataF(dataHolder) >= getThresholdF(dataHolder) : false; }
+        bool apply(int it) {
+            return dataHolder != nullptr ? getDataF(dataHolder) >= getThresholdF(dataHolder) : false;
+        }
     };
 
     class InFilePolicy{

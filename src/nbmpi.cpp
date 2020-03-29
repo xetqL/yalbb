@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
                   std::to_string(params.simsize) + ".particles";
         if(file_exists(IMPORT_FILENAME)) {
             std::cout << "importing from file ..." << std::endl;
-            elements::import_from_file<DIMENSION, elements::ElementRealType >(IMPORT_FILENAME, mesh_data.els);
+            elements::import_from_file<DIMENSION, Real >(IMPORT_FILENAME, mesh_data.els);
             std::cout << "Done !" << std::endl;
         } else {
             std::cout << "Generating data ..." << std::endl;
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
     IterationStatistics it_stats(nproc);
 
     PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-    Zoltan_LB(&mesh_data, zz);
+    Zoltan_Do_LB(&mesh_data, zz);
     PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
     MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
 
@@ -156,10 +156,19 @@ int main(int argc, char** argv) {
     PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
             [](IterationStatistics* stats){return stats->get_cumulative_load_imbalance_slowdown();},//get data func
             [](IterationStatistics* stats){return stats->compute_avg_lb_time();});                  //get threshold func
+    PolicyRunner<NoLBPolicy> nolb_policy;                  //get threshold func
 
-    PAR_START_TIMER(time_spent, MPI_COMM_WORLD);
-    simulate<DIMENSION>(&mesh_data, zz,  std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
-    PAR_END_TIMER(time_spent, MPI_COMM_WORLD);
+    PAR_START_TIMER(threshold_time_spent, MPI_COMM_WORLD);
+    simulate<DIMENSION>(&mesh_data, zz, std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
+    PAR_END_TIMER(threshold_time_spent, MPI_COMM_WORLD);
+
+    std::cout << threshold_time_spent << " Threshold LB" << std::endl;
+
+    PAR_START_TIMER(nolb_time_spent, MPI_COMM_WORLD);
+    simulate<DIMENSION>(&mesh_data, zz, std::move(nolb_policy), &params, &it_stats, MPI_COMM_WORLD);
+    PAR_END_TIMER(nolb_time_spent, MPI_COMM_WORLD);
+
+    std::cout << nolb_time_spent << " No LB" << std::endl;
 
     Zoltan_Destroy(&zz);
 
