@@ -26,26 +26,7 @@ namespace decision_making {
         mutable std::uniform_real_distribution<Real> dist = std::uniform_real_distribution<Real>(0.0, 1.0);
     public:
         RandomPolicy(Real lb_probability, int seed = 0) : lb_probability(lb_probability), gen(std::mt19937(seed)) {}
-        bool apply(int it){ return dist(gen) < lb_probability; }
-    };
-
-    class IterationStatistics {
-        std::array<double,  3> data = {0.0, 0.0, 0.0};
-        std::vector<double> lb_times;
-        int i = 0;
-        int nproc;
-    public:
-        IterationStatistics(int nproc) : nproc(nproc) {}
-        double  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
-        double  get_cumulative_load_imbalance_slowdown() {return data[2]; }
-        void    update_cumulative_load_imbalance_slowdown() { data[2] += data[1] - data[0]/nproc; }
-        void    reset_load_imbalance_slowdown() { data[2] = 0.0; }
-        double* max_it_time() { return &data[1]; }
-        double* sum_it_time() { return &data[0]; }
-        double* get_lb_time_ptr() {
-            lb_times.push_back(std::numeric_limits<double>::lowest());
-            return &lb_times[i++];
-        }
+        bool apply(int it) { return dist(gen) < lb_probability; }
     };
 
     class ThresholdPolicy {
@@ -57,9 +38,7 @@ namespace decision_making {
                 IterationStatistics* dataHolder,
                 const std::function<Real (IterationStatistics*)> getDataF,
                 const std::function<Real (IterationStatistics*)> getThresholdF) :
-                dataHolder(dataHolder),
-                getDataF(getDataF),
-                getThresholdF(getThresholdF) {};
+                dataHolder(dataHolder), getDataF(getDataF), getThresholdF(getThresholdF) {};
         bool apply(int it) {
             return dataHolder != nullptr ? getDataF(dataHolder) >= getThresholdF(dataHolder) : false;
         }

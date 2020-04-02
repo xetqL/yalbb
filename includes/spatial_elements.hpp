@@ -230,8 +230,10 @@ namespace elements {
 
     template<int N, class RealType, bool UseDoublePrecision = std::is_same<RealType, double>::value>
     void import_from_file(std::string filename, std::vector<Element<N>>& particles) {
-        if(UseDoublePrecision) import_from_file_double<N>(filename, particles);
-        else import_from_file_float<N>(filename, particles);
+        if constexpr (UseDoublePrecision)
+            import_from_file_double<N>(filename, particles);
+        else
+            import_from_file_float<N>(filename, particles);
     }
 
     template<int N>
@@ -247,7 +249,6 @@ namespace elements {
 
     template<int N>
     const inline Real distance2(const std::array<Real, N>& e1, const std::array<Real, N>& e2)  {
-
         std::array<Real, N> e1e2;
         for(int i = 0; i < N; ++i) e1e2[i] = e1[0] - e2[0];
         return std::accumulate(e1e2.cbegin(), e1e2.cend(), 0.0, [](Real prev, Real v){ return prev + v*v; });

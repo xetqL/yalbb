@@ -4,6 +4,7 @@
 
 #include "../includes/runners/simulator.hpp"
 #include "../includes/initial_conditions.hpp"
+#include "../includes/runners/shortest_path.hpp"
 
 int main(int argc, char** argv) {
 
@@ -48,14 +49,13 @@ int main(int argc, char** argv) {
                   std::to_string(params.simsize) + ".particles";
         if(file_exists(IMPORT_FILENAME)) {
             std::cout << "importing from file ..." << std::endl;
-            elements::import_from_file<DIMENSION, Real >(IMPORT_FILENAME, mesh_data.els);
+            elements::import_from_file<DIMENSION, Real>(IMPORT_FILENAME, mesh_data.els);
             std::cout << "Done !" << std::endl;
         } else {
             std::cout << "Generating data ..." << std::endl;
             std::shared_ptr<initial_condition::lj::RejectionCondition<DIMENSION>> condition;
             const int MAX_TRIAL = 100000;
             int NB_CLUSTERS;
-
             std::vector<int> clusters;
             using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<DIMENSION>>, int>;
             std::queue<ElementGeneratorCfg> elements_generators;
@@ -140,35 +140,41 @@ int main(int argc, char** argv) {
         }
     }
 
+    auto original_data = mesh_data;
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     using namespace decision_making;
-    IterationStatistics it_stats(nproc);
 
-    PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-    Zoltan_Do_LB(&mesh_data, zz);
-    PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
-    MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+    {   /* Experiment 1 */
+        auto load_balancer = Zoltan_Copy(zz);
+        mesh_data = original_data;
+        if(!rank) std::cout << "SIM: Computation is starting." << std::endl;
+        IterationStatistics it_stats(nproc);
+        PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
+        Zoltan_Do_LB(&mesh_data, zz);
+        PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
+        MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
 
-    std::cout << rank << " starts the computation" << std::endl;
+        PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
+                [](IterationStatistics* stats){ return stats->get_cumulative_load_imbalance_slowdown(); },// get data func
+                [](IterationStatistics* stats){ return stats->compute_avg_lb_time(); });                  // get threshold func
 
-    PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
-            [](IterationStatistics* stats){return stats->get_cumulative_load_imbalance_slowdown();},//get data func
-            [](IterationStatistics* stats){return stats->compute_avg_lb_time();});                  //get threshold func
-    PolicyRunner<NoLBPolicy> nolb_policy;                  //get threshold func
+        PAR_START_TIMER(threshold_time_spent, MPI_COMM_WORLD);
+        simulate<DIMENSION>(&mesh_data, zz, std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
+        PAR_END_TIMER(threshold_time_spent, MPI_COMM_WORLD);
+        std::cout << threshold_time_spent << " Threshold LB" << std::endl;
+    }
 
-    PAR_START_TIMER(threshold_time_spent, MPI_COMM_WORLD);
-    simulate<DIMENSION>(&mesh_data, zz, std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
-    PAR_END_TIMER(threshold_time_spent, MPI_COMM_WORLD);
+    {   /* Experiment 2 */
+        auto load_balancer = Zoltan_Copy(zz);
+        mesh_data = original_data;
+        if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
+        simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, MPI_COMM_WORLD);
 
-    std::cout << threshold_time_spent << " Threshold LB" << std::endl;
-
-    PAR_START_TIMER(nolb_time_spent, MPI_COMM_WORLD);
-    simulate<DIMENSION>(&mesh_data, zz, std::move(nolb_policy), &params, &it_stats, MPI_COMM_WORLD);
-    PAR_END_TIMER(nolb_time_spent, MPI_COMM_WORLD);
-
-    std::cout << nolb_time_spent << " No LB" << std::endl;
+    }
 
     Zoltan_Destroy(&zz);
 

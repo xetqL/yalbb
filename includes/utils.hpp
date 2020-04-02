@@ -18,8 +18,13 @@
 
 #define binary_node_max_id_for_level(x) (std::pow(2, (int) (std::log(x+1)/std::log(2))+1) - 2)
 
-using Real = float;
-using Integer = long long int;
+using Real       = float;
+using Time       = double;
+
+using Rank       = int;
+using Integer    = long long int;
+using Complexity = Integer;
+using Index      = Integer;
 
 template<class T>
 inline void update_local_ids(std::vector<T>& els, std::function<void (T&, Integer)> setLidF) {
@@ -41,7 +46,9 @@ inline void gather_elements_on(const int world_size,
     for (int cpt = 0; cpt < world_size; ++cpt) displs[cpt] = cpt == 0 ? 0 : displs[cpt - 1] + counts[cpt - 1];
     if (my_rank == dest_rank) dest_el.resize(nb_elements);
     MPI_Gatherv(&local_el.front(), nlocal, sendtype,
-                &dest_el.front(), &counts.front(), &displs.front(), sendtype, dest_rank, comm);
+                 &dest_el.front(),
+                  &counts.front(),
+                  &displs.front(), sendtype, dest_rank, comm);
 }
 
 #define TIME_IT(a, name){\
@@ -88,8 +95,29 @@ inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue,
     return (truereturnvalue & -condition) | (falsereturnvalue & ~(-condition)); //a when TRUE
 }
 
+class IterationStatistics {
+     std::array<Time, 3> data = {0.0, 0.0, 0.0};
+    std::vector<Time> lb_times;
+    int i = 0;
+    int nproc;
+public:
+    IterationStatistics(int nproc) : nproc(nproc) {}
+    IterationStatistics() : nproc(0) {}
+
+    double  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
+    double  get_cumulative_load_imbalance_slowdown() {return data[2]; }
+    void    update_cumulative_load_imbalance_slowdown() { data[2] += data[1] - data[0]/nproc; }
+    void    reset_load_imbalance_slowdown() { data[2] = 0.0; }
+    double* max_it_time() { return &data[1]; }
+    double* sum_it_time() { return &data[0]; }
+    double* get_lb_time_ptr() {
+        lb_times.push_back(std::numeric_limits<double>::lowest());
+        return &lb_times[i++];
+    }
+};
+
 template<typename T>
-inline T dto(double v) {
+T dto(double v) {
     T ret = (T) v;
 
     if(std::isinf(ret)){
@@ -103,8 +131,7 @@ inline T dto(double v) {
     return ret;
 }
 
-template<int N>
-using BoundingBox = std::array<Real, 2*N>;
+template<int N> using BoundingBox = std::array<Real, 2*N>;
 
 template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
@@ -254,8 +281,6 @@ Integer position_to_local_cell_index(std::array<Real, N> const &position, Real r
         lidz = (Integer) std::floor((position.at(2) - bbox[4]) / rc);
     return lidx + c*lidy + c*r*lidz;
 }
-
-
 
 template<int N>
 inline Integer

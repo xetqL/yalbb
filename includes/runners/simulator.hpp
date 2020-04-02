@@ -43,14 +43,18 @@ std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
     return zoltan_exchange_data<N>(elements, load_balancer, head->data(), lscl->data(), borders, datatype, comm, r, s);
 }
 
+using ApplicationTime = Time;
+using CumulativeLoadImbalanceHistory = std::vector<Time>;
+
 template<int N, class T>
-void simulate(MESH_DATA<N> *mesh_data,
+std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory>
+        simulate(MESH_DATA<N> *mesh_data,
               Zoltan_Struct *load_balancer,
               decision_making::PolicyRunner<T> lb_policy,
               sim_param_t *params,
-              decision_making::IterationStatistics* it_stats = nullptr,
+              IterationStatistics* it_stats = nullptr,
               const MPI_Comm comm = MPI_COMM_WORLD) {
-    constexpr bool automatic_migration = true;
+
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
@@ -91,28 +95,33 @@ void simulate(MESH_DATA<N> *mesh_data,
     auto remote_el      = get_ghost_data(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
     const int nb_data = mesh_data->els.size();
     for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
+    ApplicationTime app_time = 0.0;
+    CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes);
     for (int frame = 0; frame < nframes; ++frame) {
         Time comm_time = 0.0, comp_time = 0.0;
         Complexity cmplx = 0;
         START_TIMER(frame_time);
         for (int i = 0; i < npframe; ++i) {
-            START_TIMER(compute_time)
+            START_TIMER(compute_time);
             cmplx += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params);
-            END_TIMER(compute_time)
+            END_TIMER(compute_time);
 
             // Measure load imbalance
             MPI_Allreduce(&compute_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
             MPI_Allreduce(&compute_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
             it_stats->update_cumulative_load_imbalance_slowdown();
 
+            if(i == 0) cum_li_hist.push_back(it_stats->get_cumulative_load_imbalance_slowdown());
+
             START_TIMER(migration_time);
             bool lb_decision = lb_policy.should_load_balance(i + frame * npframe);
-            if (lb_decision) {
+            if (lb_decision && i == 0) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 Zoltan_Do_LB<N>(mesh_data, load_balancer);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(&lb_time_spent, it_stats->get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
                 it_stats->reset_load_imbalance_slowdown();
+                compute_time += lb_time_spent;
             } else {
                 Zoltan_Migrate_Particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
@@ -126,19 +135,16 @@ void simulate(MESH_DATA<N> *mesh_data,
         }
         END_TIMER(frame_time);
 
-        time_logger->info("{:0.6f} {:0.6f} {:0.6f}", frame_time, comp_time, comm_time);
-        cmplx_logger->info("{}", cmplx);
-
-        if(frame % 5 == 0) {
-            time_logger->flush();
-            cmplx_logger->flush();
-        }
-
-        my_frame_times[frame] = comp_time;
-        my_frame_cmplx[frame] = cmplx;
+        MPI_Allreduce(MPI_IN_PLACE, &frame_time, 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+        app_time += frame_time;
 
         // Write metrics to report file
         if (params->record) {
+            time_logger->info("{:0.6f} {:0.6f} {:0.6f}", frame_time, comp_time, comm_time);
+            cmplx_logger->info("{}", cmplx);
+
+            if(frame % 5 == 0) { time_logger->flush(); cmplx_logger->flush(); }
+
             gather_elements_on<N, elements::Element<N>>(nproc, rank, params->npart,
                                                         mesh_data->els, 0, recv_buf, datatype, comm);
             if (rank == 0) {
@@ -151,6 +157,9 @@ void simulate(MESH_DATA<N> *mesh_data,
                 particle_logger->info(str.str());
             }
         }
+
+        my_frame_times[frame] = comp_time;
+        my_frame_cmplx[frame] = cmplx;
     }
 
     MPI_Barrier(comm);
@@ -161,6 +170,7 @@ void simulate(MESH_DATA<N> *mesh_data,
 
     std::shared_ptr<spdlog::logger> lb_time_logger;
     std::shared_ptr<spdlog::logger> lb_cmplx_logger;
+
     if(!rank){
         lb_time_logger = spdlog::basic_logger_mt("lb_times_logger", "logs/"+std::to_string(params->seed)+"/time/frame_statistics.txt");
         lb_time_logger->set_pattern("%v");
@@ -184,11 +194,14 @@ void simulate(MESH_DATA<N> *mesh_data,
             lb_cmplx_logger->info("{}\t{}\t{}\t{}", max_cmplx[frame], min_cmplx[frame], avg_cmplx[frame], (max_cmplx[frame]/avg_cmplx[frame]-1.0));
         }
     }
+
     spdlog::drop("particle_logger");
     spdlog::drop("lb_times_logger");
     spdlog::drop("lb_cmplx_logger");
     spdlog::drop("frame_time_logger");
     spdlog::drop("frame_cmplx_logger");
+
+    return { app_time, cum_li_hist };
 }
 
 #endif //NBMPI_SIMULATE_HPP

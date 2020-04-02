@@ -177,13 +177,6 @@ std::vector<LBSolutionPath<N>> Astar_runner(
                         child->end_it += npframe;
                         particle_positions[(child->end_it / npframe)] = mesh_data;
 
-                        child->last_metric = {};
-                        std::copy(dataset_entry.begin(), dataset_entry.end(), std::back_inserter(child->last_metric));
-                        child->last_metric.push_back(dataset_entry.at(0) - child->metrics_before_decision.at(0));
-                        child->last_metric.push_back(dataset_entry.at(1) - child->metrics_before_decision.at(1));
-                        child->last_metric.push_back(dataset_entry.at(2) - child->metrics_before_decision.at(2));
-                        child->last_metric.push_back(dataset_entry.at(3) - child->metrics_before_decision.at(3));
-
                         //child->mesh_data = mesh_data;      //update particles
                         child->set_cost(child_cost);       //set how much time it costed
                         queue.insert(child);

@@ -24,8 +24,6 @@ std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array)
         return {(double) real_array[0], (double) real_array[1], (double) real_array[2]};
 }
 
-using Rank = int;
-using Index = Integer;
 auto MPI_INDEX = MPI_LONG_LONG;
 
 struct Borders {
@@ -232,8 +230,8 @@ Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm, in
     Zoltan_Set_Param(zz, "RCB_RECTILINEAR_BLOCKS", "1");
     Zoltan_Set_Param(zz, "KEEP_CUTS", "1");
 
-    if(automatic_migration)
-        Zoltan_Set_Param(zz, "AUTO_MIGRATE", "TRUE");
+
+    Zoltan_Set_Param(zz, "AUTO_MIGRATE", "TRUE");
 
     return zz;
 }
@@ -318,9 +316,6 @@ void zoltan_fn_init(Zoltan_Struct* zz, MESH_DATA<N>* mesh_data){
     Zoltan_Set_Unpack_Obj_Fn(zz, unpack_particles<N>, mesh_data);
     Zoltan_Set_Post_Migrate_Fn(zz, post_migrate_particles<N>, mesh_data);
 }
-
-
-
 
 template<int N>
 typename std::vector<elements::Element<N>>::const_iterator zoltan_migrate_particles(

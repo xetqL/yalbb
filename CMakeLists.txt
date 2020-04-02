@@ -137,7 +137,7 @@ add_executable(build
         includes/params.hpp
         includes/report.hpp
         includes/zoltan_fn.hpp
-        includes/runners/simulator.hpp includes/communication_datatype.hpp)
+        includes/runners/simulator.hpp includes/communication_datatype.hpp includes/runners/shortest_path.hpp)
 
 # speedlog build toolchain and link
 execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)

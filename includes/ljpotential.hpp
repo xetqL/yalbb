@@ -217,24 +217,23 @@ namespace algorithm {
     }
 }
 
-using Complexity    = Integer;
-using Time          = double;
 auto MPI_TIME       = MPI_DOUBLE;
 auto MPI_COMPLEXITY = MPI_LONG_LONG;
+
 namespace lj {
-    namespace
-    {
+    namespace {
         std::vector<Real> acc;
     }
     template<int N>
     Complexity compute_one_step (
             std::vector<elements::Element<N>>&        elements,
             const std::vector<elements::Element<N>>& remote_el,
-            std::vector<Integer> *head,             //the particle linked list
-            std::vector<Integer> *lscl,             //the cell starting point
-            BoundingBox<N>& bbox,                   //bounding box of particles
-            Borders& borders,                       //bordering cells and neighboring processors
-            sim_param_t *params) {                   //simulation parameters
+            std::vector<Integer> *head,                         //the particle linked list
+            std::vector<Integer> *lscl,                         //the cell starting point
+            BoundingBox<N>& bbox,                               //bounding box of particles
+            const Borders& borders,                             //bordering cells and neighboring processors
+            const sim_param_t *params) {                        //simulation parameters
+
         const Real cut_off_radius = params->rc; // cut_off
         const Real dt = params->dt;
         const size_t nb_elements = elements.size();
@@ -260,7 +259,5 @@ namespace lj {
 
         return cmplx;
     };
-
-
 }
 #endif //NBMPI_LJPOTENTIAL_HPP
