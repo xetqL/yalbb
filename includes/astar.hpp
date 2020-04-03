@@ -16,6 +16,7 @@
 #include "utils.hpp"
 #include "feature_container.hpp"
 
+
 enum NodeLBDecision {DoLB=1, DontLB=0};
 
 struct Node : public std::enable_shared_from_this<Node>{
@@ -56,8 +57,8 @@ public:
     Node (Index id, int startit, int batch_size, NodeLBDecision decision, IterationStatistics stats, std::shared_ptr<Node> p) :
         id(id),
         start_it(startit), end_it(startit+batch_size), batch_size(batch_size),
-        parent(p), decision(decision), stats(stats),
-        concrete_cost(parent->concrete_cost), lb(Zoltan_Copy(parent->lb)) {
+        parent(p), decision(decision), stats(stats), lb(Zoltan_Copy(parent->lb)),
+        concrete_cost(parent->concrete_cost){
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -86,16 +87,20 @@ public:
     }
 
     ~Node() {
-        std::cout << "Destruction" << std::endl;
         Zoltan_Destroy(&lb);
     }
 
     std::array<std::shared_ptr<Node>, 2> get_children() {
-
-        return {
-            std::make_shared<Node>(0, end_it, batch_size, NodeLBDecision::DoLB, stats, this->shared_from_this()),
-            std::make_shared<Node>(0, end_it, batch_size, NodeLBDecision::DontLB, stats, this->shared_from_this())
-        };
+        if(this->end_it == 0){
+            return {
+                std::make_shared<Node>(0, end_it, batch_size, NodeLBDecision::DontLB, stats, this->shared_from_this()),
+                nullptr
+            };
+        }else
+            return {
+                std::make_shared<Node>(0, end_it, batch_size, NodeLBDecision::DoLB, stats, this->shared_from_this()),
+                std::make_shared<Node>(0, end_it, batch_size, NodeLBDecision::DontLB, stats, this->shared_from_this())
+            };
     }
 
 };

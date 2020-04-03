@@ -15,9 +15,11 @@ int main(int argc, char** argv) {
     MESH_DATA<DIMENSION> mesh_data;
 
     // Initialize the MPI environment
-    MPI_Init(nullptr, nullptr);
+    MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    MPI_Comm APP_COMM;
+    MPI_Comm_dup(MPI_COMM_WORLD, &APP_COMM);
 
     if (get_params(argc, argv, &params) != 0) {
         MPI_Finalize();
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
     }
-    auto zz = zoltan_create_wrapper(ENABLE_AUTOMATIC_MIGRATION);
+    auto zz = zoltan_create_wrapper(APP_COMM, ENABLE_AUTOMATIC_MIGRATION);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
@@ -148,33 +150,63 @@ int main(int argc, char** argv) {
 
     using namespace decision_making;
 
-    {   /* Experiment 1 */
-        auto load_balancer = Zoltan_Copy(zz);
+    /* Experiment 2 */
+    {
         mesh_data = original_data;
-        if(!rank) std::cout << "SIM: Computation is starting." << std::endl;
-        IterationStatistics it_stats(nproc);
-        PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-        Zoltan_Do_LB(&mesh_data, zz);
-        PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
-        MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+        auto load_balancer = Zoltan_Copy(zz);
 
+        PAR_START_TIMER(lb_time_spent, APP_COMM);
+        Zoltan_Do_LB(&mesh_data, load_balancer);
+        PAR_END_TIMER(lb_time_spent, APP_COMM);
+
+        if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
+        auto solution  = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
+        if(!rank)
+        {
+            std::cout << std::fixed << std::setprecision(6) << solution.back()->cost() <<  " BaB LB" << std::endl;
+            std::vector<Time> cum;
+            std::transform(solution.begin(), solution.end(), std::back_inserter(cum), [](auto v){return v->stats.get_cumulative_load_imbalance_slowdown();});
+            std::cout << cum << std::endl;
+            std::vector<int> dec;
+            std::transform(solution.begin(), solution.end(), std::back_inserter(dec), [](auto v){return v->decision == DoLB;});
+            std::cout << dec << std::endl;
+        }
+
+    }
+    //
+
+    {   /* Experiment 1 */
+
+        mesh_data = original_data;
+        auto load_balancer = Zoltan_Copy(zz);
+
+
+        IterationStatistics it_stats(nproc);
+
+        PAR_START_TIMER(lb_time_spent, APP_COMM);
+        Zoltan_Do_LB(&mesh_data, load_balancer);
+        PAR_END_TIMER(lb_time_spent, APP_COMM);
+
+        MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, APP_COMM);
+
+        if(!rank) std::cout << "SIM: Computation is starting." << std::endl;
         PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
                 [](IterationStatistics* stats){ return stats->get_cumulative_load_imbalance_slowdown(); },// get data func
                 [](IterationStatistics* stats){ return stats->compute_avg_lb_time(); });                  // get threshold func
 
-        PAR_START_TIMER(threshold_time_spent, MPI_COMM_WORLD);
-        simulate<DIMENSION>(&mesh_data, zz, std::move(lb_policy), &params, &it_stats, MPI_COMM_WORLD);
-        PAR_END_TIMER(threshold_time_spent, MPI_COMM_WORLD);
-        std::cout << threshold_time_spent << " Threshold LB" << std::endl;
+        auto [t, cum, dec] = simulate<DIMENSION>(&mesh_data, load_balancer, std::move(lb_policy), &params, &it_stats, APP_COMM);
+
+        if(!rank){
+            std::cout << std::fixed << std::setprecision(6) << t << " Threshold LB" << std::endl;
+            std::cout << cum << std::endl;
+            std::cout << dec << std::endl;
+        }
+
+        Zoltan_Destroy(&load_balancer);
     }
 
-    {   /* Experiment 2 */
-        auto load_balancer = Zoltan_Copy(zz);
-        mesh_data = original_data;
-        if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
-        simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, MPI_COMM_WORLD);
 
-    }
+
 
     Zoltan_Destroy(&zz);
 

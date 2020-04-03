@@ -144,7 +144,10 @@ execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DI
 execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a)
-target_include_directories(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/include)
+target_include_directories(build PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
+)
+
 # end of processing speedlog
 
 set_target_properties(build 

@@ -239,15 +239,12 @@ namespace lj {
         const size_t nb_elements = elements.size();
 
         if(const auto n_cells = get_total_cell_number<N>(bbox, params->rc); head->size() < n_cells) {
-            std::cout << "resize head buffer" << n_cells << std::endl;
             head->resize(n_cells);
         }
         if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
-            std::cout << "resize force acceleration buffer " << n_force_elements << std::endl;
             acc.resize(N*n_force_elements);
         }
         if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
-            std::cout << "resize cell linkedlist " << n_particles << std::endl;
             lscl->resize(n_particles);
         }
         algorithm::CLL_init<N>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, bbox, cut_off_radius, head->data(), lscl->data());
