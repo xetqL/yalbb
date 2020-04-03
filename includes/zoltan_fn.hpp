@@ -236,8 +236,8 @@ Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm, in
     return zz;
 }
 
-Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration = false) {
-    return zoltan_create_wrapper(automatic_migration, MPI_COMM_WORLD);
+Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm, bool automatic_migration = false) {
+    return zoltan_create_wrapper(automatic_migration, comm);
 }
 
 template<int N>
