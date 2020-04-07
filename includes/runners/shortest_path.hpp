@@ -30,11 +30,14 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 
-using LBSolutionPath = std::list<std::shared_ptr<Node> >;
+using LBSolutionPath = std::vector<std::shared_ptr<Node> >;
+using LBLiHist       = std::vector<Time>;
+using LBDecHist      = std::vector<int>;
+
 using NodeQueue      = std::multiset<std::shared_ptr<Node>, Compare>;
 
 template<int N>
-LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
+std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
               Zoltan_Struct *load_balancer,
               sim_param_t *params,
               MPI_Comm comm = MPI_COMM_WORLD) {
@@ -94,9 +97,13 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
                 if(node && ((node->decision == DontLB) || (node->decision == DoLB && !foundYes.at(frame)))) {
                     /* compute node cost */
                     Time comp_time = 0.0;
+
                     auto mesh_data = rollback_data.at(frame);
                     auto load_balancer = node->lb;
-                    IterationStatistics* it_stats = &(node->stats);
+
+                    auto& cum_li_hist = node->li_slowdown_hist;
+                    auto& dec_hist    = node->dec_hist;
+                    auto& it_stats    = node->stats;
 
                     // Move data according to my parent's state
                     Zoltan_Migrate_Particles<N>(mesh_data.els, load_balancer, datatype, comm);
@@ -107,27 +114,34 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
                     // Get the ghost data from neighboring processors
                     auto remote_el = get_ghost_data<N>(load_balancer, mesh_data.els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
-                    for (int i = node->start_it; i < node->end_it; ++i) {
+
+
+                    for (int i = 0; i < node->batch_size; ++i) {
                         START_TIMER(it_compute_time);
                         lj::compute_one_step<N>(mesh_data.els, remote_el, &head, &lscl, bbox, borders, params);
                         END_TIMER(it_compute_time);
+
                         // Measure load imbalance
-                        MPI_Allreduce(&it_compute_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
-                        MPI_Allreduce(&it_compute_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
-                        it_stats->update_cumulative_load_imbalance_slowdown();
-                        it_compute_time = *it_stats->max_it_time();
+                        MPI_Allreduce(&it_compute_time, it_stats.max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
+                        MPI_Allreduce(&it_compute_time, it_stats.sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+                        it_stats.update_cumulative_load_imbalance_slowdown();
+                        it_compute_time = *it_stats.max_it_time();
+
+                        cum_li_hist[i] = it_stats.get_cumulative_load_imbalance_slowdown();
+                        dec_hist[i]    = node->decision == DoLB && i == 0;
 
                         if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             Zoltan_Do_LB<N>(&mesh_data, load_balancer);
                             PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
-                            *it_stats->get_lb_time_ptr() = lb_time_spent;
-                            it_stats->reset_load_imbalance_slowdown();
+                            *it_stats.get_lb_time_ptr() = lb_time_spent;
+                            it_stats.reset_load_imbalance_slowdown();
                             it_compute_time += lb_time_spent;
                         } else {
                             Zoltan_Migrate_Particles<N>(mesh_data.els, load_balancer, datatype, comm);
                         }
+
                         bbox      = get_bounding_box<N>(params->rc, mesh_data.els);
                         borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
                         remote_el = get_ghost_data<N>(load_balancer, mesh_data.els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
@@ -147,21 +161,23 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
 
     auto solution = solutions[0];
     Time total_time = solution->cost();
-    std::list<Time> cumulative_load_imbalance;
-    std::list<int>  decisions;
-
+    LBLiHist cumulative_load_imbalance;
+    LBDecHist decisions;
+    auto it_li = cumulative_load_imbalance.begin();
+    auto it_dec= decisions.begin();
     while (solution->start_it >= 0) { //reconstruct path
-        solution_path.push_front(solution);
-        std::cout << (solution->get_decision() == DoLB) << std::endl;
+        solution_path.push_back(solution);
+        it_li = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(), solution->li_slowdown_hist.end());
+        it_dec= decisions.insert(it_dec, solution->dec_hist.begin(), solution->dec_hist.end());
         solution = solution->parent;
-
     }
+    std::reverse(solution_path.begin(), solution_path.end());
 
     spdlog::drop("particle_logger");
     spdlog::drop("lb_times_logger");
     spdlog::drop("lb_cmplx_logger");
     spdlog::drop("frame_time_logger");
     spdlog::drop("frame_cmplx_logger");
-    return solution_path;
+    return {solution_path, cumulative_load_imbalance, decisions};
 }
 #endif //NBMPI_SHORTEST_PATH_HPP

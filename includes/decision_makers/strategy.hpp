@@ -40,7 +40,6 @@ namespace decision_making {
                 const std::function<Real (IterationStatistics*)> getThresholdF) :
                 dataHolder(dataHolder), getDataF(getDataF), getThresholdF(getThresholdF) {};
         bool apply(int it) {
-            std::cout << std::fixed << std::setprecision(6) << getDataF(dataHolder) << " >= " << getThresholdF(dataHolder) <<  std::endl;
             return dataHolder != nullptr ? getDataF(dataHolder) >= getThresholdF(dataHolder) : false;
         }
     };

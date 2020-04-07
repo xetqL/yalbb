@@ -160,15 +160,11 @@ int main(int argc, char** argv) {
         PAR_END_TIMER(lb_time_spent, APP_COMM);
 
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
-        auto solution  = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
+        auto [solution, li, dec] = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
         if(!rank)
         {
             std::cout << std::fixed << std::setprecision(6) << solution.back()->cost() <<  " BaB LB" << std::endl;
-            std::vector<Time> cum;
-            std::transform(solution.begin(), solution.end(), std::back_inserter(cum), [](auto v){return v->stats.get_cumulative_load_imbalance_slowdown();});
-            std::cout << cum << std::endl;
-            std::vector<int> dec;
-            std::transform(solution.begin(), solution.end(), std::back_inserter(dec), [](auto v){return v->decision == DoLB;});
+            std::cout << li << std::endl;
             std::cout << dec << std::endl;
         }
 
@@ -187,7 +183,10 @@ int main(int argc, char** argv) {
 
         MPI_Allreduce(&lb_time_spent, it_stats.get_lb_time_ptr(), 1, MPI_TIME, MPI_MAX, APP_COMM);
 
-        if(!rank) std::cout << "SIM: Computation is starting." << std::endl;
+        if(!rank) {
+            std::cout << "SIM: Computation is starting." << std::endl;
+            std::cout << "Average C = " << it_stats.compute_avg_lb_time() << std::endl;
+        }
         PolicyRunner<ThresholdPolicy> lb_policy(&it_stats,
                 [](IterationStatistics* stats){ return stats->get_cumulative_load_imbalance_slowdown(); },// get data func
                 [](IterationStatistics* stats){ return stats->compute_avg_lb_time(); });                  // get threshold func

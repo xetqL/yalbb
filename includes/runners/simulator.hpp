@@ -97,13 +97,12 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
     const int nb_data = mesh_data->els.size();
     for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
     ApplicationTime app_time = 0.0;
-    CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes);
-    Decisions dec; dec.reserve(nframes);
+    CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes*npframe);
+    Decisions dec; dec.reserve(nframes*npframe);
     for (int frame = 0; frame < nframes; ++frame) {
         Time comp_time = 0.0;
         Complexity complexity = 0;
         for (int i = 0; i < npframe; ++i) {
-
             START_TIMER(it_compute_time);
             complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params);
             END_TIMER(it_compute_time);
@@ -115,11 +114,11 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
 
             bool lb_decision= false;
 
-            if(i == 0) {
+            if(i == 0)
                 lb_decision = lb_policy.should_load_balance(i + frame * npframe);
-                cum_li_hist.push_back(it_stats->get_cumulative_load_imbalance_slowdown());
-                dec.push_back(lb_decision);
-            }
+
+            cum_li_hist.push_back(it_stats->get_cumulative_load_imbalance_slowdown());
+            dec.push_back(lb_decision);
 
             if (i == 0 && lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
@@ -129,6 +128,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
                 *it_stats->get_lb_time_ptr() = lb_time_spent;
                 it_stats->reset_load_imbalance_slowdown();
                 it_compute_time += lb_time_spent;
+                if(!rank) {
+                    std::cout << "Average C = " << it_stats->compute_avg_lb_time() << std::endl;
+                }
             } else {
                 Zoltan_Migrate_Particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }

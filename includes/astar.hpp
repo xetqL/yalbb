@@ -27,6 +27,8 @@ public:
     Rank rank;
     Index id;
     std::shared_ptr<Node> parent;
+    std::vector<Time> li_slowdown_hist;
+    std::vector<int> dec_hist;
     NodeLBDecision decision;          // Y / N boolean
     IterationStatistics stats;
     Time concrete_cost = 0.0;      // estimated cost to the solution
@@ -56,7 +58,7 @@ public:
 
     Node (Index id, int startit, int batch_size, NodeLBDecision decision, IterationStatistics stats, std::shared_ptr<Node> p) :
         id(id),
-        start_it(startit), end_it(startit+batch_size), batch_size(batch_size),
+        start_it(startit), end_it(startit+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size),
         parent(p), decision(decision), stats(stats), lb(Zoltan_Copy(parent->lb)),
         concrete_cost(parent->concrete_cost){
         int size;
@@ -66,7 +68,7 @@ public:
 
     Node(Zoltan_Struct* zz, int batch_size) :
             id(0),
-            start_it(0), end_it(batch_size), batch_size(batch_size), parent(nullptr),
+            start_it(0), end_it(batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), parent(nullptr),
             decision(NodeLBDecision::DoLB),
             lb(zz) {
         int size;
@@ -77,7 +79,7 @@ public:
 
     Node(Zoltan_Struct* zz, int start_it, int batch_size, NodeLBDecision decision) :
             id(0),
-            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), parent(nullptr),
+            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), parent(nullptr),
             decision(decision),
             lb(zz) {
         int size;
