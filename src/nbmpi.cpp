@@ -161,11 +161,16 @@ int main(int argc, char** argv) {
 
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
         auto [solution, li, dec] = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
+
         if(!rank)
         {
-            std::cout << std::fixed << std::setprecision(6) << solution.back()->cost() <<  " BaB LB" << std::endl;
-            std::cout << li << std::endl;
-            std::cout << dec << std::endl;
+            std::ofstream ofbab;
+
+            ofbab.open(std::to_string(params.seed)+"_branch_and_bound.txt");
+            ofbab << std::fixed << std::setprecision(6) << solution.back()->cost() << std::endl;
+            ofbab << li << std::endl;
+            ofbab << dec << std::endl;
+            ofbab.close();
         }
 
     }
@@ -194,9 +199,13 @@ int main(int argc, char** argv) {
         auto [t, cum, dec] = simulate<DIMENSION>(&mesh_data, load_balancer, std::move(lb_policy), &params, &it_stats, APP_COMM);
 
         if(!rank){
-            std::cout << std::fixed << std::setprecision(6) << t << " Threshold LB" << std::endl;
-            std::cout << cum << std::endl;
-            std::cout << dec << std::endl;
+            std::ofstream ofcri;
+
+            ofcri.open(std::to_string(params.seed)+"_criterion.txt");
+            ofcri << std::fixed << std::setprecision(6) << t << std::endl;
+            ofcri << cum << std::endl;
+            ofcri << dec << std::endl;
+            ofcri.close();
         }
 
         Zoltan_Destroy(&load_balancer);

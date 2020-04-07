@@ -141,25 +141,23 @@ template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { 
 template <typename T, size_t N>
 std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
 {
-    os << std::fixed << std::setprecision(6) <<  "[";
+    os << std::fixed << std::setprecision(6);
     for (int i = 0; i < N; ++i) {
         os << v[i];
         if (i != v.size() - 1)
-            os << ", ";
+            os << " ";
     }
-    os << "]\n";
     return os;
 }
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
-    os << std::fixed << std::setprecision(6) << "[";
+    os << std::fixed << std::setprecision(6) ;
     const auto s = v.size();
     for (int i = 0; i < s; ++i) {
         os << v[i];
-        if (i != s - 1) os << ", ";
+        if (i != s - 1) os << " ";
     }
-    os << "]\n";
     return os;
 }
 
