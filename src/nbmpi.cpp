@@ -173,13 +173,11 @@ int main(int argc, char** argv) {
         }
 
     }
-    //
 
     {   /* Experiment 1 */
 
         mesh_data = original_data;
         auto load_balancer = Zoltan_Copy(zz);
-
 
         IterationStatistics it_stats(nproc);
 

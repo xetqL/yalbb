@@ -69,6 +69,8 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
     std::vector<std::shared_ptr<Node>> solutions;
     std::vector<bool> foundYes(nframes+1, false);
     std::vector<MESH_DATA<N>> rollback_data(nframes+1);
+    std::for_each(rollback_data.begin(), rollback_data.end(), [mesh_data](auto& vec){vec.els.reserve(mesh_data->els.size());});
+
     rollback_data[0] = *mesh_data;
 
     do {
@@ -91,7 +93,6 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
                 const auto next_frame = frame + 1;
                 if(node && ((node->decision == DontLB) || (node->decision == DoLB && !foundYes.at(frame)))) {
                     /* compute node cost */
-
                     Time comp_time = 0.0;
                     auto mesh_data = rollback_data.at(frame);
                     auto load_balancer = node->lb;
@@ -116,7 +117,7 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
                         it_stats->update_cumulative_load_imbalance_slowdown();
                         it_compute_time = *it_stats->max_it_time();
 
-                        if (node->decision == DoLB) {
+                        if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             Zoltan_Do_LB<N>(&mesh_data, load_balancer);
                             PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
@@ -151,7 +152,9 @@ LBSolutionPath simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
 
     while (solution->start_it >= 0) { //reconstruct path
         solution_path.push_front(solution);
+        std::cout << (solution->get_decision() == DoLB) << std::endl;
         solution = solution->parent;
+
     }
 
     spdlog::drop("particle_logger");

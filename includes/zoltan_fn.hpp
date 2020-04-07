@@ -24,6 +24,14 @@ std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array)
         return {(double) real_array[0], (double) real_array[1], (double) real_array[2]};
 }
 
+template<int N>
+inline void put_in_double_array(std::array<double, N>& double_array, const std::array<Real, N>& real_array){
+    double_array[0] = real_array[0];
+    double_array[1] = real_array[1];
+    if constexpr (N==3)
+        double_array[2] = real_array[2];
+}
+
 auto MPI_INDEX = MPI_LONG_LONG;
 
 struct Borders {
@@ -100,15 +108,15 @@ Borders get_border_cells_index(Zoltan_Struct* load_balancer, const BoundingBox<N
 
     std::vector<Rank> PEs(wsize);
     std::vector< std::vector<Rank> > neighbors(nb_bordering_cells);
-
+    std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
+    std::array<double, N> pos_in_double;
     Integer border_cell_cnt = 0;
     for(Integer z = 0; z < lc[2]; ++z){
         for(Integer y = 0; y < lc[1]; ++y){
             Integer condition = !(y^0)|!(y^(lc[1]-1)) | !(z^0)|!(z^(lc[2]-1));
             for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
                 Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
-                std::array<double, N> pos_in_double =
-                        get_as_double_array<N>(CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
+                put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
                 if constexpr (N == 3) {
                     Zoltan_LB_Box_Assign(load_balancer,
                                          pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,

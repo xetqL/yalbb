@@ -108,7 +108,7 @@ public:
 class Compare
 {
 public:
-    bool operator() (std::shared_ptr<Node> a, std::shared_ptr<Node> b) {
+    bool operator() (std::shared_ptr<Node> a, std::shared_ptr<Node> b) const {
         return a->cost() < b->cost();
     }
 };
