@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
         PAR_END_TIMER(lb_time_spent, APP_COMM);
 
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
-        auto [solution, li, dec] = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
+        auto [solution, li, dec, thist] = simulate_using_shortest_path<DIMENSION>(&mesh_data, load_balancer, &params, APP_COMM);
 
         if(!rank)
         {
@@ -170,6 +170,8 @@ int main(int argc, char** argv) {
             ofbab << std::fixed << std::setprecision(6) << solution.back()->cost() << std::endl;
             ofbab << li << std::endl;
             ofbab << dec << std::endl;
+            ofbab << thist << std::endl;
+
             ofbab.close();
         }
 
@@ -196,15 +198,19 @@ int main(int argc, char** argv) {
                 [](IterationStatistics* stats){ return stats->get_cumulative_load_imbalance_slowdown(); },// get data func
                 [](IterationStatistics* stats){ return stats->compute_avg_lb_time(); });                  // get threshold func
 
-        auto [t, cum, dec] = simulate<DIMENSION>(&mesh_data, load_balancer, std::move(lb_policy), &params, &it_stats, APP_COMM);
+        auto [t, cum, dec, thist] = simulate<DIMENSION>(&mesh_data, load_balancer, std::move(lb_policy), &params, &it_stats, APP_COMM);
 
         if(!rank){
+
             std::ofstream ofcri;
 
             ofcri.open(std::to_string(params.seed)+"_criterion.txt");
+
             ofcri << std::fixed << std::setprecision(6) << t << std::endl;
             ofcri << cum << std::endl;
             ofcri << dec << std::endl;
+            ofcri << thist << std::endl;
+
             ofcri.close();
         }
 

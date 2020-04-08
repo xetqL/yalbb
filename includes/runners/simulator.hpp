@@ -45,10 +45,11 @@ std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
 
 using ApplicationTime = Time;
 using CumulativeLoadImbalanceHistory = std::vector<Time>;
+using TimeHistory = std::vector<Time>;
 using Decisions = std::vector<int>;
 
 template<int N, class T>
-std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
+std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHistory>
         simulate(MESH_DATA<N> *mesh_data,
               Zoltan_Struct *load_balancer,
               decision_making::PolicyRunner<T> lb_policy,
@@ -98,7 +99,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
     for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
     ApplicationTime app_time = 0.0;
     CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes*npframe);
+    TimeHistory time_hist; time_hist.reserve(nframes*npframe);
     Decisions dec; dec.reserve(nframes*npframe);
+    Time total_time = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         Time comp_time = 0.0;
         Complexity complexity = 0;
@@ -134,6 +137,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
             } else {
                 Zoltan_Migrate_Particles<N>(mesh_data->els, load_balancer, datatype, comm);
             }
+            total_time += it_compute_time;
+            time_hist.push_back(total_time);
+
             bbox      = get_bounding_box<N>(params->rc, mesh_data->els);
             borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
             remote_el = get_ghost_data<N>(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
@@ -207,7 +213,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions>
     spdlog::drop("frame_time_logger");
     spdlog::drop("frame_cmplx_logger");
 
-    return { app_time, cum_li_hist, dec };
+    return { app_time, cum_li_hist, dec, time_hist};
 }
 
 #endif //NBMPI_SIMULATE_HPP

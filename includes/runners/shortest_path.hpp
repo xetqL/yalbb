@@ -33,11 +33,10 @@
 using LBSolutionPath = std::vector<std::shared_ptr<Node> >;
 using LBLiHist       = std::vector<Time>;
 using LBDecHist      = std::vector<int>;
-
 using NodeQueue      = std::multiset<std::shared_ptr<Node>, Compare>;
 
 template<int N>
-std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
+std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shortest_path(MESH_DATA<N> *mesh_data,
               Zoltan_Struct *load_balancer,
               sim_param_t *params,
               MPI_Comm comm = MPI_COMM_WORLD) {
@@ -98,10 +97,13 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MES
                     /* compute node cost */
                     Time comp_time = 0.0;
 
+                    Time starting_time = currentNode->cost();
+
                     auto mesh_data = rollback_data.at(frame);
                     auto load_balancer = node->lb;
 
                     auto& cum_li_hist = node->li_slowdown_hist;
+                    auto& time_hist   = node->time_hist;
                     auto& dec_hist    = node->dec_hist;
                     auto& it_stats    = node->stats;
 
@@ -130,6 +132,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MES
                         cum_li_hist[i] = it_stats.get_cumulative_load_imbalance_slowdown();
                         dec_hist[i]    = node->decision == DoLB && i == 0;
 
+
                         if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             Zoltan_Do_LB<N>(&mesh_data, load_balancer);
@@ -141,6 +144,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MES
                         } else {
                             Zoltan_Migrate_Particles<N>(mesh_data.els, load_balancer, datatype, comm);
                         }
+                        time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
 
                         bbox      = get_bounding_box<N>(params->rc, mesh_data.els);
                         borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
@@ -163,14 +167,18 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MES
     Time total_time = solution->cost();
     LBLiHist cumulative_load_imbalance;
     LBDecHist decisions;
+    TimeHistory time_hist;
     auto it_li = cumulative_load_imbalance.begin();
     auto it_dec= decisions.begin();
+    auto it_time= time_hist.begin();
     while (solution->start_it >= 0) { //reconstruct path
         solution_path.push_back(solution);
         it_li = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(), solution->li_slowdown_hist.end());
         it_dec= decisions.insert(it_dec, solution->dec_hist.begin(), solution->dec_hist.end());
+        it_time= time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
         solution = solution->parent;
     }
+
     std::reverse(solution_path.begin(), solution_path.end());
 
     spdlog::drop("particle_logger");
@@ -178,6 +186,6 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist> simulate_using_shortest_path(MES
     spdlog::drop("lb_cmplx_logger");
     spdlog::drop("frame_time_logger");
     spdlog::drop("frame_cmplx_logger");
-    return {solution_path, cumulative_load_imbalance, decisions};
+    return {solution_path, cumulative_load_imbalance, decisions, time_hist};
 }
 #endif //NBMPI_SHORTEST_PATH_HPP
