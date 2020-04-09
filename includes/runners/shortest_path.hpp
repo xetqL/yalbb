@@ -116,8 +116,6 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                     // Get the ghost data from neighboring processors
                     auto remote_el = get_ghost_data<N>(load_balancer, mesh_data.els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
-
-
                     for (int i = 0; i < node->batch_size; ++i) {
                         START_TIMER(it_compute_time);
                         lj::compute_one_step<N>(mesh_data.els, remote_el, &head, &lscl, bbox, borders, params);
