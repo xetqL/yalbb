@@ -133,7 +133,16 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node>& val
 
 template<class Container>
 void prune_similar_nodes(const std::shared_ptr<Node>& n, Container& c){
-    c.erase(std::remove_if(c.begin(), c.end(), [n](auto node){return node->start_it == n->start_it && node->end_it == n->end_it && node->decision == DoLB;}), c.end());
+    auto it = c.begin();
+    const auto end = c.end();
+    while(it != end) {
+        std::shared_ptr<Node> node = *it;
+        if(node->start_it == n->start_it && node->end_it == n->end_it && node->decision == DoLB) {
+            it = c.erase(it);
+        } else {
+            it++;
+        }
+    }
 }
 
 bool has_been_explored(const std::multiset<std::shared_ptr<Node>, Compare>& c, std::shared_ptr<Node> target) {
