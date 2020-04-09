@@ -187,9 +187,9 @@ int main(int argc, char** argv) {
         PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, load_balancer);
         PAR_END_TIMER(lb_time_spent, APP_COMM);
-        Time t;
-        MPI_Allreduce(&lb_time_spent, &t, 1, MPI_TIME, MPI_MAX, APP_COMM);
-        *it_stats.get_lb_time_ptr() = 0.15075; // hack :)
+        Time lb_time;
+        MPI_Allreduce(&lb_time_spent, &lb_time,  1, MPI_TIME, MPI_MAX, APP_COMM);
+        *it_stats.get_lb_time_ptr() = 0.15;
 
         if(!rank) {
             std::cout << "SIM: Computation is starting." << std::endl;
