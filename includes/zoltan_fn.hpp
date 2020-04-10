@@ -568,8 +568,8 @@ template<int N>
 std::vector<elements::Element<N>> zoltan_exchange_data(
         const std::vector<elements::Element<N>> &data,
         Zoltan_Struct *load_balancer,
-        const Integer* head,
-        const Integer* lscl,
+        const std::vector<Integer>* head,
+        const std::vector<Integer>* lscl,
         const Borders& bordering_cells,
         MPI_Datatype datatype,
         MPI_Comm LB_COMM,
@@ -599,10 +599,10 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
     std::vector<int> export_gids, export_lids, export_procs;
     int cell_cnt = 0;
     for(auto cidx : bordering_cells.bordering_cells) {
-        auto p = head[cidx];
+        auto p = head->at(cidx);
         while(p != -1) {
             num_known += bordering_cells.neighbors.at(cell_cnt).size();
-            p = lscl[p];
+            p = lscl->at(p);
         }
         cell_cnt++;
     }
@@ -613,7 +613,7 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
     cell_cnt = 0;
     num_known = 0;
     for(auto cidx : bordering_cells.bordering_cells){
-        auto p = head[cidx];
+        auto p = head->at(cidx);
         while(p != -1){
             for(auto rank : bordering_cells.neighbors.at(cell_cnt)) {
                 if(rank != caller_rank){
@@ -625,7 +625,7 @@ std::vector<elements::Element<N>> zoltan_exchange_data(
                     num_known ++;
                 }
             }
-            p = lscl[p];
+            p = lscl->at(p);
         }
         cell_cnt++;
     }

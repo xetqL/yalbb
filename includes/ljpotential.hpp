@@ -87,6 +87,24 @@ namespace algorithm {
         }
     }
     template<int N>
+    void CLL_update(std::initializer_list<std::pair<elements::Element<N>*, size_t>>&& elements,
+                    const BoundingBox<N>& bbox, Real rc,
+                    std::vector<Integer> *head,
+                    std::vector<Integer> *lscl) {
+        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+        Integer c, acc = 0;
+        for(const auto& span : elements){
+            auto el_ptr = span.first;
+            auto n_els  = span.second;
+            for (size_t i = 0; i < n_els; ++i) {
+                c = position_to_local_cell_index<N>(el_ptr[i].position, rc, bbox, lc[0], lc[1]);
+                lscl->at(i+acc) = head->at(c);
+                head->at(c) = i+acc;
+            }
+            acc += n_els;
+        }
+    }
+    template<int N>
     void CLL_init(std::initializer_list<std::pair<elements::Element<N>*, size_t>>&& elements,
                   const BoundingBox<N>& bbox, Real rc,
                   Integer *head,
@@ -95,7 +113,15 @@ namespace algorithm {
         for (size_t i = 0; i < lcxyz; ++i) head[i] = EMPTY;
         CLL_update(std::move(elements), bbox, rc, head, lscl);
     }
-
+    template<int N>
+    void CLL_init(std::initializer_list<std::pair<elements::Element<N>*, size_t>>&& elements,
+                  const BoundingBox<N>& bbox, Real rc,
+                  std::vector<Integer> *head,
+                  std::vector<Integer> *lscl) {
+        Integer lcxyz = get_total_cell_number<N>(bbox, rc);
+        for (size_t i = 0; i < lcxyz; ++i) head->at(i) = EMPTY;
+        CLL_update(std::move(elements), bbox, rc, head, lscl);
+    }
     template<int N>
     inline void CLL_append(const Integer i, const Integer  cell, const elements::Element<N>& element, std::vector<Integer>* head, std::vector<Integer>* lscl) {
         lscl->at(i) = head->at(cell);
@@ -118,7 +144,7 @@ namespace algorithm {
                                 const elements::Element<3> *elements, Integer n_elements,
                                 const elements::Element<3> *remote_elements,
                                 const BoundingBox<3>& bbox, Real rc,
-                                const Integer *head, const Integer *lscl,
+                                const std::vector<Integer> *head, const std::vector<Integer> *lscl,
                                 const sim_param_t* params) {
         auto lc = get_cell_number_by_dimension<3>(bbox, rc);
         std::array<Real, 3> delta_dim;
@@ -139,7 +165,7 @@ namespace algorithm {
                         /* this is for bounce back, to avoid heap-buffer over/under flow */
                         if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
                         c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
-                        j = head[c1];
+                        j = head->at(c1);
                         while(j != EMPTY) {
                             if(i < j) {
                                 delta = 0.0;
@@ -154,7 +180,7 @@ namespace algorithm {
                                 }
                                 cmplx++;
                             }
-                            j = lscl[j];
+                            j = lscl->at(j);
                         }
                     }
                 }
@@ -193,12 +219,12 @@ namespace algorithm {
     Integer CLL_compute_forces(std::vector<Real>* acc, const elements::Element<N> *elements, Integer n_elements,
                                const elements::Element<N> *remote_elements,
                                const BoundingBox<N>& bbox, Real rc,
-                               const Integer *head, const Integer *lscl,
+                               const std::vector<Integer> *head, const std::vector<Integer> *lscl,
                                const sim_param_t* params) {
         if constexpr(N==3) {
             return CLL_compute_forces3d(acc, elements, n_elements, remote_elements, bbox, rc, head, lscl, params);
         }else {
-            CLL_compute_forces2d(elements, n_elements, bbox, rc, head, lscl, params);
+            //CLL_compute_forces2d(elements, n_elements, bbox, rc, head, lscl, params);
             return 0;
         }
     }
@@ -228,8 +254,8 @@ namespace lj {
     Complexity compute_one_step (
             std::vector<elements::Element<N>>&        elements,
             const std::vector<elements::Element<N>>& remote_el,
-            std::vector<Integer> *head,                         //the particle linked list
-            std::vector<Integer> *lscl,                         //the cell starting point
+            std::vector<Integer> *head,                         //the cell starting point
+            std::vector<Integer> *lscl,                         //the particle linked list
             BoundingBox<N>& bbox,                               //bounding box of particles
             const Borders& borders,                             //bordering cells and neighboring processors
             const sim_param_t *params) {                        //simulation parameters
@@ -247,9 +273,9 @@ namespace lj {
         if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
             lscl->resize(n_particles);
         }
-        algorithm::CLL_init<N>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, bbox, cut_off_radius, head->data(), lscl->data());
+        algorithm::CLL_init<N>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, bbox, cut_off_radius, head, lscl);
 
-        Complexity cmplx = algorithm::CLL_compute_forces<N>(&acc, elements.data(), nb_elements, remote_el.data(), bbox, cut_off_radius, head->data(), lscl->data(), params);
+        Complexity cmplx = algorithm::CLL_compute_forces<N>(&acc, elements.data(), nb_elements, remote_el.data(), bbox, cut_off_radius, head, lscl, params);
 
         leapfrog2<N>(dt, acc, elements);
         leapfrog1<N>(dt, cut_off_radius, acc, elements);

@@ -39,8 +39,8 @@ std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
     const size_t nb_elements = elements.size();
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }
-    algorithm::CLL_init<N>({{elements.data(), nb_elements}}, bbox, rc, head->data(), lscl->data());
-    return zoltan_exchange_data<N>(elements, load_balancer, head->data(), lscl->data(), borders, datatype, comm, r, s);
+    algorithm::CLL_init<N>({{elements.data(), nb_elements}}, bbox, rc, head, lscl);
+    return zoltan_exchange_data<N>(elements, load_balancer, head, lscl, borders, datatype, comm, r, s);
 }
 
 using ApplicationTime = Time;
