@@ -11,51 +11,46 @@
 #include <mpi.h>
 #include <map>
 #include <unordered_map>
-#include <zoltan.h>
 #include <cstdlib>
 
 #include "../decision_makers/strategy.hpp"
 
 #include "../ljpotential.hpp"
 #include "../report.hpp"
-#include "../physics.hpp"
 #include "../nbody_io.hpp"
 #include "../utils.hpp"
+#include "../parallel_utils.hpp"
 
 #include "../params.hpp"
-#include "../spatial_elements.hpp"
-#include "../zoltan_fn.hpp"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
-
-template<int N>
-std::vector<elements::Element<N>> get_ghost_data(Zoltan_Struct* load_balancer,
-                    std::vector<elements::Element<N>>& elements,
-                    std::vector<Integer>* head, std::vector<Integer>* lscl,
-                    BoundingBox<N>& bbox, Borders borders, Real rc,
-                    MPI_Datatype datatype, MPI_Comm comm){
-    int r,s;
-    const size_t nb_elements = elements.size();
-    if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
-    if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }
-    algorithm::CLL_init<N>({{elements.data(), nb_elements}}, bbox, rc, head, lscl);
-    return zoltan_exchange_data<N>(elements, load_balancer, head, lscl, borders, datatype, comm, r, s);
-}
 
 using ApplicationTime = Time;
 using CumulativeLoadImbalanceHistory = std::vector<Time>;
 using TimeHistory = std::vector<Time>;
 using Decisions = std::vector<int>;
+template<int N> using Position  = std::array<Real, N>;
+template<int N> using Velocity  = std::array<Real, N>;
 
-template<int N, class T>
+
+
+template<int N, class T, class D, class Wrapper>
 std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHistory>
-        simulate(MESH_DATA<N> *mesh_data,
-              Zoltan_Struct *load_balancer,
-              decision_making::PolicyRunner<T> lb_policy,
+        simulate(MESH_DATA<T> *mesh_data,
+              decision_making::PolicyRunner<D> lb_policy,
+              Wrapper fWrapper,
               sim_param_t *params,
-              IterationStatistics* it_stats = nullptr,
+              IterationStatistics* it_stats,
+              MPI_Datatype datatype,
               const MPI_Comm comm = MPI_COMM_WORLD) {
+
+    auto boxIntersectFunc   = fWrapper.getBoxIntersectionFunc();
+    auto doLoadBalancingFunc= fWrapper.getLoadBalancingFunc();
+    auto pointAssignFunc    = fWrapper.getPointAssignationFunc();
+    auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
+    auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
+    auto getForceFunc       = fWrapper.getForceFunc();
 
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -72,19 +67,16 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     time_logger->set_pattern("%v");
     cmplx_logger->set_pattern("%v");
 
-    auto datatype = elements::register_datatype<N>();
-
-    std::vector<elements::Element<N>> recv_buf(params->npart);
+    std::vector<T> recv_buf(params->npart);
 
     if (params->record)
-        gather_elements_on<N, elements::Element<N>>(nproc, rank, params->npart, mesh_data->els, 0, recv_buf,
-                                           datatype, comm);
+        gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
     if (params->record && !rank) {
         auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+std::to_string(params->seed)+"/frames/particles.csv.0");
         particle_logger->set_pattern("%v");
         std::stringstream str;
         frame_formater.write_header(str, params->npframe, params->simsize);
-        write_frame_data<N>(str, recv_buf, frame_formater, params);
+        write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
         particle_logger->info(str.str());
     }
 
@@ -92,9 +84,13 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     std::vector<Index> lscl(mesh_data->els.size()), head;
     std::vector<Complexity> my_frame_cmplx(nframes);
 
-    BoundingBox<N> bbox = get_bounding_box<N>(params->rc, mesh_data->els);
-    Borders borders     = get_border_cells_index<N>(load_balancer, bbox, params->rc);
-    auto remote_el      = get_ghost_data(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+    // Compute my bounding box as function of my local data
+    auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+    // Compute which cells are on my borders
+    auto borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+    // Get the ghost data from neighboring processors
+    auto remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+
     const int nb_data = mesh_data->els.size();
     for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
     ApplicationTime app_time = 0.0;
@@ -107,7 +103,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
         Complexity complexity = 0;
         for (int i = 0; i < npframe; ++i) {
             START_TIMER(it_compute_time);
-            complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, &head, &lscl, bbox, borders, params);
+            complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, borders, params);
             END_TIMER(it_compute_time);
             // Measure load imbalance
             MPI_Allreduce(&it_compute_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
@@ -125,7 +121,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
             if (i == 0 && lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-                Zoltan_Do_LB<N>(mesh_data, load_balancer);
+                doLoadBalancingFunc(mesh_data);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
                 *it_stats->get_lb_time_ptr() = lb_time_spent;
@@ -135,19 +131,20 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
                     std::cout << "Average C = " << it_stats->compute_avg_lb_time() << std::endl;
                 }
             } else {
-                Zoltan_Migrate_Particles<N>(mesh_data->els, load_balancer, datatype, comm);
+                migrate_data(mesh_data->els, pointAssignFunc, datatype, comm);
             }
             total_time += it_compute_time;
             time_hist.push_back(total_time);
 
-            bbox      = get_bounding_box<N>(params->rc, mesh_data->els);
-            borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc);
-            remote_el = get_ghost_data<N>(load_balancer, mesh_data->els, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+            bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+            borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+            remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
             comp_time += it_compute_time;
         }
 
         MPI_Allreduce(MPI_IN_PLACE, &comp_time, 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+        if(!rank) std::cout << comp_time << std::endl;
         app_time += comp_time;
 
         // Write metrics to report file
@@ -157,15 +154,15 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
             if(frame % 5 == 0) { time_logger->flush(); cmplx_logger->flush(); }
 
-            gather_elements_on<N, elements::Element<N>>(nproc, rank, params->npart,
-                                                        mesh_data->els, 0, recv_buf, datatype, comm);
+            gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
+
             if (rank == 0) {
                 spdlog::drop("particle_logger");
                 auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+std::to_string(params->seed)+"/frames/particles.csv."+ std::to_string(frame + 1));
                 particle_logger->set_pattern("%v");
                 std::stringstream str;
                 frame_formater.write_header(str, params->npframe, params->simsize);
-                write_frame_data<N>(str, recv_buf, frame_formater, params);
+                write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
                 particle_logger->info(str.str());
             }
         }

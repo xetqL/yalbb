@@ -18,63 +18,104 @@
 
 #define binary_node_max_id_for_level(x) (std::pow(2, (int) (std::log(x+1)/std::log(2))+1) - 2)
 
+template<class T>
+struct MESH_DATA {
+    std::vector<T> els;
+};
+
 using Real       = float;
 using Time       = double;
-
 using Rank       = int;
 using Integer    = long long int;
 using Complexity = Integer;
 using Index      = Integer;
 
+template<class GetPosPtrFunc, class GetVelPtrFunc, class GetForceFunc, class BoxIntersectionFunc, class PointAssignationFunc, class LoadBalancingFunc>
+class CustomBehaviorFunctionWrapper {
+    GetPosPtrFunc posPtrFunc;
+    GetVelPtrFunc velPtrFunc;
+    GetForceFunc forceFunc;
+    BoxIntersectionFunc boxIntersectionFunc;
+    PointAssignationFunc pointAssignationFunc;
+    LoadBalancingFunc loadBalancingFunc;
+public:
+    CustomBehaviorFunctionWrapper(GetPosPtrFunc posPtrFunc, GetVelPtrFunc velPtrFunc, GetForceFunc forceFunc,
+                                  BoxIntersectionFunc boxIntersectionFunc, PointAssignationFunc pointAssignationFunc,
+                                  LoadBalancingFunc loadBalancingFunc) : posPtrFunc(posPtrFunc), velPtrFunc(velPtrFunc),
+                                                                         forceFunc(forceFunc),
+                                                                         boxIntersectionFunc(boxIntersectionFunc),
+                                                                         pointAssignationFunc(pointAssignationFunc),
+                                                                         loadBalancingFunc(loadBalancingFunc) {}
+
+    const GetPosPtrFunc &getPosPtrFunc() const {
+        return posPtrFunc;
+    }
+
+    void setPosPtrFunc(const GetPosPtrFunc &posPtrFunc) {
+        CustomBehaviorFunctionWrapper::posPtrFunc = posPtrFunc;
+    }
+
+    const GetVelPtrFunc &getVelPtrFunc() const {
+        return velPtrFunc;
+    }
+
+    void setVelPtrFunc(const GetVelPtrFunc &velPtrFunc) {
+        CustomBehaviorFunctionWrapper::velPtrFunc = velPtrFunc;
+    }
+
+    GetForceFunc getForceFunc() const {
+        return forceFunc;
+    }
+
+    void setGetForceFunc(GetForceFunc forceFunc) {
+        CustomBehaviorFunctionWrapper::forceFunc = forceFunc;
+    }
+
+    BoxIntersectionFunc getBoxIntersectionFunc() const {
+        return boxIntersectionFunc;
+    }
+
+    void setBoxIntersectionFunc(BoxIntersectionFunc boxIntersectionFunc) {
+        CustomBehaviorFunctionWrapper::boxIntersectionFunc = boxIntersectionFunc;
+    }
+
+    PointAssignationFunc getPointAssignationFunc() const {
+        return pointAssignationFunc;
+    }
+
+    void setPointAssignationFunc(PointAssignationFunc pointAssignationFunc) {
+        CustomBehaviorFunctionWrapper::pointAssignationFunc = pointAssignationFunc;
+    }
+
+    LoadBalancingFunc getLoadBalancingFunc() const {
+        return loadBalancingFunc;
+    }
+
+    void setLoadBalancingFunc(LoadBalancingFunc loadBalancingFunc) {
+        CustomBehaviorFunctionWrapper::loadBalancingFunc = loadBalancingFunc;
+    }
+};
+
+template<int N>
+std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array){
+    if constexpr(N==2)
+        return {(double) real_array[0], (double) real_array[1]};
+    else
+        return {(double) real_array[0], (double) real_array[1], (double) real_array[2]};
+}
+
+template<int N>
+inline void put_in_double_array(std::array<double, N>& double_array, const std::array<Real, N>& real_array){
+    double_array[0] = real_array[0];
+    double_array[1] = real_array[1];
+    if constexpr (N==3)
+        double_array[2] = real_array[2];
+}
+
 template<class T>
 inline void update_local_ids(std::vector<T>& els, std::function<void (T&, Integer)> setLidF) {
     Integer i = 0; for(auto& el : els) setLidF(els->at(i), i++);
 }
-
-template<int N, class T>
-inline void gather_elements_on(const int world_size,
-                               const int my_rank,
-                               const int nb_elements,
-                               const std::vector<T> &local_el,
-                               const int dest_rank,
-                               std::vector<T> &dest_el,
-                               const MPI_Datatype &sendtype,
-                               const MPI_Comm &comm) {
-    int nlocal = local_el.size();
-    std::vector<int> counts(world_size, 0), displs(world_size, 0);
-    MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, dest_rank, comm);
-    for (int cpt = 0; cpt < world_size; ++cpt) displs[cpt] = cpt == 0 ? 0 : displs[cpt - 1] + counts[cpt - 1];
-    if (my_rank == dest_rank) dest_el.resize(nb_elements);
-    MPI_Gatherv(&local_el.front(), nlocal, sendtype,
-                 &dest_el.front(),
-                  &counts.front(),
-                  &displs.front(), sendtype, dest_rank, comm);
-}
-
-#define TIME_IT(a, name){\
- double start = MPI_Wtime();\
- a;\
- double end = MPI_Wtime();\
- auto diff = (end - start) / 1e-3;\
- std::cout << name << " took " << diff << " milliseconds" << std::endl;\
-};\
-
-#define START_TIMER(var)\
-double var = MPI_Wtime();
-
-#define RESTART_TIMER(v) \
-v = MPI_Wtime() - v;
-
-#define END_TIMER(var)\
-var = MPI_Wtime() - var;
-
-#define PAR_START_TIMER(var, comm)\
-MPI_Barrier(comm);\
-double var = MPI_Wtime();\
-
-#define PAR_END_TIMER(var, comm)\
-MPI_Barrier(comm);\
-var = MPI_Wtime() - var;
 
 inline std::string get_date_as_string() {
     auto t = std::time(nullptr);
@@ -132,7 +173,6 @@ T dto(double v) {
 }
 
 template<int N> using BoundingBox = std::array<Real, 2*N>;
-
 template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
@@ -161,25 +201,26 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
     return os;
 }
 
-template<int N>
-void update_bbox_for_container(BoundingBox<N>& new_bbox) {}
-template <int N, class First, class... Rest>
-void update_bbox_for_container(BoundingBox<N>& new_bbox, First& first, Rest&... rest) {
-    for (const auto &el : first) {
-        new_bbox[0] = std::min(new_bbox[0], el.position[0]);
-        new_bbox[1] = std::max(new_bbox[1], el.position[0]);
-        new_bbox[2] = std::min(new_bbox[2], el.position[1]);
-        new_bbox[3] = std::max(new_bbox[3], el.position[1]);
+template<int N, class GetPosFunc>
+void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) {}
+template <int N, class GetPosFunc, class First, class... Rest>
+void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, First& first, Rest&... rest) {
+    for (auto &el : first) {
+        const auto& pos = *getPosFunc(el);
+        new_bbox.at(0) = std::min(new_bbox.at(0), pos.at(0));
+        new_bbox.at(1) = std::max(new_bbox.at(1), pos.at(0));
+        new_bbox.at(2) = std::min(new_bbox.at(2), pos.at(1));
+        new_bbox.at(3) = std::max(new_bbox.at(3), pos.at(1));
         if constexpr (N==3) {
-            new_bbox[4] = std::min(new_bbox[4], el.position[2]);
-            new_bbox[5] = std::max(new_bbox[5], el.position[2]);
+            new_bbox.at(4) = std::min(new_bbox.at(4), pos.at(2));
+            new_bbox.at(5) = std::max(new_bbox.at(5), pos.at(2));
         }
     }
-    update_bbox_for_container<N>(new_bbox, rest...);
+    update_bbox_for_container<N>(new_bbox, getPosFunc, rest...);
 }
 
-template<int N, class... T>
-BoundingBox<N> get_bounding_box(Real rc, T&... elementContainers){
+template<int N, class GetPosFunc, class... T>
+BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     BoundingBox<N> new_bbox;
     if constexpr (N==3)
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
@@ -188,7 +229,7 @@ BoundingBox<N> get_bounding_box(Real rc, T&... elementContainers){
     else
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
-    update_bbox_for_container<N>(new_bbox, elementContainers...);
+    update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor(new_bbox.at(2*i) / rc) * rc - (Real) 2.0*rc);
@@ -210,21 +251,21 @@ void update_bounding_box(BoundingBox<N>& bbox, Real rc, T&... elementContainers)
 template<int N, class T>
 void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
     while(begin != end){
-        bbox[0] = std::min(bbox[0], (*begin).position.at(0));
-        bbox[1] = std::max(bbox[1], (*begin).position.at(0));
-        bbox[2] = std::min(bbox[2], (*begin).position.at(1));
-        bbox[3] = std::max(bbox[3], (*begin).position.at(1));
+        bbox[0] = std::min(bbox.at(0), (*begin).position.at(0));
+        bbox[1] = std::max(bbox.at(1), (*begin).position.at(0));
+        bbox[2] = std::min(bbox.at(2), (*begin).position.at(1));
+        bbox[3] = std::max(bbox.at(3), (*begin).position.at(1));
         if constexpr (N==3) {
-            bbox[4] = std::min(bbox[4], (*begin).position.at(2));
-            bbox[5] = std::max(bbox[5], (*begin).position.at(2));
+            bbox[4] = std::min(bbox.at(4), (*begin).position.at(2));
+            bbox[5] = std::max(bbox.at(5), (*begin).position.at(2));
         }
         begin++;
     }
 
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
-        bbox[2*i]   = std::max((Real) 0.0, std::floor(bbox[2*i] / rc) * rc - 2*rc);
-        bbox[2*i+1] = std::ceil(bbox[2*i+1] / rc) * rc + 2*rc;
+        bbox.at(2*i)   = std::max((Real) 0.0, std::floor(bbox.at(2*i) / rc) * rc - 2*rc);
+        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc + 2*rc;
     }
 }
 
@@ -310,14 +351,6 @@ std::vector<std::string> split(const std::string &s, char delimiter) {
     }
     return tokens;
 }
-
-inline void
-linear_to_grid(const long long index, const long long c, const long long r, int &x_idx, int &y_idx, int &z_idx) {
-    x_idx = (int) (index % (c * r) % c);           // col
-    y_idx = (int) std::floor(index % (c * r) / c); // row
-    z_idx = (int) std::floor(index / (c * r));     // depth
-};
-
 namespace functional {
     template<typename R>
     inline R slice(R const &v, size_t slice_start, size_t slice_size) {
@@ -532,53 +565,106 @@ namespace statistic {
     }
 
 } // end of namespace statistic
+namespace algorithm {
 
-namespace partitioning {
-    namespace utils {
+    constexpr Integer EMPTY = -1;
 
-        template<typename A, typename B>
-        const std::vector<std::pair<A, B>> zip(const std::vector<A> &a, const std::vector<B> &b) {
-            std::vector<std::pair<A, B>> zipAB;
-            int sizeAB = a.size();
-            for (int i = 0; i < sizeAB; ++i)
-                zipAB.push_back(std::make_pair(a.at(i), b.at(i)));
-            return zipAB;
-        }
-
-        template<typename A, typename B>
-        const std::pair<std::vector<A>, std::vector<B>> unzip(const std::vector<std::pair<A, B>> &ab) {
-            std::vector<A> left;
-            std::vector<B> right;
-            int sizeAB = ab.size();
-            for (int i = 0; i < sizeAB; ++i) {
-                auto pair = ab.at(i);
-                left.push_back(pair.first);
-                right.push_back(pair.second);
+    template<int N, class T, class GetPositionFunc>
+    void CLL_update(std::initializer_list<std::pair<T*, size_t>>&& elements,
+                    GetPositionFunc getPositionFunc,
+                    const BoundingBox<N>& bbox, Real rc,
+                    std::vector<Integer> *head,
+                    std::vector<Integer> *lscl) {
+        auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+        Integer c, acc = 0;
+        for(const auto& span : elements){
+            auto el_ptr = span.first;
+            auto n_els  = span.second;
+            for (size_t i = 0; i < n_els; ++i) {
+                c = position_to_local_cell_index<N>(*getPositionFunc(el_ptr[i]), rc, bbox, lc[0], lc[1]);
+                lscl->at(i + acc) = head->at(c);
+                head->at(c) = i + acc;
             }
-            return std::make_pair(left, right);
+            acc += n_els;
         }
+    }
 
-/**
- * Copied from https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
- * @tparam R Return Container class
- * @tparam Top Top container class from the container
- * @tparam Sub Sub class deduced from the original container
- * @param all Container that contains the sub containers
- * @return flattened container
- */
-        template<template<typename...> class R=std::vector,
-                typename Top,
-                typename Sub = typename Top::value_type>
-        R<typename Sub::value_type> flatten(Top const &all) {
-            using std::begin;
-            using std::end;
-            R<typename Sub::value_type> accum;
-            for (auto &sub : all)
-                std::copy(begin(sub), end(sub), std::inserter(accum, end(accum)));
-            return accum;
+    template<int N, class T, class GetPositionFunc>
+    void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
+                  GetPositionFunc getPositionFunc,
+                  const BoundingBox<N>& bbox, Real rc,
+                  std::vector<Integer> *head,
+                  std::vector<Integer> *lscl) {
+        Integer lcxyz = get_total_cell_number<N>(bbox, rc);
+        for (size_t i = 0; i < lcxyz; ++i) head->at(i) = EMPTY;
+        CLL_update<N, T, GetPositionFunc>(std::move(elements), getPositionFunc, bbox, rc, head, lscl);
+    }
+
+    template<int N, class T>
+    inline void CLL_append(const Integer i, const Integer  cell, const T& element, std::vector<Integer>* head, std::vector<Integer>* lscl) {
+        lscl->at(i) = head->at(cell);
+        head->at(cell) = i;
+    }
+
+    template<class T, class GetPositionFunc, class ComputeForceFunc>
+    Integer CLL_compute_forces3d(std::vector<Real>* acc,
+                                 const T *elements, Integer n_elements,
+                                 const T *remote_elements,
+                                 GetPositionFunc getPosFunc,
+                                 const BoundingBox<3>& bbox, Real rc,
+                                 const std::vector<Integer> *head, const std::vector<Integer> *lscl,
+                                 ComputeForceFunc computeForceFunc) {
+        auto lc = get_cell_number_by_dimension<3>(bbox, rc);
+        std::array<Real, 3> delta_dim;
+        Real delta;
+        Integer c, c1, ic[3], ic1[3], j;
+        T source, receiver;
+        Integer cmplx = n_elements;
+        std::fill(acc->begin(), acc->begin()+n_elements, (Real) 0.0);
+        for (size_t i = 0; i < n_elements; ++i) {
+            const auto& pos = *getPosFunc(const_cast<T&>(elements[i]));
+            c = position_to_local_cell_index<3>(pos, rc, bbox, lc[0], lc[1]);
+            receiver = elements[i];
+            for (auto d = 0; d < 3; ++d)
+                ic[d] = c / lc[d];
+            for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
+                for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
+                    for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
+                        /* this is for bounce back, to avoid heap-buffer over/under flow */
+                        if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
+                        c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+                        j = head->at(c1);
+                        while(j != EMPTY) {
+                            if(i < j) {
+                                source = j < n_elements ? elements[j] : remote_elements[j - n_elements];
+                                std::array<Real, 3> force = computeForceFunc(receiver, source);
+                                for (int dim = 0; dim < 3; ++dim) {
+                                    acc->at(3*i + dim) += force[dim];
+                                }
+                                cmplx++;
+                            }
+                            j = lscl->at(j);
+                        }
+                    }
+                }
+            }
         }
+        return cmplx;
+    }
 
+    template<int N, class T, class GetPositionFunc, class ComputeForceFunc>
+    Integer CLL_compute_forces(std::vector<Real>* acc,
+                               const std::vector<T>& loc_el,
+                               const std::vector<T>& rem_el,
+                               GetPositionFunc getPosFunc,
+                               const BoundingBox<N>& bbox, Real rc,
+                               const std::vector<Integer> *head, const std::vector<Integer> *lscl,
+                               ComputeForceFunc computeForceFunc) {
+        if constexpr(N==3) {
+            return CLL_compute_forces3d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);
+        }else {
+            return 0;
+        }
     }
 }
-
 #endif //NBMPI_UTILS_HPP

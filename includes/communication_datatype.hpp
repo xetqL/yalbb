@@ -19,11 +19,6 @@ struct CommunicationDatatype {
             elements_datatype(elements),
             range_datatype(range_datatype),
             domain_datatype(domain_datatype){}
-    void free_datatypes(){
-        MPI_Type_free(&vec_datatype);
-        MPI_Type_free(&elements_datatype);
-        MPI_Type_free(&range_datatype);
-    }
 };
 
 

@@ -5,14 +5,13 @@
 #ifndef NBMPI_GEOMETRIC_ELEMENT_HPP
 #define NBMPI_GEOMETRIC_ELEMENT_HPP
 
+#include "utils.hpp"
+
 #include <array>
 #include <iostream>
 #include <algorithm>
 #include <mpi.h>
 #include <type_traits>
-
-#include "utils.hpp"
-#include "communication_datatype.hpp"
 
 namespace elements {
 
@@ -25,15 +24,9 @@ namespace elements {
         Index lid;
         std::array<Real, N> position,  velocity;
 
-        constexpr Element(std::array<Real, N> p, std::array<Real, N> v, const Index gid, const Index lid) : gid(gid), lid(lid), position(p), velocity(v) {
-            //std::fill(acceleration.begin(), acceleration.end(), 0.0);
-        }
+        constexpr Element(std::array<Real, N> p, std::array<Real, N> v, const Index gid, const Index lid) : gid(gid), lid(lid), position(p), velocity(v) {}
 
-        constexpr Element() : gid(0), lid(0), position(), velocity() {
-            //std::fill(velocity.begin(), velocity.end(), 0.0);
-            //std::fill(position.begin(), position.end(), 0.0);
-            //std::fill(acceleration.begin(), acceleration.end(), 0.0);
-        }
+        constexpr Element() : gid(0), lid(0), position(), velocity() {}
 
         /**
          * Total size of the structure
@@ -52,11 +45,6 @@ namespace elements {
             return e;
         }
 
-        static Element<N> createc(std::array<Real, N> p, std::array<Real, N> v, Index gid, Index lid){
-            Element<N> e(p, v, gid, lid);
-            return e;
-        }
-
         template<class Distribution, class Generator>
         static Element<N> create_random( Distribution& dist, Generator &gen, Index gid, Index lid){
             std::array<Real, N> p, v;
@@ -65,15 +53,6 @@ namespace elements {
             return Element::create(p, v, gid, lid);
         }
 
-        template<class Distribution, class Generator>
-        static Element<N> create_random( Distribution& distx, Distribution& disty, Distribution& distz, Generator &gen, Index gid, Index lid){
-            std::array<Real, N> p, v;
-            p[0] = distx(gen);
-            p[1] = disty(gen);
-            if(N > 2) p[2] = distz(gen);
-
-            return Element::create(p, v, gid, lid);
-        }
 
         template<class Distribution, class Generator, class RejectionPredicate>
         static Element<N> create_random( Distribution& dist, Generator &gen, Index gid, Index lid, RejectionPredicate pred){
@@ -144,12 +123,7 @@ namespace elements {
                 vel += " " + std::to_string(element.velocity.at(i));
             }
 
-            std::string acc = std::to_string(element.acceleration.at(0));
-            for(int i = 1; i < N; i++){
-                acc += " " + std::to_string(element.acceleration.at(i));
-            }
-
-            os << pos << ";" << vel << ";" << acc << ";" << element.gid << ";" << element.lid;
+            os << pos << ";" << vel << ";" << element.gid << ";" << element.lid;
             return os;
         }
 
@@ -305,29 +279,6 @@ namespace elements {
         }
     }
 
-    template<int N>
-    bool is_inside(const Element<N> &element, const std::array<std::pair<Real, Real>, N> domain){
-        auto element_position = element.position;
-
-        for(size_t dim = 0; dim < N; ++dim){
-            if(element_position.at(dim) < domain.at(dim).first || domain.at(dim).second < element_position.at(dim)) return false;
-        }
-
-        return true;
-    }
-
-    template <int N, typename RealType>
-    void init_particles_random_v(std::vector<elements::Element<N>> &elements, RealType T0, int seed = 0) {
-        int n = elements.size();
-        std::mt19937 gen(seed); //Standard mersenne_twister_engine seeded with rd()
-        std::normal_distribution<Real> ndist(0.0, T0 * T0);
-        for (int i = 0; i < n; ++i) {
-            elements[i].velocity[0] = ndist(gen);
-            elements[i].velocity[1] = ndist(gen);
-            if (N == 3) elements[i].velocity[2] = ndist(gen);
-        }
-    }
-
     template<int N, bool UseDoublePrecision = std::is_same<Real, double>::value>
     MPI_Datatype register_datatype() {
         MPI_Datatype element_datatype, vec_datatype, oldtype_element[2];
@@ -360,10 +311,5 @@ namespace elements {
         return element_datatype;
     }
 }
-
-template<int N>
-struct MESH_DATA {
-    std::vector<elements::Element<N>> els;
-};
 
 #endif //NBMPI_GEOMETRIC_ELEMENT_HPP

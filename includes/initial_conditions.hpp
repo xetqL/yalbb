@@ -5,11 +5,12 @@
 #ifndef NBMPI_INITIAL_CONDITIONS_HPP
 #define NBMPI_INITIAL_CONDITIONS_HPP
 
+#include "utils.hpp"
 #include "ljpotential.hpp"
 #include "spatial_elements.hpp"
-#include "utils.hpp"
 
 #include <memory>
+#include <random>
 
 namespace initial_condition {
 
@@ -320,7 +321,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, &head, &lscl);
+                    algorithm::CLL_append<N>(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {
@@ -482,7 +483,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append(generated, c, element, &head, &lscl);
+                    algorithm::CLL_append<N>(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {
@@ -496,7 +497,7 @@ public:
 } // end of namespace lennard_jones
 
 template<int N>
-void initialize_mesh_data(int npart, MESH_DATA<N>& mesh_data,
+void initialize_mesh_data(int npart, MESH_DATA<elements::Element<N>>& mesh_data,
                           initial_condition::RandomElementsGenerator<N>* elements_generator,
                           const std::shared_ptr<lj::RejectionCondition<N>> condition) {
     elements_generator->generate_elements(mesh_data.els, npart, condition);

@@ -2,7 +2,7 @@
 #ifndef NBMPI_ASTAR_HPP
 #define NBMPI_ASTAR_HPP
 
-#include <armadillo>
+#include "utils.hpp"
 
 #include <set>
 #include <forward_list>
@@ -12,10 +12,6 @@
 #include <list>
 #include <ostream>
 #include <mpi.h>
-
-#include "utils.hpp"
-#include "feature_container.hpp"
-
 
 enum NodeLBDecision {DoLB=1, DontLB=0};
 
@@ -72,7 +68,7 @@ public:
             id(0),
             start_it(0), end_it(batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
             decision(NodeLBDecision::DoLB),
-            lb(zz) {
+            lb(Zoltan_Copy(zz)) {
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -83,7 +79,7 @@ public:
             id(0),
             start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
             decision(decision),
-            lb(zz) {
+            lb(Zoltan_Copy(zz)) {
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);

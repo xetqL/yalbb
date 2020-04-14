@@ -8,6 +8,7 @@
 #include "../includes/nbody_io.hpp"
 #include "../includes/params.hpp"
 #include "../includes/unloading_model.hpp"
+
 int main(int argc, char** argv) {
     constexpr int DIMENSION = 3;
     sim_param_t params;
