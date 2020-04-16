@@ -33,6 +33,7 @@ typedef struct sim_param_t {
     bool  record;  /* record the simulation in a binary file */
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
+    int   id = 0;
     char*   lb_dataset;
     int   lb_policy = 1;
     short computation_method;
@@ -50,6 +51,7 @@ void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "= Parameters: " << std::endl;
     stream << "= Particles: " << params.npart << std::endl;
     stream << "= Seed: " << params.seed << std::endl;
+    stream << "= id: " << params.id << std::endl;
     stream << "= PEs: " << params.world_size << std::endl;
     stream << "= Simulation size: " << params.simsize << std::endl;
     stream << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
@@ -88,6 +90,7 @@ static void print_usage() {
             "\t-F: number of frames (400)\n"
             "\t-g: gravitational field strength (1)\n"
             "\t-h: print this message\n"
+            "\t-i: sim id (default: 0) \n"
             "\t-I: Load balancing call interval (0, never) \n"
             "\t-l: lattice size (3.5*sig_lj) \n"
             "\t-n: number of particles (500)\n"
@@ -116,6 +119,7 @@ static void default_params(sim_param_t* params) {
     params->rc     = 3.5f * params->sig_lj;
     params->G = 1;
     params->T0 = 1;
+    params->id = 0;
     params->simsize = 1.0;
     params->record = false;
     params->computation_method = (short) 2;
@@ -142,7 +146,7 @@ static void default_params(sim_param_t* params) {
  *@c*/
 int get_params(int argc, char** argv, sim_param_t* params) {
     extern char* optarg;
-    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:I:d:m:p:B:C:P:R:D:l:";
+    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:i:I:d:m:p:B:C:P:R:D:l:";
     int c;
 
 #define get_int_arg(c, field) \
@@ -167,6 +171,8 @@ int get_params(int argc, char** argv, sim_param_t* params) {
             get_flt_arg('l', rc);
 
             get_int_arg('B', nb_best_path);
+
+            get_int_arg('i', id);
 
             get_int_arg('C', particle_init_conf);
 

@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
     CustomBehaviorFunctionWrapper fWrapper(getPositionPtrFunc, getVelocityPtrFunc, getForceFunc, boxIntersectFunc, pointAssignFunc, doLoadBalancingFunc);
 
     auto datatype = elements::register_datatype<N>();
-
+    std::string prefix = std::to_string(params.id)+"_"+std::to_string(params.seed);
     /* Experiment 2 */
     {
         mesh_data = original_data;
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
         {
             std::ofstream ofbab;
 
-            ofbab.open(std::to_string(params.seed)+"_branch_and_bound.txt");
+            ofbab.open(prefix+"_branch_and_bound.txt");
             ofbab << std::fixed << std::setprecision(6) << solution.back()->cost() << std::endl;
             ofbab << li << std::endl;
             ofbab << dec << std::endl;
@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
 
             std::ofstream ofcri;
 
-            ofcri.open(std::to_string(params.seed)+"_criterion.txt");
+            ofcri.open(prefix+"_criterion.txt");
 
             ofcri << std::fixed << std::setprecision(6) << t << std::endl;
             ofcri << cum << std::endl;
