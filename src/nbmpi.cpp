@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
     }
-    auto zz = zoltan_create_wrapper(APP_COMM, ENABLE_AUTOMATIC_MIGRATION);
+    auto zz = zoltan_create_wrapper(APP_COMM);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////START PARITCLE INITIALIZATION///////////////////////////////////////////////
@@ -152,14 +152,14 @@ int main(int argc, char** argv) {
 
     auto zlb = Zoltan_Copy(zz);
 
-    auto boxIntersectFunc   = [zlb](double x1, double y1, double z1, double x2, double y2, double z2, int* PEs, int* num_found){
+    auto boxIntersectFunc   = [](Zoltan_Struct* zlb, double x1, double y1, double z1, double x2, double y2, double z2, int* PEs, int* num_found){
         Zoltan_LB_Box_Assign(zlb, x1, y1, z1, x2, y2, z2, PEs, num_found);
     };
-    auto pointAssignFunc    = [zlb](const elements::Element<N>& e, int* PE){
+    auto pointAssignFunc    = [](Zoltan_Struct* zlb, const elements::Element<N>& e, int* PE) {
         auto pos_in_double = get_as_double_array<N>(e.position);
         Zoltan_LB_Point_Assign(zlb, &pos_in_double.front(), PE);
     };
-    auto doLoadBalancingFunc= [zlb](MESH_DATA<elements::Element<N>>* mesh_data){ Zoltan_Do_LB(mesh_data, zlb); };
+    auto doLoadBalancingFunc= [](Zoltan_Struct* zlb, MESH_DATA<elements::Element<N>>* mesh_data){ Zoltan_Do_LB(mesh_data, zlb); };
     auto getPositionPtrFunc = [](elements::Element<N>& e) {
         return &e.position;
     };
@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
         return force;
     };
 
-    CustomBehaviorFunctionWrapper fWrapper(getPositionPtrFunc, getVelocityPtrFunc, getForceFunc, boxIntersectFunc, pointAssignFunc, doLoadBalancingFunc);
+    FunctionWrapper fWrapper(getPositionPtrFunc, getVelocityPtrFunc, getForceFunc, boxIntersectFunc, pointAssignFunc, doLoadBalancingFunc);
 
     auto datatype = elements::register_datatype<N>();
     std::string prefix = std::to_string(params.id)+"_"+std::to_string(params.seed);
@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
                 [](IterationStatistics* stats){ return stats->get_cumulative_load_imbalance_slowdown(); },// get data func
                 [](IterationStatistics* stats){ return stats->compute_avg_lb_time(); });                  // get threshold func
 
-        auto [t, cum, dec, thist] = simulate<N>(&mesh_data, std::move(lb_policy), fWrapper, &params, &it_stats, datatype, APP_COMM);
+        auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(lb_policy), fWrapper, &params, &it_stats, datatype, APP_COMM);
 
         if(!rank){
 

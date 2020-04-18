@@ -103,6 +103,17 @@ public:
             };
     }
 
+    std::vector<NodeLBDecision> get_sequence() {
+        auto current = this->shared_from_this();
+        std::vector<NodeLBDecision > seq;
+        while(current != nullptr){
+            seq.push_back(current->decision);
+            current = current->parent;
+        }
+        std::reverse(seq.begin(), seq.end());
+        return seq;
+    }
+
 };
 
 class Compare
@@ -123,7 +134,7 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node>& val
     output << " Iteration: " << std::setw(6) << value->start_it <<  " -> " << std::setw(6) << value->end_it;
     output << " Edge Cost: " << std::setw(6) << std::fixed << std::setprecision(5) << value->get_node_cost();
     output << " Features: (";
-    output << (value->decision == NodeLBDecision::DoLB ? "Y":"N") << " )";
+    output << value->get_sequence() << " )";
     return output;
 }
 

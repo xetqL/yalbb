@@ -114,11 +114,11 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                     auto& it_stats    = node->stats;
 
                     // Move data according to my parent's state
-                    migrate_data(mesh_data.els, pointAssignFunc, datatype, comm);
+                    migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);
                     // Compute my bounding box as function of my local data
                     auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els);
                     // Compute which cells are on my borders
-                    auto borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+                    auto borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc, boxIntersectFunc, comm);
                     // Get the ghost data from neighboring processors
                     auto remote_el = get_ghost_data<N>(mesh_data.els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
@@ -144,12 +144,12 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                             it_stats.reset_load_imbalance_slowdown();
                             it_compute_time += lb_time_spent;
                         } else {
-                            migrate_data(mesh_data.els, pointAssignFunc, datatype, comm);
+                            migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);
                         }
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
 
                         bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els);
-                        borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+                        borders   = get_border_cells_index<N>(load_balancer, bbox, params->rc, boxIntersectFunc, comm);
                         remote_el = get_ghost_data<N>(mesh_data.els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
                         comp_time += it_compute_time;
                     }
@@ -169,7 +169,6 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
     TimeHistory time_hist;
     for(auto solution : solutions ){
         Time total_time = solution->cost();
-
         auto it_li = cumulative_load_imbalance.begin();
         auto it_dec= decisions.begin();
         auto it_time= time_hist.begin();
@@ -188,6 +187,23 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
         spdlog::drop("lb_cmplx_logger");
         spdlog::drop("frame_time_logger");
         spdlog::drop("frame_cmplx_logger");
+    }
+
+    if(params->record){
+        SimpleCSVFormatter frame_formater(',');
+        for(int frame = 0; frame < params->nframes+1; ++frame){
+            gather_elements_on(nproc, rank, params->npart, rollback_data[frame].els, 0, recv_buf, datatype, comm);
+
+            if (!rank) {
+                auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+std::to_string(params->seed)+"/frames_bab/particles.csv."+std::to_string(frame));
+                particle_logger->set_pattern("%v");
+                std::stringstream str;
+                frame_formater.write_header(str, params->npframe, params->simsize);
+                write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
+                particle_logger->info(str.str());
+                spdlog::drop("particle_logger");
+            }
+        }
     }
 
     return {solution_path, cumulative_load_imbalance, decisions, time_hist};

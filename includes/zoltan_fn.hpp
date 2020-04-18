@@ -74,19 +74,13 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
 
 
 
-Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm, int num_global_part = -1, int part_on_me = -1) {
-    std::string ngp = std::to_string(num_global_part);
-    std::string pom = std::to_string(part_on_me);
-
-    auto zz = Zoltan_Create(MPI_COMM_WORLD);
+Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm) {
+    auto zz = Zoltan_Create(comm);
 
     Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
     Zoltan_Set_Param(zz, "LB_METHOD", "RCB");
     Zoltan_Set_Param(zz, "DETERMINISTIC", "1");
     Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
-
-    if(num_global_part >= 1) Zoltan_Set_Param(zz, "NUM_GLOBAL_PARTS", ngp.c_str());
-    if(part_on_me >= 1) Zoltan_Set_Param(zz, "NUM_LOCAL_PARTS",  pom.c_str());
 
     Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
     Zoltan_Set_Param(zz, "OBJ_WEIGHT_DIM", "0");
@@ -96,14 +90,9 @@ Zoltan_Struct* zoltan_create_wrapper(bool automatic_migration, MPI_Comm comm, in
     Zoltan_Set_Param(zz, "RCB_RECTILINEAR_BLOCKS", "1");
     Zoltan_Set_Param(zz, "KEEP_CUTS", "1");
 
-
     Zoltan_Set_Param(zz, "AUTO_MIGRATE", "TRUE");
 
     return zz;
-}
-
-Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm, bool automatic_migration = false) {
-    return zoltan_create_wrapper(automatic_migration, comm);
 }
 
 template<int N>

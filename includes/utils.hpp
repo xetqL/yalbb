@@ -31,7 +31,7 @@ using Complexity = Integer;
 using Index      = Integer;
 
 template<class GetPosPtrFunc, class GetVelPtrFunc, class GetForceFunc, class BoxIntersectionFunc, class PointAssignationFunc, class LoadBalancingFunc>
-class CustomBehaviorFunctionWrapper {
+class FunctionWrapper {
     GetPosPtrFunc posPtrFunc;
     GetVelPtrFunc velPtrFunc;
     GetForceFunc forceFunc;
@@ -39,7 +39,7 @@ class CustomBehaviorFunctionWrapper {
     PointAssignationFunc pointAssignationFunc;
     LoadBalancingFunc loadBalancingFunc;
 public:
-    CustomBehaviorFunctionWrapper(GetPosPtrFunc posPtrFunc, GetVelPtrFunc velPtrFunc, GetForceFunc forceFunc,
+    FunctionWrapper(GetPosPtrFunc posPtrFunc, GetVelPtrFunc velPtrFunc, GetForceFunc forceFunc,
                                   BoxIntersectionFunc boxIntersectionFunc, PointAssignationFunc pointAssignationFunc,
                                   LoadBalancingFunc loadBalancingFunc) : posPtrFunc(posPtrFunc), velPtrFunc(velPtrFunc),
                                                                          forceFunc(forceFunc),
@@ -52,7 +52,7 @@ public:
     }
 
     void setPosPtrFunc(const GetPosPtrFunc &posPtrFunc) {
-        CustomBehaviorFunctionWrapper::posPtrFunc = posPtrFunc;
+        FunctionWrapper::posPtrFunc = posPtrFunc;
     }
 
     const GetVelPtrFunc &getVelPtrFunc() const {
@@ -60,7 +60,7 @@ public:
     }
 
     void setVelPtrFunc(const GetVelPtrFunc &velPtrFunc) {
-        CustomBehaviorFunctionWrapper::velPtrFunc = velPtrFunc;
+        FunctionWrapper::velPtrFunc = velPtrFunc;
     }
 
     GetForceFunc getForceFunc() const {
@@ -68,7 +68,7 @@ public:
     }
 
     void setGetForceFunc(GetForceFunc forceFunc) {
-        CustomBehaviorFunctionWrapper::forceFunc = forceFunc;
+        FunctionWrapper::forceFunc = forceFunc;
     }
 
     BoxIntersectionFunc getBoxIntersectionFunc() const {
@@ -76,7 +76,7 @@ public:
     }
 
     void setBoxIntersectionFunc(BoxIntersectionFunc boxIntersectionFunc) {
-        CustomBehaviorFunctionWrapper::boxIntersectionFunc = boxIntersectionFunc;
+        FunctionWrapper::boxIntersectionFunc = boxIntersectionFunc;
     }
 
     PointAssignationFunc getPointAssignationFunc() const {
@@ -84,7 +84,7 @@ public:
     }
 
     void setPointAssignationFunc(PointAssignationFunc pointAssignationFunc) {
-        CustomBehaviorFunctionWrapper::pointAssignationFunc = pointAssignationFunc;
+        FunctionWrapper::pointAssignationFunc = pointAssignationFunc;
     }
 
     LoadBalancingFunc getLoadBalancingFunc() const {
@@ -92,7 +92,7 @@ public:
     }
 
     void setLoadBalancingFunc(LoadBalancingFunc loadBalancingFunc) {
-        CustomBehaviorFunctionWrapper::loadBalancingFunc = loadBalancingFunc;
+        FunctionWrapper::loadBalancingFunc = loadBalancingFunc;
     }
 };
 

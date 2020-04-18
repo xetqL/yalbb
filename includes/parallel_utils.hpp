@@ -82,8 +82,13 @@ std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* nu
 }
 
 
-template<int N, class BoxIntersectFunc>
-Borders get_border_cells_index(const BoundingBox<N>& bbox, const Real rc, BoxIntersectFunc boxIntersectFunc, MPI_Comm comm) {
+template<int N, class LoadBalancer, class BoxIntersectFunc>
+Borders get_border_cells_index(
+        LoadBalancer* LB,
+        const BoundingBox<N>& bbox,
+        const Real rc,
+        BoxIntersectFunc boxIntersectFunc,
+        MPI_Comm comm) {
     int caller_rank, wsize, num_found;
 
     MPI_Comm_rank(comm, &caller_rank);
@@ -114,15 +119,17 @@ Borders get_border_cells_index(const BoundingBox<N>& bbox, const Real rc, BoxInt
                 Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
                 put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
                 if constexpr (N == 3) {
-                    boxIntersectFunc(pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                                     pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
-                                     pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
-                                     &PEs.front(), &num_found);
+                    boxIntersectFunc(LB,
+                            pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                            pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
+                            pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
+                            &PEs.front(), &num_found);
                 } else {
-                    boxIntersectFunc(pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                                     0.0, pos_in_double.at(0) + rc/2.0 + rc,
-                                     pos_in_double.at(1) + rc/2.0 + rc, 0.0,
-                                     &PEs.front(), &num_found);
+                    boxIntersectFunc(LB,
+                            pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                            0.0, pos_in_double.at(0) + rc/2.0 + rc,
+                            pos_in_double.at(1) + rc/2.0 + rc, 0.0,
+                            &PEs.front(), &num_found);
                 }
                 if(num_found){
                     bordering_cell_index.push_back(cell_id);
@@ -245,8 +252,9 @@ std::vector<T> exchange_data(
     return remote_data_gathered;
 }
 
-template<class T, class PointAssignFunc>
+template<class T, class LoadBalancer, class PointAssignFunc>
 typename std::vector<T>::const_iterator migrate_data(
+        LoadBalancer* LB,
         std::vector<T> &data,
         PointAssignFunc pointAssignFunc,
         MPI_Datatype datatype,
@@ -264,8 +272,7 @@ typename std::vector<T>::const_iterator migrate_data(
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
     size_t data_id = 0;
-    int PE, num_known = 0;
-    int *found_procs, *found_parts, num_found;
+    int PE, num_known = 0, num_found;
     std::vector<int> import_from_procs;
     {
         std::vector<int> export_gids, export_lids, export_procs;
@@ -274,7 +281,7 @@ typename std::vector<T>::const_iterator migrate_data(
         export_procs.reserve(nb_elements / wsize);
 
         while (data_id < nb_elements) {
-            pointAssignFunc(data.at(data_id), &PE);
+            pointAssignFunc(LB, data.at(data_id), &PE);
             if (PE != caller_rank) {
                 export_gids.push_back(data.at(data_id).gid);
                 export_lids.push_back(data.at(data_id).lid);

@@ -35,9 +35,11 @@ template<int N> using Velocity  = std::array<Real, N>;
 
 
 
-template<int N, class T, class D, class Wrapper>
+template<int N, class T, class D, class LoadBalancer, class Wrapper>
 std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHistory>
-        simulate(MESH_DATA<T> *mesh_data,
+        simulate(
+              LoadBalancer* LB,
+              MESH_DATA<T> *mesh_data,
               decision_making::PolicyRunner<D> lb_policy,
               Wrapper fWrapper,
               sim_param_t *params,
@@ -87,7 +89,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     // Compute my bounding box as function of my local data
     auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
     // Compute which cells are on my borders
-    auto borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+    auto borders   = get_border_cells_index<N>(LB, bbox, params->rc, boxIntersectFunc, comm);
     // Get the ghost data from neighboring processors
     auto remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
@@ -121,7 +123,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
             if (i == 0 && lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
-                doLoadBalancingFunc(mesh_data);
+                doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
                 *it_stats->get_lb_time_ptr() = lb_time_spent;
@@ -131,13 +133,13 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
                     std::cout << "Average C = " << it_stats->compute_avg_lb_time() << std::endl;
                 }
             } else {
-                migrate_data(mesh_data->els, pointAssignFunc, datatype, comm);
+                migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
             }
             total_time += it_compute_time;
             time_hist.push_back(total_time);
 
             bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
-            borders   = get_border_cells_index<N>(bbox, params->rc, boxIntersectFunc, comm);
+            borders   = get_border_cells_index<N>(LB, bbox, params->rc, boxIntersectFunc, comm);
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
             comp_time += it_compute_time;
