@@ -155,7 +155,9 @@ public:
     void set_balanced(bool lb_status) {
         Probe::balanced = lb_status;
     }
-
+    Real get_efficiency(){
+        return get_avg_it() / get_max_it();
+    }
     bool is_balanced() const {
         return balanced;
     }
@@ -185,7 +187,9 @@ public:
 
     Time* sum_it_time() { return &sum_it; }
     Time* get_lb_time_ptr() { lb_times.push_back(std::numeric_limits<double>::lowest()); return &lb_times[i++]; }
-    void update_lb_parallel_efficiencies() {lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it());}
+    void update_lb_parallel_efficiencies() {
+        lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it());
+    }
     Real compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}
     void next_iteration() {current_iteration++;}
 };

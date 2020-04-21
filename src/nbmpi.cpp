@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
     Zoltan_Copy_To(zlb, zz);
 
-    {   /* Experiment 1 */
+    if(false) {   /* Experiment 1 */
 
         mesh_data = original_data;
 
@@ -271,15 +271,14 @@ int main(int argc, char** argv) {
         }
 
         PolicyExecutor procassini_criterion_policy(&probe,
-                                                   [](Probe probe){
-                                                       Real epsilon_c = probe.get_avg_it() / probe.get_max_it();
-                                                       Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency();
-                                                       Real S         = epsilon_c / epsilon_lb;
-                                                       Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time();
-                                                       Real tau       = probe.get_max_it();
-                                                       return tau_prime < 0.9 * tau;
-                                                   });
-
+            [rank](Probe probe){
+                Real epsilon_c = probe.get_avg_it() / probe.get_max_it();
+                Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency();
+                Real S         = epsilon_c / epsilon_lb;
+                Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time();
+                Real tau       = probe.get_max_it();
+                return tau_prime < 0.9f * tau;
+            });
 
         auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(procassini_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "procassini_");
 
@@ -298,7 +297,7 @@ int main(int argc, char** argv) {
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
     Zoltan_Copy_To(zlb, zz);
 
-    {   /* Experiment 1 */
+    {   /* Experiment 4 */
 
         mesh_data = original_data;
 
