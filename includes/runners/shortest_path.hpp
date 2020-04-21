@@ -37,11 +37,11 @@ using NodeQueue      = std::multiset<std::shared_ptr<Node>, Compare>;
 template<int N, class T, class Wrapper>
 std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shortest_path(
             MESH_DATA<T> *mesh_data,
-              Zoltan_Struct* load_balancer,
-              Wrapper fWrapper,
-              sim_param_t *params,
-              MPI_Datatype datatype,
-              MPI_Comm comm = MPI_COMM_WORLD) {
+            Zoltan_Struct* load_balancer,
+            Wrapper fWrapper,
+            sim_param_t *params,
+            MPI_Datatype datatype,
+            MPI_Comm comm = MPI_COMM_WORLD) {
 
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -130,10 +130,10 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                         // Measure load imbalance
                         MPI_Allreduce(&it_compute_time, it_stats.max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
                         MPI_Allreduce(&it_compute_time, it_stats.sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
-                        it_stats.update_cumulative_load_imbalance_slowdown();
+                        it_stats.update_cumulative_imbalance_time();
                         it_compute_time = *it_stats.max_it_time();
 
-                        cum_li_hist[i] = it_stats.get_cumulative_load_imbalance_slowdown();
+                        cum_li_hist[i] = it_stats.get_cumulative_imbalance_time();
                         dec_hist[i]    = node->decision == DoLB && i == 0;
                         if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
@@ -141,7 +141,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                             PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
                             *it_stats.get_lb_time_ptr() = lb_time_spent;
-                            it_stats.reset_load_imbalance_slowdown();
+                            it_stats.reset_cumulative_imbalance_time();
                             it_compute_time += lb_time_spent;
                         } else {
                             migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);

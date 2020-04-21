@@ -34,18 +34,18 @@ template<int N> using Position  = std::array<Real, N>;
 template<int N> using Velocity  = std::array<Real, N>;
 
 
-
 template<int N, class T, class D, class LoadBalancer, class Wrapper>
 std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHistory>
         simulate(
               LoadBalancer* LB,
               MESH_DATA<T> *mesh_data,
-              decision_making::PolicyRunner<D> lb_policy,
+              decision_making::LBPolicy<D>&& lb_policy,
               Wrapper fWrapper,
               sim_param_t *params,
-              IterationStatistics* it_stats,
+              Probe* probe,
               MPI_Datatype datatype,
-              const MPI_Comm comm = MPI_COMM_WORLD) {
+              const MPI_Comm comm = MPI_COMM_WORLD,
+              const std::string output_names_prefix = "") {
 
     auto boxIntersectFunc   = fWrapper.getBoxIntersectionFunc();
     auto doLoadBalancingFunc= fWrapper.getLoadBalancingFunc();
@@ -63,8 +63,8 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
     SimpleCSVFormatter frame_formater(',');
 
-    auto time_logger = spdlog::basic_logger_mt("frame_time_logger", "logs/"+std::to_string(params->seed)+"/time/frame-p"+std::to_string(rank)+".txt");
-    auto cmplx_logger = spdlog::basic_logger_mt("frame_cmplx_logger", "logs/"+std::to_string(params->seed)+"/complexity/frame-p"+std::to_string(rank)+".txt");
+    auto time_logger = spdlog::basic_logger_mt("frame_time_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/time/frame-p"+std::to_string(rank)+".txt");
+    auto cmplx_logger = spdlog::basic_logger_mt("frame_cmplx_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/complexity/frame-p"+std::to_string(rank)+".txt");
 
     time_logger->set_pattern("%v");
     cmplx_logger->set_pattern("%v");
@@ -73,8 +73,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
     if (params->record)
         gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
+
     if (params->record && !rank) {
-        auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+std::to_string(params->seed)+"/frames/particles.csv.0");
+        auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv.0");
         particle_logger->set_pattern("%v");
         std::stringstream str;
         frame_formater.write_header(str, params->npframe, params->simsize);
@@ -108,17 +109,17 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, borders, params);
             END_TIMER(it_compute_time);
             // Measure load imbalance
-            MPI_Allreduce(&it_compute_time, it_stats->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
-            MPI_Allreduce(&it_compute_time, it_stats->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
-            it_stats->update_cumulative_load_imbalance_slowdown();
-            it_compute_time = *it_stats->max_it_time();
+            MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+            MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, MPI_COMM_WORLD);
+            MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
+            probe->update_cumulative_imbalance_time();
+            it_compute_time = *probe->max_it_time();
 
-            bool lb_decision= false;
+            if(probe->is_balanced()) probe->update_lb_parallel_efficiencies();
 
-            if(i == 0)
-                lb_decision = lb_policy.should_load_balance(i + frame * npframe);
+            bool lb_decision = lb_policy.should_load_balance();
 
-            cum_li_hist.push_back(it_stats->get_cumulative_load_imbalance_slowdown());
+            cum_li_hist.push_back(probe->get_cumulative_imbalance_time());
             dec.push_back(lb_decision);
 
             if (i == 0 && lb_decision) {
@@ -126,15 +127,18 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
                 doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
-                *it_stats->get_lb_time_ptr() = lb_time_spent;
-                it_stats->reset_load_imbalance_slowdown();
+                *probe->get_lb_time_ptr() = lb_time_spent;
+                probe->reset_cumulative_imbalance_time();
                 it_compute_time += lb_time_spent;
                 if(!rank) {
-                    std::cout << "Average C = " << it_stats->compute_avg_lb_time() << std::endl;
+                    std::cout << "Average C = " << probe->compute_avg_lb_time() << std::endl;
                 }
             } else {
                 migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
             }
+
+            probe->set_balanced(lb_decision);
+
             total_time += it_compute_time;
             time_hist.push_back(total_time);
 
@@ -143,8 +147,8 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
             comp_time += it_compute_time;
+            probe->next_iteration();
         }
-
         MPI_Allreduce(MPI_IN_PLACE, &comp_time, 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
         if(!rank) std::cout << comp_time << std::endl;
         app_time += comp_time;
@@ -160,7 +164,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
             if (rank == 0) {
                 spdlog::drop("particle_logger");
-                auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+std::to_string(params->seed)+"/frames/particles.csv."+ std::to_string(frame + 1));
+                auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv."+ std::to_string(frame + 1));
                 particle_logger->set_pattern("%v");
                 std::stringstream str;
                 frame_formater.write_header(str, params->npframe, params->simsize);
@@ -183,9 +187,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     std::shared_ptr<spdlog::logger> lb_cmplx_logger;
 
     if(!rank){
-        lb_time_logger = spdlog::basic_logger_mt("lb_times_logger", "logs/"+std::to_string(params->seed)+"/time/frame_statistics.txt");
+        lb_time_logger = spdlog::basic_logger_mt("lb_times_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/time/frame_statistics.txt");
         lb_time_logger->set_pattern("%v");
-        lb_cmplx_logger = spdlog::basic_logger_mt("lb_cmplx_logger", "logs/"+std::to_string(params->seed)+"/complexity/frame_statistics.txt");
+        lb_cmplx_logger = spdlog::basic_logger_mt("lb_cmplx_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/complexity/frame_statistics.txt");
         lb_cmplx_logger->set_pattern("%v");
     }
 

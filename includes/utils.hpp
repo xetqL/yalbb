@@ -136,25 +136,58 @@ inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue,
     return (truereturnvalue & -condition) | (falsereturnvalue & ~(-condition)); //a when TRUE
 }
 
-class IterationStatistics {
-     std::array<Time, 3> data = {0.0, 0.0, 0.0};
+class Probe {
+    int current_iteration = 0;
+    Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0;
     std::vector<Time> lb_times;
-    int i = 0;
-    int nproc;
+    std::vector<Real> lb_parallel_efficiencies;
+    bool balanced = true;
+    int i = 0, nproc;
 public:
-    IterationStatistics(int nproc) : nproc(nproc) {}
-    IterationStatistics() : nproc(0) {}
+    Probe(int nproc) : nproc(nproc) {}
 
-    double  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
-    double  get_cumulative_load_imbalance_slowdown() {return data[2]; }
-    void    update_cumulative_load_imbalance_slowdown() { data[2] += data[1] - data[0]/nproc; }
-    void    reset_load_imbalance_slowdown() { data[2] = 0.0; }
-    double* max_it_time() { return &data[1]; }
-    double* sum_it_time() { return &data[0]; }
-    double* get_lb_time_ptr() {
-        lb_times.push_back(std::numeric_limits<double>::lowest());
-        return &lb_times[i++];
+    void  update_cumulative_imbalance_time() { cumulative_imbalance_time += max_it - sum_it/nproc; }
+    void   reset_cumulative_imbalance_time() { cumulative_imbalance_time = 0.0; }
+    Time  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
+    Time* max_it_time() { return &max_it; }
+    Time* min_it_time() { return &min_it; }
+
+    void set_balanced(bool lb_status) {
+        Probe::balanced = lb_status;
     }
+
+    bool is_balanced() const {
+        return balanced;
+    }
+
+    int get_current_iteration() const {
+        return current_iteration;
+    }
+    Time  get_avg_it() {
+        return sum_it/nproc;
+    }
+
+    Time get_max_it() const {
+        return max_it;
+    }
+
+    Time get_min_it() const {
+        return min_it;
+    }
+
+    Time get_sum_it() const {
+        return sum_it;
+    }
+
+    Time get_cumulative_imbalance_time() const {
+        return cumulative_imbalance_time;
+    }
+
+    Time* sum_it_time() { return &sum_it; }
+    Time* get_lb_time_ptr() { lb_times.push_back(std::numeric_limits<double>::lowest()); return &lb_times[i++]; }
+    void update_lb_parallel_efficiencies() {lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it());}
+    Real compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}
+    void next_iteration() {current_iteration++;}
 };
 
 template<typename T>

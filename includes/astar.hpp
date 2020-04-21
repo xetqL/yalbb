@@ -28,7 +28,7 @@ public:
     std::vector<Time> time_hist;
 
     NodeLBDecision decision;          // Y / N boolean
-    IterationStatistics stats;
+    Probe stats;
     Time concrete_cost = 0.0;      // estimated cost to the solution
 
     Zoltan_Struct* lb;
@@ -54,7 +54,7 @@ public:
         return decision == NodeLBDecision::DoLB;
     }
 
-    Node (Index id, int startit, int batch_size, NodeLBDecision decision, IterationStatistics stats, std::shared_ptr<Node> p) :
+    Node (Index id, int startit, int batch_size, NodeLBDecision decision, Probe stats, std::shared_ptr<Node> p) :
         id(id),
         start_it(startit), end_it(startit+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size),
         parent(p), decision(decision), stats(stats), lb(Zoltan_Copy(parent->lb)),
@@ -68,22 +68,22 @@ public:
             id(0),
             start_it(0), end_it(batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
             decision(NodeLBDecision::DoLB),
-            lb(Zoltan_Copy(zz)) {
+            lb(Zoltan_Copy(zz)), stats(0) {
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        stats = IterationStatistics(size);
+        stats = Probe(size);
     }
 
     Node(Zoltan_Struct* zz, int start_it, int batch_size, NodeLBDecision decision) :
             id(0),
             start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
             decision(decision),
-            lb(Zoltan_Copy(zz)) {
+            lb(Zoltan_Copy(zz)), stats(0) {
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        stats = IterationStatistics(size);
+        stats = Probe(size);
     }
 
     ~Node() {
