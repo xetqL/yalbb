@@ -118,7 +118,6 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             if(probe->is_balanced()) {
                 probe->update_lb_parallel_efficiencies();
             }
-            //if(!rank) std::cout << probe->get_efficiency() << std::endl;
 
             bool lb_decision = lb_policy.should_load_balance();
 

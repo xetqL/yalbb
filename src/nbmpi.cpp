@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
     Zoltan_Copy_To(zlb, zz);
 
-    if(false) {   /* Experiment 1 */
+    {   /* Experiment 1 */
 
         mesh_data = original_data;
 
