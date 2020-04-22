@@ -263,7 +263,7 @@ int main(int argc, char** argv) {
         PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
         PAR_END_TIMER(lb_time_spent, APP_COMM);
-        MPI_Allreduce(&lb_time_spent, probe.get_lb_time_ptr(),  1, MPI_TIME, MPI_MAX, APP_COMM);
+        //MPI_Allreduce(&lb_time_spent, probe.get_lb_time_ptr(),  1, MPI_TIME, MPI_MAX, APP_COMM);
 
         if(!rank) {
             std::cout << "SIM (Procassini Criterion): Computation is starting." << std::endl;
