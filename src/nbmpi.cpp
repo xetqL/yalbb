@@ -263,7 +263,6 @@ int main(int argc, char** argv) {
         PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
         PAR_END_TIMER(lb_time_spent, APP_COMM);
-        //MPI_Allreduce(&lb_time_spent, probe.get_lb_time_ptr(),  1, MPI_TIME, MPI_MAX, APP_COMM);
 
         if(!rank) {
             std::cout << "SIM (Procassini Criterion): Computation is starting." << std::endl;
@@ -273,11 +272,10 @@ int main(int argc, char** argv) {
         PolicyExecutor procassini_criterion_policy(&probe,
             [rank](Probe probe){
                 Real epsilon_c = probe.get_efficiency();
-                Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency();
+                Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
                 Real S         = epsilon_c / epsilon_lb;
-                Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time();
+                Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
                 Real tau       = probe.get_max_it();
-                if(!rank) std::cout << "ExpectedAfterLB: " << tau_prime << " now: " << (0.9f * tau) << std::endl;
                 return tau_prime < 0.9f * tau;
             });
 

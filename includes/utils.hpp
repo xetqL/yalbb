@@ -155,7 +155,7 @@ public:
     void set_balanced(bool lb_status) {
         Probe::balanced = lb_status;
     }
-    Real get_efficiency(){
+    Real get_efficiency() {
         return get_avg_it() / get_max_it();
     }
     bool is_balanced() const {
