@@ -148,7 +148,7 @@ public:
 
     void  update_cumulative_imbalance_time() { cumulative_imbalance_time += max_it - sum_it/nproc; }
     void   reset_cumulative_imbalance_time() { cumulative_imbalance_time = 0.0; }
-    Time  compute_avg_lb_time() { return std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
+    Time  compute_avg_lb_time() { return lb_times.size() == 0 ? 0.0 : std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
     Time* max_it_time() { return &max_it; }
     Time* min_it_time() { return &min_it; }
 
