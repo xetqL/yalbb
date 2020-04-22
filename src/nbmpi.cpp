@@ -272,11 +272,12 @@ int main(int argc, char** argv) {
 
         PolicyExecutor procassini_criterion_policy(&probe,
             [rank](Probe probe){
-                Real epsilon_c = probe.get_avg_it() / probe.get_max_it();
+                Real epsilon_c = probe.get_efficiency();
                 Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency();
                 Real S         = epsilon_c / epsilon_lb;
                 Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time();
                 Real tau       = probe.get_max_it();
+                if(!rank) std::cout << "ExpectedAfterLB: " << tau_prime << " now: " << (0.9f * tau) << std::endl;
                 return tau_prime < 0.9f * tau;
             });
 
