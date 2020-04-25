@@ -136,6 +136,29 @@ inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue,
     return (truereturnvalue & -condition) | (falsereturnvalue & ~(-condition)); //a when TRUE
 }
 
+// C++ template to print vector container elements
+template <typename T, size_t N>
+std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
+{
+    os << std::fixed << std::setprecision(6);
+    for (int i = 0; i < N; ++i) {
+        os << v[i];
+        if (i != v.size() - 1)
+            os << " ";
+    }
+    return os;
+}
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
+{
+    os << std::fixed << std::setprecision(6) ;
+    const auto s = v.size();
+    for (int i = 0; i < s; ++i) {
+        os << v[i];
+        if (i != s - 1) os << " ";
+    }
+    return os;
+}
 class Probe {
     int current_iteration = 0;
     Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0;
@@ -151,8 +174,6 @@ public:
     Time  compute_avg_lb_time() { return lb_times.size() == 0 ? 0.0 : std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
     Time* max_it_time() { return &max_it; }
     Time* min_it_time() { return &min_it; }
-
-
 
     void set_balanced(bool lb_status) {
         Probe::balanced = lb_status;
@@ -195,6 +216,12 @@ public:
 
     Real compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}
     void next_iteration() {current_iteration++;}
+
+    std::string lb_cost_to_string(){
+        std::stringstream str;
+        str << lb_times;
+        return str.str();
+    }
 };
 
 template<typename T>
@@ -217,29 +244,6 @@ template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
-// C++ template to print vector container elements
-template <typename T, size_t N>
-std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
-{
-    os << std::fixed << std::setprecision(6);
-    for (int i = 0; i < N; ++i) {
-        os << v[i];
-        if (i != v.size() - 1)
-            os << " ";
-    }
-    return os;
-}
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
-{
-    os << std::fixed << std::setprecision(6) ;
-    const auto s = v.size();
-    for (int i = 0; i < s; ++i) {
-        os << v[i];
-        if (i != s - 1) os << " ";
-    }
-    return os;
-}
 
 template<int N, class GetPosFunc>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) {}

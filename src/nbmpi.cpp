@@ -190,21 +190,18 @@ int main(int argc, char** argv) {
     double load_balancing_parallel_efficiency;
     {
         mesh_data = original_data;
-
         Zoltan_Do_LB(&mesh_data, zlb);
-
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
         auto [solution, li, dec, thist] = simulate_using_shortest_path<N>(&mesh_data, zlb, fWrapper, &params, datatype, APP_COMM);
-
         if(!rank && params.nb_best_path > 0)
         {
             std::ofstream ofbab;
-
             ofbab.open(prefix+"_branch_and_bound.txt");
             ofbab << std::fixed << std::setprecision(6) << solution.back()->cost() << std::endl;
             ofbab << li << std::endl;
             ofbab << dec << std::endl;
             ofbab << thist << std::endl;
+            ofbab << solution.back()->stats.lb_cost_to_string() << std::endl;
             ofbab.close();
         }
         load_balancing_cost = solution.back()->stats.compute_avg_lb_time();
@@ -244,6 +241,8 @@ int main(int argc, char** argv) {
             ofcri << cum << std::endl;
             ofcri << dec << std::endl;
             ofcri << thist << std::endl;
+            ofcri << probe.lb_cost_to_string() << std::endl;
+
             ofcri.close();
         }
 
@@ -287,6 +286,7 @@ int main(int argc, char** argv) {
             ofcri << cum << std::endl;
             ofcri << dec << std::endl;
             ofcri << thist << std::endl;
+            ofcri << probe.lb_cost_to_string() << std::endl;
             ofcri.close();
         }
 
@@ -325,9 +325,9 @@ int main(int argc, char** argv) {
             ofcri << cum << std::endl;
             ofcri << dec << std::endl;
             ofcri << thist << std::endl;
+            ofcri << probe.lb_cost_to_string() << std::endl;
             ofcri.close();
         }
-
     }
 
     MPI_Finalize();
