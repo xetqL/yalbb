@@ -186,12 +186,12 @@ int main(int argc, char** argv) {
     auto datatype = elements::register_datatype<N>();
     std::string prefix = std::to_string(params.id)+"_"+std::to_string(params.seed);
     /* Experiment 1 */
+    double load_balancing_cost;
+    double load_balancing_parallel_efficiency;
     {
         mesh_data = original_data;
 
-        PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
-        PAR_END_TIMER(lb_time_spent, APP_COMM);
 
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
         auto [solution, li, dec, thist] = simulate_using_shortest_path<N>(&mesh_data, zlb, fWrapper, &params, datatype, APP_COMM);
@@ -205,10 +205,10 @@ int main(int argc, char** argv) {
             ofbab << li << std::endl;
             ofbab << dec << std::endl;
             ofbab << thist << std::endl;
-
             ofbab.close();
         }
-
+        load_balancing_cost = solution.back()->stats.compute_avg_lb_time();
+        load_balancing_parallel_efficiency = solution.back()->stats.compute_avg_lb_parallel_efficiency();
     }
 
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
@@ -219,11 +219,9 @@ int main(int argc, char** argv) {
         mesh_data = original_data;
 
         Probe probe(nproc);
+        probe.push_load_balancing_time(load_balancing_cost);
 
-        PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
-        PAR_END_TIMER(lb_time_spent, APP_COMM);
-        MPI_Allreduce(&lb_time_spent, probe.get_lb_time_ptr(),  1, MPI_TIME, MPI_MAX, APP_COMM);
 
         if(!rank) {
             std::cout << "SIM (Menon Criterion): Computation is starting." << std::endl;
@@ -231,10 +229,10 @@ int main(int argc, char** argv) {
         }
 
         PolicyExecutor menon_criterion_policy(&probe,
-                [npframe = params.npframe](Probe probe){
-            bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
-            bool is_cum_imb_higher_than_C = (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
-            return is_new_batch && is_cum_imb_higher_than_C;
+         [npframe = params.npframe](Probe probe){
+                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
+                bool is_cum_imb_higher_than_C = (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
+                return is_new_batch && is_cum_imb_higher_than_C;
         });
 
         auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(menon_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "menon_");
@@ -259,10 +257,10 @@ int main(int argc, char** argv) {
         mesh_data = original_data;
 
         Probe probe(nproc);
+        probe.push_load_balancing_time(load_balancing_cost);
+        probe.push_load_balancing_parallel_efficiency(load_balancing_parallel_efficiency);
 
-        PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
-        PAR_END_TIMER(lb_time_spent, APP_COMM);
 
         if(!rank) {
             std::cout << "SIM (Procassini Criterion): Computation is starting." << std::endl;
@@ -270,13 +268,14 @@ int main(int argc, char** argv) {
         }
 
         PolicyExecutor procassini_criterion_policy(&probe,
-            [rank](Probe probe){
+        [npframe = params.npframe](Probe probe){
+                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 Real epsilon_c = probe.get_efficiency();
                 Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
                 Real S         = epsilon_c / epsilon_lb;
                 Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
                 Real tau       = probe.get_max_it();
-                return tau_prime < 0.9f * tau;
+                return is_new_batch && (tau_prime < 0.95f * tau);
             });
 
         auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(procassini_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "procassini_");
@@ -302,22 +301,19 @@ int main(int argc, char** argv) {
 
         Probe probe(nproc);
 
-        PAR_START_TIMER(lb_time_spent, APP_COMM);
         Zoltan_Do_LB(&mesh_data, zlb);
-        PAR_END_TIMER(lb_time_spent, APP_COMM);
-        MPI_Allreduce(&lb_time_spent, probe.get_lb_time_ptr(),  1, MPI_TIME, MPI_MAX, APP_COMM);
 
         if(!rank) {
             std::cout << "SIM (Marquez Criterion): Computation is starting." << std::endl;
-            std::cout << "Average C = " << probe.compute_avg_lb_time() << std::endl;
         }
 
         PolicyExecutor marquez_criterion_policy(&probe,
-            [threshold = 0.05](Probe probe){ //0.05 provided the best results in paper of marquez
+            [threshold = 0.05, npframe = params.npframe](Probe probe){
+                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 Real tolerance      = probe.get_avg_it() * threshold;
                 Real tolerance_plus = probe.get_avg_it() + tolerance;
                 Real tolerance_minus= probe.get_avg_it() - tolerance;
-                return probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it();
+                return is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
             });
 
         auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(marquez_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "marquez_");

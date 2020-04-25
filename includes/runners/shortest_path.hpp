@@ -133,6 +133,10 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                         it_stats.update_cumulative_imbalance_time();
                         it_compute_time = *it_stats.max_it_time();
 
+                        if(currentNode->decision == DoLB) {
+                            it_stats.update_lb_parallel_efficiencies();
+                        }
+
                         cum_li_hist[i] = it_stats.get_cumulative_imbalance_time();
                         dec_hist[i]    = node->decision == DoLB && i == 0;
                         if (node->decision == DoLB && i == 0) {
