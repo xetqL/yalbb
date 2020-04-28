@@ -55,12 +55,14 @@ namespace metric {
 
         LBMetrics(const std::vector<Real> metrics) : metrics(metrics) {};
 
-        Real get_gini_times(){
+        Real get_gini_times() {
             return metrics.at(0);
         }
+
         Real get_gini_complexities(){
             return metrics.at(1);
         }
+
         Real get_gini_communications(){
             return metrics.at(2);
         }

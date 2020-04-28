@@ -123,7 +123,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             cum_li_hist.push_back(probe->get_cumulative_imbalance_time());
             dec.push_back(lb_decision);
 
-            if (i == 0 && lb_decision) {
+            if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);

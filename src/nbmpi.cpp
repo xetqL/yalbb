@@ -228,9 +228,12 @@ int main(int argc, char** argv) {
         }
 
         PolicyExecutor menon_criterion_policy(&probe,
-         [npframe = params.npframe](Probe probe){
+         [rank, npframe = params.npframe](Probe probe) {
                 bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 bool is_cum_imb_higher_than_C = (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
+                if(!rank && probe.get_current_iteration() % npframe == 0) {
+                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && is_cum_imb_higher_than_C)std::endl;
+                }
                 return is_new_batch && is_cum_imb_higher_than_C;
         });
 
@@ -309,11 +312,14 @@ int main(int argc, char** argv) {
         }
 
         PolicyExecutor marquez_criterion_policy(&probe,
-            [threshold = 0.05, npframe = params.npframe](Probe probe){
+            [rank, threshold = 0.1, npframe = params.npframe](Probe probe){
                 bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 Real tolerance      = probe.get_avg_it() * threshold;
                 Real tolerance_plus = probe.get_avg_it() + tolerance;
                 Real tolerance_minus= probe.get_avg_it() - tolerance;
+                if(!rank && probe.get_current_iteration() % npframe == 0) {
+                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it())) <<std::endl;
+                }
                 return is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
             });
 
