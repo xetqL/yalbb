@@ -10,6 +10,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "zupply.hpp"
+
 /*@T
  * \section{System parameters}
  *
@@ -17,13 +19,13 @@
  * describe the simulation.  These parameters are filled in
  * by the [[get_params]] function (described later).
  *@c*/
-typedef struct sim_param_t {
-    char* fname;   /* File name (run.out)        */
+struct sim_param_t {
+    std::string fname;   /* File name (run.out)        */
     int   npart;   /* Number of particles (500)  */
     int   nframes; /* Number of frames (200)     */
     int   npframe; /* Steps per frame (100)      */
+    int   world_size; /* wsize     */
     float dt;      /* Time step (1e-4)           */
-    float frozen_factor;      /* Time step (1e-4)           */
     float eps_lj;  /* Strength for L-J (1)       */
     float sig_lj;  /* Radius for L-J   (1e-2)    */
     float G;       /* Gravitational strength (1) */
@@ -34,17 +36,10 @@ typedef struct sim_param_t {
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
     int   id = 0;
-    char*   lb_dataset;
-    int   lb_policy = 1;
-    short computation_method;
-    unsigned int world_size;
-    unsigned int lb_interval;
-    int one_shot_lb_call;
-    unsigned int nb_best_path;
+    int nb_best_path;
     std::string uuid;
-    bool verbose = true;
-    bool start_with_lb = false;
-} sim_param_t;
+    int verbosity;
+};
 
 void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "==============================================" << std::endl;
@@ -66,153 +61,41 @@ void print_params(std::ostream& stream, const sim_param_t& params){
 void print_params(const sim_param_t& params) {
     print_params(std::cout, params);
 }
+std::optional<sim_param_t> get_params(int argc, char** argv){
+    sim_param_t params;
 
-/*@T
- * \section{Option processing}
- *
- * The [[print_usage]] command documents the options to the [[nbody]]
- * driver program, and [[default_params]] sets the default parameter
- * values.  You may want to add your own options to control
- * other aspects of the program.  This is about as many options as
- * I would care to handle at the command line --- maybe more!  Usually,
- * I would start using a second language for configuration (e.g. Lua)
- * to handle anything more than this.
- *@c*/
-static void print_usage() {
-    fprintf(stderr,
-            "Lennard-Jones n-body simulation\n"
-            "\t-B: Number of Best path to retrieve (A*)\n"
-            "\t-C: Initial particle configuration 1: Uniform (default), 2:Half, 3:Wall, 4: Cluster\n"
-            "\t-d: simulation dimension (0-1;0-1)\n"
-            "\t-D: Frozen Decrease factor (0.0 default, i.e., do not freeze simulation over time)\n"
-            "\t-e: epsilon parameter in LJ potential (1)\n"
-            "\t-f: steps per frame (100)\n"
-            "\t-F: number of frames (400)\n"
-            "\t-g: gravitational field strength (1)\n"
-            "\t-h: print this message\n"
-            "\t-i: sim id (default: 0) \n"
-            "\t-I: Load balancing call interval (0, never) \n"
-            "\t-l: lattice size (3.5*sig_lj) \n"
-            "\t-n: number of particles (500)\n"
-            "\t-o: output file name (run.out)\n"
-            "\t-P: LB Policy 1: Random, 2: Threshold, 3: Fixed (-I interval), 4: Reproduce from file\n"
-            "\t-r: record the simulation (false)\n"
-            "\t-R: LB reproduction file (default: none)\n"
-            "\t-s: distance parameter in LJ potential (1e-2)\n"
-            "\t-S: RNG seed\n"
-            "\t-t: time step (1e-4)\n"
-            "\t-T: initial temperature (1)\n"
-    );
-}
+    zz::cfg::ArgParser parser;
+    parser.add_opt_version('V', "version", "MiniLB v1.0:\nMiniLB is a fast parallel (MPI) n-body mini code for load balancing brenchmarking.");
+    parser.add_opt_help('h', "help"); // use -h or --help
 
-static void default_params(sim_param_t* params) {
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_int_distribution dist(0, 100'000'000);
-    params->fname = (char*) "run.out";
-    params->npart = 500;
-    params->nframes = 400;
-    params->npframe = 100;
-    params->dt = 1e-4;
-    params->eps_lj = 1;
-    params->sig_lj = 1e-2;
-    params->rc     = 3.5f * params->sig_lj;
-    params->G = 1;
-    params->T0 = 1;
-    params->id = 0;
-    params->simsize = 1.0;
-    params->record = false;
-    params->computation_method = (short) 2;
-    params->world_size = (unsigned int) 1;
-    params->seed = dist(mt); //by default a random number
-    params->lb_interval = 0;
-    params->one_shot_lb_call = 0;
-    params->nb_best_path = 1;
-    params->start_with_lb = false;
-    //boost::uuids::random_generator gen;
-    //boost::uuids::uuid u = gen(); // generate unique id for this simulation
-    //params->uuid = boost::uuids::to_string(u);
-    params->frozen_factor = 1.0;
+    parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT");
+    parser.add_opt_value('d', "distribution", params.particle_init_conf, 0, "Initial particle distribution 1: Uniform, 2:Half, 3:Wall, 4: Cluster", "INT");
+    parser.add_opt_value('e', "epslj", params.eps_lj, 1.0f, "Epsilon (lennard-jones)", "FLOAT");
+    parser.add_opt_value('f', "npframe", params.npframe, 100, "steps per frame", "INT").require();
+    parser.add_opt_value('F', "nframes", params.nframes, 100, "number of frames", "INT").require();
+    parser.add_opt_value('g', "gravitation", params.G, 1.0f, "Gravitational strength", "FLOAT");
+    parser.add_opt_value('i', "id", params.id, 0, "Simulation id", "INT").require();
+    parser.add_opt_value('l', "lattice", params.rc, 3.5f*1e-2f, "Lattice size", "FLOAT");
+    parser.add_opt_value('n', "nparticles", params.npart, 500, "Number of particles", "INT").require();
+     parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
+    parser.add_opt_value('s', "siglj", params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
+    parser.add_opt_value('S', "seed", params.seed, rand(), "Random seed", "INT").require();
+    parser.add_opt_value('t', "dt", params.dt, 1e-4f, "Time step", "float");
+    parser.add_opt_value('T', "temperature", params.T0, 1.0f, "Initial temperatore", "float");
+    parser.add_opt_value('w', "width", params.simsize, 1.0f, "Simulation box width", "FLOAT");
 
-}
+    bool output;
+    auto &verbose = parser.add_opt_flag('v', "verbose", "Set verbosity", &output);
+    parser.parse(argc, argv);
 
-/*@T
- *
- * The [[get_params]] function uses the [[getopt]] package
- * to handle the actual argument processing.  Note that
- * [[getopt]] is {\em not} thread-safe!  You will need to
- * do some synchronization if you want to use this function
- * safely with threaded code.
- *@c*/
-int get_params(int argc, char** argv, sim_param_t* params) {
-    extern char* optarg;
-    const char* optstring = "rLho:n:F:f:t:e:s:S:g:T:i:I:d:m:p:B:C:P:R:D:l:";
-    int c;
-
-#define get_int_arg(c, field) \
-        case c: params->field = atoi(optarg); break
-#define get_flt_arg(c, field) \
-        case c: params->field = (float) atof(optarg); break
-#define get_bool_arg(c, field) \
-        case c: params->field = true; break;
-    default_params(params);
-    while ((c = getopt(argc, argv, optstring)) != -1) {
-        switch (c) {
-            case 'h':
-                print_usage();
-                return -1;
-            case 'o':
-                strcpy(params->fname = new char[(strlen(optarg) + 1)], optarg);
-                break;
-            case 'R':
-                strcpy(params->lb_dataset = new char[(strlen(optarg) + 1)], optarg);
-                break;
-
-            get_flt_arg('l', rc);
-
-            get_int_arg('B', nb_best_path);
-
-            get_int_arg('i', id);
-
-            get_int_arg('C', particle_init_conf);
-
-            get_flt_arg('d', simsize);
-
-            get_flt_arg('D', frozen_factor);
-
-            get_flt_arg('e', eps_lj);
-
-            get_int_arg('f', npframe);
-
-            get_int_arg('F', nframes);
-
-            get_flt_arg('g', G);
-
-            get_flt_arg('I', lb_interval);
-
-            get_bool_arg('L', start_with_lb);
-
-            get_int_arg('m', computation_method);
-
-            get_int_arg('n', npart);
-
-            get_int_arg('p', world_size);
-            get_int_arg('P', lb_policy);
-
-            get_bool_arg('r', record);
-
-            get_flt_arg('s', sig_lj);
-            get_int_arg('S', seed);
-
-            get_flt_arg('t', dt);
-            get_flt_arg('T', T0);
-            default:
-                fprintf(stderr, "Unknown option\n");
-                print_usage();
-                return -1;
-        }
+    if (parser.count_error() > 0) {
+        std::cout << parser.get_error() << std::endl;
+        std::cout << parser.get_help() << std::endl;
+        return std::nullopt;
     }
-    return 0;
+
+    params.verbosity = verbose.get_count();
+    return params;
 }
 
 /*@q*/

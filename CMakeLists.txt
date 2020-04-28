@@ -39,24 +39,26 @@ find_path(ZOLTAN_INCLUDES
 
 add_executable(build
         ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/zupply/src/zupply.cpp
         ${INCLUDE_DIRECTORY}/utils.hpp
         ${INCLUDE_DIRECTORY}/parallel_utils.hpp
-        includes/spatial_elements.hpp
-        includes/ljpotential.hpp
-        includes/physics.hpp
-        includes/nbody_io.hpp
-        includes/params.hpp
-        includes/report.hpp
-        includes/zoltan_fn.hpp
-        includes/runners/simulator.hpp
-        includes/communication_datatype.hpp
-        includes/runners/shortest_path.hpp)
+        ${INCLUDE_DIRECTORY}/spatial_elements.hpp
+        ${INCLUDE_DIRECTORY}/ljpotential.hpp
+        ${INCLUDE_DIRECTORY}/physics.hpp
+        ${INCLUDE_DIRECTORY}/nbody_io.hpp
+        ${INCLUDE_DIRECTORY}/params.hpp
+        ${INCLUDE_DIRECTORY}/zoltan_fn.hpp
+        ${INCLUDE_DIRECTORY}/runners/simulator.hpp
+        ${INCLUDE_DIRECTORY}/communication_datatype.hpp
+        ${INCLUDE_DIRECTORY}/runners/shortest_path.hpp)
 
 # speedlog build toolchain and link
 execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
 execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
+
 target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a)
+
 target_include_directories(build PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
 )
@@ -75,10 +77,10 @@ target_link_libraries(build PRIVATE
 #set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
 
 target_include_directories(build
-        PRIVATE
+        PUBLIC
         ${MPI_C_INCLUDE_PATH}
         ${ZOLTAN_INCLUDE_DIRECTORY}
-        ${CMAKE_CURRENT_LIST_DIR}/zupply/src
+        zupply/src
 )
 ########################################################################################################################
 

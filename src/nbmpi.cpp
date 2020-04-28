@@ -9,7 +9,7 @@
 int main(int argc, char** argv) {
 
     constexpr int N = 3;
-    sim_param_t params;
+    //sim_param_t params;
     int rank, nproc;
     float ver;
     MESH_DATA<elements::Element<N>> mesh_data;
@@ -20,11 +20,13 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
     MPI_Comm APP_COMM;
     MPI_Comm_dup(MPI_COMM_WORLD, &APP_COMM);
+    auto option = get_params(argc, argv);
 
-    if (get_params(argc, argv, &params) != 0) {
+    if (!option.has_value()) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
     }
+    auto params = option.value();
 
     params.world_size = nproc;
     params.simsize = std::ceil(params.simsize / params.rc) * params.rc;

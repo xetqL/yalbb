@@ -16,7 +16,6 @@
 #include "../decision_makers/strategy.hpp"
 
 #include "../ljpotential.hpp"
-#include "../report.hpp"
 #include "../nbody_io.hpp"
 #include "../utils.hpp"
 #include "../parallel_utils.hpp"
