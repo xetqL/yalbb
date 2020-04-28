@@ -232,7 +232,7 @@ int main(int argc, char** argv) {
                 bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 bool is_cum_imb_higher_than_C = (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
                 if(!rank && probe.get_current_iteration() % npframe == 0) {
-                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && is_cum_imb_higher_than_C)std::endl;
+                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && is_cum_imb_higher_than_C) << std::endl;
                 }
                 return is_new_batch && is_cum_imb_higher_than_C;
         });
