@@ -31,6 +31,7 @@ find_path(ZOLTAN_INCLUDES
         NAMES zoltan zoltan.h
         HINTS ${CMAKE_PREFIX_PATH}/Zoltan/include
         )
+find_package (Threads)
 
 ########################################################################################################################
 # Executable
@@ -57,7 +58,7 @@ execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DI
 execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 
-target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a)
+target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(build PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
