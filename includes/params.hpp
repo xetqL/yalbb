@@ -69,7 +69,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_help('h', "help"); // use -h or --help
 
     parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT");
-    parser.add_opt_value('d', "distribution", params.particle_init_conf, 0, "Initial particle distribution 1: Uniform, 2:Half, 3:Wall, 4: Cluster", "INT");
+    parser.add_opt_value('d', "distribution", params.particle_init_conf, 1, "Initial particle distribution 1: Uniform, 2:Half, 3:Wall, 4: Cluster", "INT");
     parser.add_opt_value('e', "epslj", params.eps_lj, 1.0f, "Epsilon (lennard-jones)", "FLOAT");
     parser.add_opt_value('f', "npframe", params.npframe, 100, "steps per frame", "INT").require();
     parser.add_opt_value('F', "nframes", params.nframes, 100, "number of frames", "INT").require();
