@@ -27,7 +27,6 @@ find_library(ZOLTAN
         NAMES zoltan libzoltan
         HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/Zoltan/lib
         PATHS ${ZOLTAN_LIBRARY_PATH})
-
 find_path(ZOLTAN_INCLUDES
         NAMES zoltan zoltan.h
         HINTS ${CMAKE_PREFIX_PATH}/Zoltan/include
@@ -73,12 +72,13 @@ target_link_libraries(build PRIVATE
         ${MPI_C_LIBRARIES}
         ${ZOLTAN_LIBRARY_PATH})
 
-set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
+#set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
 
 target_include_directories(build
         PRIVATE
         ${MPI_C_INCLUDE_PATH}
         ${ZOLTAN_INCLUDE_DIRECTORY}
+        ${CMAKE_CURRENT_LIST_DIR}/zupply/src
 )
 ########################################################################################################################
 

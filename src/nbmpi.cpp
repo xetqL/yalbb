@@ -289,7 +289,6 @@ int main(int argc, char** argv) {
             ofcri << probe.lb_cost_to_string() << std::endl;
             ofcri.close();
         }
-
     }
 
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
