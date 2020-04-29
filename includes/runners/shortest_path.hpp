@@ -110,7 +110,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                     auto& cum_li_hist = node->li_slowdown_hist;
                     auto& time_hist   = node->time_hist;
                     auto& dec_hist    = node->dec_hist;
-                    auto& it_stats    = node->stats;
+                    auto& probe    = node->stats;
 
                     // Move data according to my parent's state
                     migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);
@@ -127,24 +127,24 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                         END_TIMER(it_compute_time);
 
                         // Measure load imbalance
-                        MPI_Allreduce(&it_compute_time, it_stats.max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
-                        MPI_Allreduce(&it_compute_time, it_stats.sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
-                        it_stats.update_cumulative_imbalance_time();
-                        it_compute_time = *it_stats.max_it_time();
+                        MPI_Allreduce(&it_compute_time, probe.max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
+                        MPI_Allreduce(&it_compute_time, probe.sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+                        probe.update_cumulative_imbalance_time();
+                        it_compute_time = *probe.max_it_time();
 
                         if(currentNode->decision == DoLB) {
-                            it_stats.update_lb_parallel_efficiencies();
+                            probe.update_lb_parallel_efficiencies();
                         }
 
-                        cum_li_hist[i] = it_stats.get_cumulative_imbalance_time();
+                        cum_li_hist[i] = probe.get_cumulative_imbalance_time();
                         dec_hist[i]    = node->decision == DoLB && i == 0;
                         if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             Zoltan_Do_LB<N>(&mesh_data, load_balancer);
                             PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
-                            *it_stats.get_lb_time_ptr() = lb_time_spent;
-                            it_stats.reset_cumulative_imbalance_time();
+                            probe.push_load_balancing_time(lb_time_spent);
+                            probe.reset_cumulative_imbalance_time();
                             it_compute_time += lb_time_spent;
                         } else {
                             migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);

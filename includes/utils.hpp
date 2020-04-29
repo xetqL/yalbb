@@ -209,7 +209,7 @@ public:
     }
 
     Time* sum_it_time() { return &sum_it; }
-    Time* get_lb_time_ptr() { lb_times.push_back(std::numeric_limits<double>::lowest()); return &lb_times[i++]; }
+    //Time* get_lb_time_ptr() { lb_times.push_back(std::numeric_limits<double>::lowest()); return &lb_times[i++]; }
     void  push_load_balancing_time(Time lb_time){ lb_times.push_back(lb_time); }
     void  push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){ lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
     void update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it());}

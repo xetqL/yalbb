@@ -50,6 +50,7 @@ namespace lj {
         if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
             lscl->resize(n_particles);
         }
+
         algorithm::CLL_init<N, T>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, getPosPtrFunc, bbox, cut_off_radius, head, lscl);
 
         Complexity cmplx = algorithm::CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cut_off_radius, head, lscl, getForceFunc);

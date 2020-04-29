@@ -14,6 +14,7 @@
 #include <mlpack/methods/ann/loss_functions/mean_squared_error.hpp>
 #include <mlpack/prereqs.hpp>
 #include "strategy.hpp"
+
 class NeuralNetworkPolicy : public Policy {
     mlpack::ann::MeanSquaredError<> mse;
     mlpack::ann::RandomInitialization rand_init;

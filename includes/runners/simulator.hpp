@@ -128,7 +128,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
                 doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
-                *probe->get_lb_time_ptr() = lb_time_spent;
+                probe->push_load_balancing_time(lb_time_spent);
                 probe->reset_cumulative_imbalance_time();
                 it_compute_time += lb_time_spent;
                 if(!rank) {
