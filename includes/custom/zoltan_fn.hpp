@@ -16,10 +16,6 @@
 #include <zoltan.h>
 #include <set>
 
-#define ENABLE_AUTOMATIC_MIGRATION true
-
-auto MPI_INDEX = MPI_LONG_LONG;
-
 template<int N>
 int get_number_of_objects(void *data, int *ierr) {
     MESH_DATA<elements::Element<N>> *mesh= (MESH_DATA<elements::Element<N>> *)data;
@@ -70,29 +66,6 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
 
         if(N == 3) geom_vec[N * i + 2] = mesh->els[i].position.at(2);
     }
-}
-
-
-
-Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm) {
-    auto zz = Zoltan_Create(comm);
-
-    Zoltan_Set_Param(zz, "DEBUG_LEVEL", "0");
-    Zoltan_Set_Param(zz, "LB_METHOD", "RCB");
-    Zoltan_Set_Param(zz, "DETERMINISTIC", "1");
-    Zoltan_Set_Param(zz, "NUM_GID_ENTRIES", "1");
-
-    Zoltan_Set_Param(zz, "NUM_LID_ENTRIES", "1");
-    Zoltan_Set_Param(zz, "OBJ_WEIGHT_DIM", "0");
-    Zoltan_Set_Param(zz, "RETURN_LISTS", "ALL");
-
-    Zoltan_Set_Param(zz, "RCB_OUTPUT_LEVEL", "0");
-    Zoltan_Set_Param(zz, "RCB_RECTILINEAR_BLOCKS", "1");
-    Zoltan_Set_Param(zz, "KEEP_CUTS", "1");
-
-    Zoltan_Set_Param(zz, "AUTO_MIGRATE", "TRUE");
-
-    return zz;
 }
 
 template<int N>
@@ -438,4 +411,7 @@ void Zoltan_Do_LB(MESH_DATA<elements::Element<N>>* mesh_data, Zoltan_Struct* loa
     Zoltan_LB_Free_Part(&exportGlobalGids, &exportLocalGids, &exportProcs, &exportToPart);
 
 }
+
+Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm);
+
 #endif //NBMPI_ZOLTAN_FN_HPP

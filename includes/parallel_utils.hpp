@@ -6,6 +6,7 @@
 #define NBMPI_PARALLEL_UTILS_HPP
 
 #include "utils.hpp"
+#include "coordinate_translater.hpp"
 
 #include <mpi.h>
 #include <vector>
@@ -18,6 +19,9 @@ using Rank       = int;
 using Integer    = long long int;
 using Complexity = Integer;
 using Index      = Integer;
+
+#define MPI_TIME MPI_DOUBLE
+#define MPI_COMPLEXITY MPI_LONG_LONG
 
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
@@ -49,37 +53,7 @@ struct Borders {
     std::vector<Index> bordering_cells;
 };
 
-std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm) {
-
-    int worldsize, rank = 0;
-    int how_many_to_import = 0;
-
-    MPI_Comm_size(comm, &worldsize);
-    MPI_Comm_rank(comm, &rank);
-
-    std::vector<int> import_from_procs;
-
-    // create requet to send/recv
-    std::vector<MPI_Request> recv_req(worldsize, MPI_REQUEST_NULL);
-    std::vector<MPI_Request> send_req(worldsize, MPI_REQUEST_NULL);
-
-    // Send the HOW MANY to my neighbors
-    for(int PE = 0; PE < worldsize; PE++) {
-        MPI_Send(&sends_to_procs.at(PE), 1, MPI_INT, PE, 2, comm);
-    }
-
-    int recv_size = 0;
-    for(int PE = 0; PE < worldsize; PE++) {
-        MPI_Recv(&recv_size, 1, MPI_INT, PE, 2, comm, MPI_STATUS_IGNORE);
-        if(PE != rank && recv_size > 0){
-            import_from_procs.push_back(PE);
-            how_many_to_import += recv_size;
-        }
-    }
-
-    *num_found = how_many_to_import;
-    return import_from_procs;
-}
+std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
 
 
 template<int N, class LoadBalancer, class BoxIntersectFunc>
@@ -388,7 +362,7 @@ std::vector<T> get_ghost_data(
     const size_t nb_elements = elements.size();
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }
-    algorithm::CLL_init<N, T>({{elements.data(), nb_elements}}, getPosFunc, bbox, rc, head, lscl);
+    CLL_init<N, T>({{elements.data(), nb_elements}}, getPosFunc, bbox, rc, head, lscl);
     return exchange_data<T>(elements, head, lscl, borders, datatype, comm, r, s);
 }
 #endif //NBMPI_PARALLEL_UTILS_HPP

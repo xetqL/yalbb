@@ -6,14 +6,10 @@
 #define NBMPI_PHYSICS_HPP
 
 #include <limits>
+#include "parallel_utils.hpp"
 
-Real compute_LJ_scalar(Real r2, Real eps, Real sig2) {
-    if (r2 < 6.25 * sig2) { /* r_cutoff = 2.5 *sigma */
-        Real z = sig2 / r2;
-        Real u = z * z*z;
-        return 24 * eps / r2 * u * (1 - 2 * u);
-    }
-    return 0;
+namespace {
+    std::vector<Real> acc;
 }
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
@@ -63,11 +59,7 @@ void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elem
  * @param v
  * @param a
  */
-void reflect(Real wall, Real* x, Real* v) {
-    constexpr Real two = 2.0;
-    *x = two * wall - (*x);
-    *v = -(*v);
-}
+void reflect(Real wall, Real* x, Real* v);
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
@@ -85,4 +77,43 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
         }
     }
 }
+
+template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
+Complexity nbody_compute_step(
+        std::vector<T>&        elements,
+        const std::vector<T>& remote_el,
+        SetPosFunc getPosPtrFunc,                  // function to get force of an entity
+        SetVelFunc getVelPtrFunc,                  // function to get force of an entity
+        std::vector<Integer> *head,                // the cell starting point
+        std::vector<Integer> *lscl,                // the particle linked list
+        BoundingBox<N>& bbox,                      // bounding box of particles
+        GetForceFunc getForceFunc,                 // function to compute force between entities
+        const Borders& borders,                    // bordering cells and neighboring processors
+        const Real cutoff,
+        const Real dt,
+        const Real simwidth) {               // simulation parameters
+
+    const size_t nb_elements = elements.size();
+
+    if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); head->size() < n_cells) {
+        head->resize(n_cells);
+    }
+    if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
+        acc.resize(N*n_force_elements);
+    }
+    if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
+        lscl->resize(n_particles);
+    }
+
+    CLL_init<N, T>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
+
+    Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
+
+    leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
+    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
+    apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
+
+    return cmplx;
+};
+
 #endif //NBMPI_PHYSICS_HPP

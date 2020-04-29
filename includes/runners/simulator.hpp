@@ -12,15 +12,14 @@
 #include <map>
 #include <unordered_map>
 #include <cstdlib>
+#include <probe.hpp>
 
-#include "../decision_makers/strategy.hpp"
-
-#include "../ljpotential.hpp"
-#include "../nbody_io.hpp"
-#include "../utils.hpp"
-#include "../parallel_utils.hpp"
-
-#include "../params.hpp"
+#include "strategy.hpp"
+#include "output_formatter.hpp"
+#include "utils.hpp"
+#include "parallel_utils.hpp"
+#include "physics.hpp"
+#include "params.hpp"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
@@ -32,20 +31,21 @@ using Decisions = std::vector<int>;
 template<int N> using Position  = std::array<Real, N>;
 template<int N> using Velocity  = std::array<Real, N>;
 
-
 template<int N, class T, class D, class LoadBalancer, class Wrapper>
 std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHistory>
         simulate(
               LoadBalancer* LB,
               MESH_DATA<T> *mesh_data,
-              decision_making::LBPolicy<D>&& lb_policy,
+              LBPolicy<D>&& lb_policy,
               Wrapper fWrapper,
               sim_param_t *params,
               Probe* probe,
               MPI_Datatype datatype,
               const MPI_Comm comm = MPI_COMM_WORLD,
               const std::string output_names_prefix = "") {
-
+    auto rc = params->rc;
+    auto dt = params->dt;
+    auto simsize = params->simsize;
     auto boxIntersectFunc   = fWrapper.getBoxIntersectionFunc();
     auto doLoadBalancingFunc= fWrapper.getLoadBalancingFunc();
     auto pointAssignFunc    = fWrapper.getPointAssignationFunc();
@@ -105,8 +105,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
         Complexity complexity = 0;
         for (int i = 0; i < npframe; ++i) {
             START_TIMER(it_compute_time);
-            complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, borders, params);
+            complexity += nbody_compute_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, borders, rc, dt, simsize);
             END_TIMER(it_compute_time);
+
             // Measure load imbalance
             MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
             MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
@@ -131,9 +132,6 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
                 probe->push_load_balancing_time(lb_time_spent);
                 probe->reset_cumulative_imbalance_time();
                 it_compute_time += lb_time_spent;
-                if(!rank) {
-                    std::cout << "Average C = " << probe->compute_avg_lb_time() << std::endl;
-                }
             } else {
                 migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
             }

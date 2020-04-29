@@ -2,14 +2,14 @@
 #include <mpi.h>
 #include <random>
 
-#include "../includes/runners/simulator.hpp"
-#include "../includes/initial_conditions.hpp"
-#include "../includes/runners/shortest_path.hpp"
-
+#include "runners/simulator.hpp"
+#include "custom/initial_conditions.hpp"
+#include "runners/shortest_path.hpp"
+#include "probe.hpp"
 int main(int argc, char** argv) {
 
     constexpr int N = 3;
-    //sim_param_t params;
+
     int rank, nproc;
     float ver;
     MESH_DATA<elements::Element<N>> mesh_data;
@@ -18,10 +18,11 @@ int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+
     MPI_Comm APP_COMM;
     MPI_Comm_dup(MPI_COMM_WORLD, &APP_COMM);
-    auto option = get_params(argc, argv);
 
+    auto option = get_params(argc, argv);
     if (!option.has_value()) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
@@ -151,8 +152,6 @@ int main(int argc, char** argv) {
     /////////////////////////////////////FINISHED PARITCLE INITIALIZATION///////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    using namespace decision_making;
-
     auto zlb = Zoltan_Copy(zz);
 
     auto boxIntersectFunc   = [](Zoltan_Struct* zlb, double x1, double y1, double z1, double x2, double y2, double z2, int* PEs, int* num_found){
@@ -167,7 +166,7 @@ int main(int argc, char** argv) {
         return &e.position;
     };
     auto getVelocityPtrFunc = [](elements::Element<N>& e) { return &e.velocity; };
-    auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj](const auto& receiver, const auto& source){
+    auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj, rc=params.rc](const auto& receiver, const auto& source){
         Real delta = 0.0;
         const Real sig2 = sig*sig;
         std::array<Real, N> delta_dim;
@@ -176,7 +175,7 @@ int main(int argc, char** argv) {
             delta_dim[dim] = receiver.position.at(dim) - source.position.at(dim);
         for (int dim = 0; dim < 3; ++dim)
             delta += (delta_dim[dim] * delta_dim[dim]);
-        Real C_LJ = compute_LJ_scalar(delta, eps_lj, sig2);
+        Real C_LJ = compute_LJ_scalar(delta, eps_lj, sig2, rc*rc);
         for (int dim = 0; dim < 3; ++dim) {
             force.at(dim) = (C_LJ * delta_dim[dim]);
         }

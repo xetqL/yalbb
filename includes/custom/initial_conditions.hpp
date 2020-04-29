@@ -5,7 +5,7 @@
 #ifndef NBMPI_INITIAL_CONDITIONS_HPP
 #define NBMPI_INITIAL_CONDITIONS_HPP
 
-#include "utils.hpp"
+#include "../utils.hpp"
 #include "ljpotential.hpp"
 #include "spatial_elements.hpp"
 
@@ -321,7 +321,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append<N>(generated, c, element, &head, &lscl);
+                    CLL_append<N>(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {
@@ -483,7 +483,7 @@ public:
                 if(accepted) {
                     trial = 0;
                     elements.push_back(element);
-                    algorithm::CLL_append<N>(generated, c, element, &head, &lscl);
+                    CLL_append<N>(generated, c, element, &head, &lscl);
                     generated++;
                     break;
                 } else {

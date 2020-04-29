@@ -14,15 +14,15 @@
 #include <zoltan.h>
 #include <cstdlib>
 
-#include "../decision_makers/strategy.hpp"
-#include "../ljpotential.hpp"
+#include "../strategy.hpp"
+#include "custom/ljpotential.hpp"
 #include "../physics.hpp"
-#include "../nbody_io.hpp"
+#include "../output_formatter.hpp"
 #include "../utils.hpp"
 
 #include "../params.hpp"
-#include "../zoltan_fn.hpp"
-#include "../astar.hpp"
+#include "../custom/zoltan_fn.hpp"
+#include "../node.hpp"
 #include "../parallel_utils.hpp"
 
 #include "spdlog/spdlog.h"
@@ -41,6 +41,9 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
             sim_param_t *params,
             MPI_Datatype datatype,
             MPI_Comm comm = MPI_COMM_WORLD) {
+    auto rc = params->rc;
+    auto dt = params->dt;
+    auto simsize = params->simsize;
 
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
@@ -123,7 +126,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
 
                     for (int i = 0; i < node->batch_size; ++i) {
                         START_TIMER(it_compute_time);
-                        lj::compute_one_step<N>(mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, getForceFunc, borders,  params);
+                        nbody_compute_step<N>(mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, getForceFunc, borders, rc, dt, simsize);
                         END_TIMER(it_compute_time);
 
                         // Measure load imbalance
@@ -138,6 +141,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
 
                         cum_li_hist[i] = probe.get_cumulative_imbalance_time();
                         dec_hist[i]    = node->decision == DoLB && i == 0;
+
                         if (node->decision == DoLB && i == 0) {
                             PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
                             Zoltan_Do_LB<N>(&mesh_data, load_balancer);

@@ -39,29 +39,36 @@ find_package (Threads)
 ## Main build
 
 add_executable(build
-        ${EXECUTABLE_SOURCE_DIRECTORY}/nbmpi.cpp
+        ${EXECUTABLE_SOURCE_DIRECTORY}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/zupply/src/zupply.cpp
-        ${INCLUDE_DIRECTORY}/utils.hpp
-        ${INCLUDE_DIRECTORY}/parallel_utils.hpp
-        ${INCLUDE_DIRECTORY}/spatial_elements.hpp
-        ${INCLUDE_DIRECTORY}/ljpotential.hpp
+        ${INCLUDE_DIRECTORY}/custom/spatial_elements.hpp
         ${INCLUDE_DIRECTORY}/physics.hpp
-        ${INCLUDE_DIRECTORY}/nbody_io.hpp
         ${INCLUDE_DIRECTORY}/params.hpp
-        ${INCLUDE_DIRECTORY}/zoltan_fn.hpp
+        ${INCLUDE_DIRECTORY}/custom/zoltan_fn.hpp
         ${INCLUDE_DIRECTORY}/runners/simulator.hpp
-        ${INCLUDE_DIRECTORY}/communication_datatype.hpp
-        ${INCLUDE_DIRECTORY}/runners/shortest_path.hpp)
+        ${INCLUDE_DIRECTORY}/runners/shortest_path.hpp
+        src/probe.cpp
+        src/params.cpp
+        src/utils.cpp
+        src/coordinate_translater.cpp
+        src/node.cpp
+        src/ljpotential.cpp
+        src/strategy.cpp
+        src/parallel_utils.cpp
+        src/zoltan_fn.cpp
+        src/physics.cpp)
 
 # speedlog build toolchain and link
 execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
 execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 
-target_link_libraries(build PRIVATE ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a ${CMAKE_THREAD_LIBS_INIT})
-
 target_include_directories(build PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
+        ${INCLUDE_DIRECTORY}
+        ${MPI_C_INCLUDE_PATH}
+        ${ZOLTAN_INCLUDE_DIRECTORY}
+        zupply/src
 )
 # end of processing speedlog
 
@@ -73,15 +80,11 @@ set(ZOLTAN_LIBRARY_PATH zoltan CACHE STRING "zoltan library path (zoltan.a)")
 
 target_link_libraries(build PRIVATE
         ${MPI_C_LIBRARIES}
-        ${ZOLTAN_LIBRARY_PATH})
+        ${ZOLTAN_LIBRARY_PATH}
+        ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a
+        ${CMAKE_THREAD_LIBS_INIT})
 
 #set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
 
-target_include_directories(build
-        PUBLIC
-        ${MPI_C_INCLUDE_PATH}
-        ${ZOLTAN_INCLUDE_DIRECTORY}
-        zupply/src
-)
 ########################################################################################################################
 

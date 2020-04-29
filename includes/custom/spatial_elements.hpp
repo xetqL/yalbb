@@ -5,7 +5,7 @@
 #ifndef NBMPI_GEOMETRIC_ELEMENT_HPP
 #define NBMPI_GEOMETRIC_ELEMENT_HPP
 
-#include "utils.hpp"
+#include "../utils.hpp"
 
 #include <array>
 #include <iostream>
@@ -278,7 +278,6 @@ namespace elements {
             element_id++;
         }
     }
-
     template<int N, bool UseDoublePrecision = std::is_same<Real, double>::value>
     MPI_Datatype register_datatype() {
         MPI_Datatype element_datatype, vec_datatype, oldtype_element[2];

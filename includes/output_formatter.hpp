@@ -2,35 +2,29 @@
 // Created by xetql on 2/5/18.
 //
 
-#ifndef NBMPI_NBODY_IO_HPP
-#define NBMPI_NBODY_IO_HPP
+#ifndef NBMPI_OUTPUT_FORMATTER_HPP
+#define NBMPI_OUTPUT_FORMATTER_HPP
 
 #include <cstdio>
 #include <cstdint>
-#include <arpa/inet.h>
 #include <vector>
 #include <iostream>     // std::cout, std::fixed, std::scientific
 #include <fstream>
 
 #include "params.hpp"
-
+#include "utils.hpp"
 struct SimpleCSVFormatter {
     const char separator;
     SimpleCSVFormatter(char separator) : separator(separator){}
-
-    template<int N>
-    inline void write_data(std::ostream &stream, const std::array<Real, N>& pos){
+    template<int N> inline void write_data(std::ostream &stream, const std::array<Real, N>& pos){
         stream << pos.at(0) << separator << pos.at(1);
         if constexpr (N == 3) stream << separator <<  pos.at(2);
         stream << std::endl;
     }
-
     inline void write_header(std::ostream &stream, const int n, float simsize){
         configure_stream(stream);
     }
-
-    template<int N>
-    inline void write_frame_header(std::ostream &stream){
+    template<int N> inline void write_frame_header(std::ostream &stream){
         stream << "x coord" << separator << "y coord";
         if constexpr (N == 3) stream << separator << "z coord";
         stream << std::endl;
@@ -49,4 +43,4 @@ void write_frame_data(std::ostream &stream, std::vector<T>& els, GetDataFunc get
     }
 }
 
-#endif //NBMPI_NBODY_IO_HPP
+#endif //NBMPI_OUTPUT_FORMATTER_HPP
