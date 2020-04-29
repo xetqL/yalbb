@@ -187,16 +187,17 @@ int main(int argc, char** argv) {
 
     auto datatype = elements::register_datatype<N>();
     std::string prefix = std::to_string(params.id)+"_"+std::to_string(params.seed);
+
     /* Experiment 1 */
-    double load_balancing_cost;
-    double load_balancing_parallel_efficiency;
-    {
+    double load_balancing_cost = 0;
+    double load_balancing_parallel_efficiency = 0;
+
+    if(params.nb_best_path) {
         mesh_data = original_data;
         Zoltan_Do_LB(&mesh_data, zlb);
         if(!rank) std::cout << "Branch and Bound: Computation is starting." << std::endl;
         auto [solution, li, dec, thist] = simulate_using_shortest_path<N>(&mesh_data, zlb, fWrapper, &params, datatype, APP_COMM);
-        if(!rank && params.nb_best_path > 0)
-        {
+        if(!rank) {
             std::ofstream ofbab;
             ofbab.open(prefix+"_branch_and_bound.txt");
             ofbab << std::fixed << std::setprecision(6) << solution.back()->cost() << std::endl;
@@ -231,9 +232,6 @@ int main(int argc, char** argv) {
          [rank, npframe = params.npframe](Probe probe) {
                 bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
                 bool is_cum_imb_higher_than_C = (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
-                if(!rank && probe.get_current_iteration() % npframe == 0) {
-                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && is_cum_imb_higher_than_C) << std::endl;
-                }
                 return is_new_batch && is_cum_imb_higher_than_C;
         });
 
@@ -279,7 +277,7 @@ int main(int argc, char** argv) {
                 Real S         = epsilon_c / epsilon_lb;
                 Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
                 Real tau       = probe.get_max_it();
-                return is_new_batch && (tau_prime < 0.95f * tau);
+                return is_new_batch && (tau_prime < tau);
             });
 
         auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(procassini_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "procassini_");
@@ -317,9 +315,6 @@ int main(int argc, char** argv) {
                 Real tolerance      = probe.get_avg_it() * threshold;
                 Real tolerance_plus = probe.get_avg_it() + tolerance;
                 Real tolerance_minus= probe.get_avg_it() - tolerance;
-                if(!rank && probe.get_current_iteration() % npframe == 0) {
-                    std::cout << rank << " " << probe.get_cumulative_imbalance_time() << " " << probe.compute_avg_lb_time() << " " << (is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it())) <<std::endl;
-                }
                 return is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
             });
 

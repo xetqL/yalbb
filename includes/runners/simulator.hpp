@@ -68,18 +68,18 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     time_logger->set_pattern("%v");
     cmplx_logger->set_pattern("%v");
 
-    std::vector<T> recv_buf(params->npart);
-
-    if (params->record)
+    std::vector<T> recv_buf;
+    if (params->record) {
+        recv_buf.reserve(params->npart);
         gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
-
-    if (params->record && !rank) {
-        auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv.0");
-        particle_logger->set_pattern("%v");
-        std::stringstream str;
-        frame_formater.write_header(str, params->npframe, params->simsize);
-        write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
-        particle_logger->info(str.str());
+        if (!rank) {
+            auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv.0");
+            particle_logger->set_pattern("%v");
+            std::stringstream str;
+            frame_formater.write_header(str, params->npframe, params->simsize);
+            write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
+            particle_logger->info(str.str());
+        }
     }
 
     std::vector<Time> times(nproc), my_frame_times(nframes);
@@ -108,9 +108,9 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             complexity += lj::compute_one_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, borders, params);
             END_TIMER(it_compute_time);
             // Measure load imbalance
-            MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
-            MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, MPI_COMM_WORLD);
-            MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
+            MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
+            MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
             probe->update_cumulative_imbalance_time();
             it_compute_time = *probe->max_it_time();
 
