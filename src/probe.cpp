@@ -53,7 +53,9 @@ void  Probe::update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_b
 
 Real Probe::compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}
 void Probe::next_iteration() {current_iteration++;}
-
+void Probe::start_batch(Index frame) { batch_started=true; }
+void Probe::end_batch() { batch_started=false; batch_id++; }
+bool Probe::is_batch_started() { return batch_started; }
 std::string Probe::lb_cost_to_string(){
     std::stringstream str;
     str << lb_times;

@@ -233,7 +233,6 @@ namespace elements {
         return elements::distance2<N>(e1.position, e2.position);
     }
 
-
     template<int N, typename T>
     std::vector<Element<N>> transform(const Index length, const T* positions, const T* velocities) {
         std::vector<Element<N>> elements;

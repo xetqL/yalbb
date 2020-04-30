@@ -23,8 +23,12 @@ public:
         auto lc = get_cell_number_by_dimension<N>(bbox, rc);
         return std::get<0>(xyz) + std::get<1>(xyz) * lc[0] + lc[0]*lc[1]*std::get<2>(xyz);
     };
+
     template<int N> static Integer
-    translate_position_into_local_index(const std::array<Real, N>& position){}
+    inline translate_position_into_local_index(const std::array<Real, N> &position, Real rc, const BoundingBox<N>& bbox, const Integer c, const Integer r){
+        return position_to_local_cell_index<N>(position, rc, bbox, c, r);
+    }
+
     template<int N> static std::array<Real, N>
     translate_local_index_into_position(const Integer local_index, const BoundingBox<N>& bbox, const Real rc){
         auto lc = get_cell_number_by_dimension<N>(bbox, rc);

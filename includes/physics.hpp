@@ -7,6 +7,7 @@
 
 #include <limits>
 #include "parallel_utils.hpp"
+#include "cll.hpp"
 
 namespace {
     std::vector<Real> acc;
@@ -63,7 +64,6 @@ void reflect(Real wall, Real* x, Real* v);
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
-
     for(auto &element: elements) {
         size_t dim = 0;
         std::array<Real, N>* pos  = getPosPtr(element);
@@ -86,7 +86,7 @@ Complexity nbody_compute_step(
         SetVelFunc getVelPtrFunc,                  // function to get force of an entity
         std::vector<Integer> *head,                // the cell starting point
         std::vector<Integer> *lscl,                // the particle linked list
-        BoundingBox<N>& bbox,                      // bounding box of particles
+        BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
         GetForceFunc getForceFunc,                 // function to compute force between entities
         const Borders& borders,                    // bordering cells and neighboring processors
         const Real cutoff,
@@ -98,9 +98,11 @@ Complexity nbody_compute_step(
     if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); head->size() < n_cells) {
         head->resize(n_cells);
     }
+
     if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
         acc.resize(N*n_force_elements);
     }
+
     if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
         lscl->resize(n_particles);
     }
@@ -111,6 +113,7 @@ Complexity nbody_compute_step(
 
     leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
     leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
+
     apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
 
     return cmplx;

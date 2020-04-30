@@ -7,6 +7,7 @@
 
 #include "utils.hpp"
 #include "coordinate_translater.hpp"
+#include "cll.hpp"
 
 #include <mpi.h>
 #include <vector>
@@ -115,7 +116,6 @@ Borders get_border_cells_index(
     }
     return {neighbors, bordering_cell_index};
 }
-
 
 template<class T>
 std::vector<T> exchange_data(
@@ -253,7 +253,6 @@ typename std::vector<T>::const_iterator migrate_data(
         export_gids.reserve(nb_elements / wsize);
         export_lids.reserve(nb_elements / wsize);
         export_procs.reserve(nb_elements / wsize);
-
         while (data_id < nb_elements) {
             pointAssignFunc(LB, data.at(data_id), &PE);
             if (PE != caller_rank) {
@@ -306,7 +305,6 @@ typename std::vector<T>::const_iterator migrate_data(
     while(recv_count) {
         // Probe for next incoming message
         MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &status);
-
         // Get message size
         MPI_Get_count(&status, datatype, &size);
         // Resize buffer if needed
@@ -318,12 +316,9 @@ typename std::vector<T>::const_iterator migrate_data(
         // One less message to recover
         recv_count--;
     }
-
     const int nb_data = data.size();
     for(int i = 0; i < nb_data; ++i) data[i].lid = i;
-
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
-
     return std::next(data.begin(), nb_data - prev_size);
 }
 
@@ -354,11 +349,9 @@ std::vector<T> get_ghost_data(
         std::vector<Integer>* head, std::vector<Integer>* lscl,
         BoundingBox<N>& bbox, Borders borders, Real rc,
         MPI_Datatype datatype, MPI_Comm comm){
-    int r,s;
+    int r, s;
     MPI_Comm_size(comm, &s);
-
     if(s == 1) return {};
-
     const size_t nb_elements = elements.size();
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }

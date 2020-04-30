@@ -153,6 +153,7 @@ std::tuple<LBSolutionPath, LBLiHist, LBDecHist, TimeHistory> simulate_using_shor
                         } else {
                             migrate_data(load_balancer, mesh_data.els, pointAssignFunc, datatype, comm);
                         }
+
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
 
                         bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els);

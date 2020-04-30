@@ -93,6 +93,10 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     // Get the ghost data from neighboring processors
     auto remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
 
+    if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head.size() < n_cells) {
+        head.resize(n_cells);
+    }
+
     const int nb_data = mesh_data->els.size();
     for(int i = 0; i < nb_data; ++i) mesh_data->els[i].lid = i;
     ApplicationTime app_time = 0.0;
@@ -112,12 +116,11 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
             MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
             MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+
             probe->update_cumulative_imbalance_time();
             it_compute_time = *probe->max_it_time();
 
-            if(probe->is_balanced()) {
-                probe->update_lb_parallel_efficiencies();
-            }
+            if(probe->is_balanced()) { probe->update_lb_parallel_efficiencies(); }
 
             bool lb_decision = lb_policy.should_load_balance();
 
@@ -125,10 +128,10 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             dec.push_back(lb_decision);
 
             if (lb_decision) {
-                PAR_START_TIMER(lb_time_spent, MPI_COMM_WORLD);
+                PAR_START_TIMER(lb_time_spent, comm);
                 doLoadBalancingFunc(LB, mesh_data);
-                PAR_END_TIMER(lb_time_spent, MPI_COMM_WORLD);
-                MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+                PAR_END_TIMER(lb_time_spent, comm);
+                MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
                 probe->push_load_balancing_time(lb_time_spent);
                 probe->reset_cumulative_imbalance_time();
                 it_compute_time += lb_time_spent;
@@ -148,7 +151,8 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             comp_time += it_compute_time;
             probe->next_iteration();
         }
-        MPI_Allreduce(MPI_IN_PLACE, &comp_time, 1, MPI_TIME, MPI_MAX, MPI_COMM_WORLD);
+
+        MPI_Allreduce(MPI_IN_PLACE, &comp_time, 1, MPI_TIME, MPI_MAX, comm);
         if(!rank) std::cout << comp_time << std::endl;
         app_time += comp_time;
 

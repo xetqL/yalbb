@@ -56,7 +56,7 @@ add_executable(build
         src/strategy.cpp
         src/parallel_utils.cpp
         src/zoltan_fn.cpp
-        src/physics.cpp)
+        src/physics.cpp includes/cll.hpp)
 
 # speedlog build toolchain and link
 execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
