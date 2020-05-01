@@ -162,7 +162,7 @@ template<typename T> T dto(double v) {
 }
 
 template<int N> using BoundingBox = std::array<Real, 2*N>;
-template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) {    return bbox.at(2*D+1) - bbox.at(2*D); }
+template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox)    { return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
@@ -170,15 +170,11 @@ template<int N, class GetPosFunc>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) {}
 template <int N, class GetPosFunc, class First, class... Rest>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, First& first, Rest&... rest) {
-    for (auto &el : first) {
-        const auto& pos = *getPosFunc(el);
-        new_bbox.at(0) = std::min(new_bbox.at(0), pos.at(0));
-        new_bbox.at(1) = std::max(new_bbox.at(1), pos.at(0));
-        new_bbox.at(2) = std::min(new_bbox.at(2), pos.at(1));
-        new_bbox.at(3) = std::max(new_bbox.at(3), pos.at(1));
-        if constexpr (N==3) {
-            new_bbox.at(4) = std::min(new_bbox.at(4), pos.at(2));
-            new_bbox.at(5) = std::max(new_bbox.at(5), pos.at(2));
+    for(int i = 0; i < N; ++i) {
+        for (auto &el : first) {
+            const auto& pos    = *getPosFunc(el);
+            new_bbox.at(2*i)   = std::min(new_bbox.at(2*i),   pos.at(i));
+            new_bbox.at(2*i+1) = std::max(new_bbox.at(2*i+1), pos.at(i));
         }
     }
     update_bbox_for_container<N>(new_bbox, getPosFunc, rest...);

@@ -21,8 +21,8 @@ void CLL_update(std::initializer_list<std::pair<T*, size_t>>&& element_groups,
     T* el_ptr;
     size_t n_els, end_el_id, cnt, i;
     for(const auto& span : element_groups){
-        el_ptr = span.first;
-        n_els  = span.second;
+        el_ptr     = span.first;
+        n_els      = span.second;
         end_el_id  = start_id + n_els;
         cnt = 0;
         for (i = start_id; i < end_el_id; ++i, ++cnt) {

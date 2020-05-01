@@ -105,7 +105,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     Decisions dec; dec.reserve(nframes*npframe);
     Time total_time = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
-        Time comp_time = 0.0;
+        Time comp_time = 0.0, other=0.0;
         Complexity complexity = 0;
         for (int i = 0; i < npframe; ++i) {
             START_TIMER(it_compute_time);
@@ -144,16 +144,21 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             total_time += it_compute_time;
             time_hist.push_back(total_time);
 
+            auto t1   = std::chrono::high_resolution_clock::now();
             bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             borders   = get_border_cells_index<N>(LB, bbox, params->rc, boxIntersectFunc, comm);
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+            auto t2   = std::chrono::high_resolution_clock::now();
+            auto tspan= std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
 
+            other     += tspan.count();
             comp_time += it_compute_time;
             probe->next_iteration();
         }
 
         MPI_Allreduce(MPI_IN_PLACE, &comp_time, 1, MPI_TIME, MPI_MAX, comm);
-        if(!rank) std::cout << comp_time << std::endl;
+        MPI_Allreduce(MPI_IN_PLACE, &other,     1, MPI_TIME, MPI_MAX, comm);
+        if(!rank) std::cout << comp_time << " and " << other << std::endl;
         app_time += comp_time;
 
         // Write metrics to report file

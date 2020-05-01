@@ -54,8 +54,9 @@ struct Borders {
     std::vector<Index> bordering_cells;
 };
 
+// Get the how much data I have to import from other processing elements
+// This function is a synchronization point.
 std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
-
 
 template<int N, class LoadBalancer, class BoxIntersectFunc>
 Borders get_border_cells_index(
