@@ -28,16 +28,8 @@ namespace elements {
 
         constexpr Element() : gid(0), lid(0), position(), velocity() {}
 
-        /**
-         * Total size of the structure
-         * @return The number of element per dimension times the number of characteristics (3)
-         */
-        static constexpr auto size() {
-            return N * 3;
-        }
-
         static constexpr auto byte_size() {
-            return N * 2 * sizeof(Real) + 2 * sizeof(Index);
+            return sizeof(class elements::Element<N>);
         }
 
         static Element<N> create(std::array<Real, N> &p, std::array<Real, N> &v, Index gid, Index lid){
@@ -115,7 +107,7 @@ namespace elements {
         friend std::ostream &operator<<(std::ostream &os, const Element &element) {
             std::string pos = std::to_string(element.position.at(0));
             for(int i = 1; i < N; i++){
-                pos += " " + std::to_string(element.position.at(i));
+                pos += "," + std::to_string(element.position.at(i));
             }
 
             std::string vel = std::to_string(element.velocity.at(0));
@@ -222,10 +214,17 @@ namespace elements {
     }
 
     template<int N>
-    const inline Real distance2(const std::array<Real, N>& e1, const std::array<Real, N>& e2)  {
+    inline Real distance2(const std::array<Real, N>& e1, const std::array<Real, N>& e2)  {
         std::array<Real, N> e1e2;
-        for(int i = 0; i < N; ++i) e1e2[i] = e1[0] - e2[0];
-        return std::accumulate(e1e2.cbegin(), e1e2.cend(), 0.0, [](Real prev, Real v){ return prev + v*v; });
+        for(int i = 0; i < N; ++i) e1e2[i] = std::pow(e1[i] - e2[i], 2);
+        return std::accumulate(e1e2.cbegin(), e1e2.cend(), 0.0);
+    }
+
+    template<int N>
+    inline std::array<Real, N> distance_dim(const std::array<Real, N>& e1, const std::array<Real, N>& e2)  {
+        std::array<Real, N> e1e2;
+        for(int i = 0; i < N; ++i) e1e2[i] = e1[i] - e2[i];
+        return e1e2;
     }
 
     template<int N>

@@ -13,6 +13,17 @@ public:
     inline translate_linear_index_into_xyz(const Integer index, const Integer ncols, const Integer nrows) {
         return {(index % ncols), std::floor(index % (ncols * nrows) / nrows), std::floor(index / (ncols * nrows))};    // depth
     };
+
+    template<int N>
+    static std::array<Integer, N>
+    inline translate_linear_index_into_xyz_array(const Integer index, const Integer ncols, const Integer nrows) {
+        if constexpr(N==3)
+            return {(index % ncols), (Integer) std::floor(index % (ncols * nrows) / nrows), (Integer) std::floor(index / (ncols * nrows))};    // depth
+        else
+            return {(index % ncols), (Integer) std::floor(index % (ncols * nrows) / nrows)};    // depth
+    };
+
+
     static std::tuple<Real, Real, Real>
     inline translate_xyz_into_position(const std::tuple<Integer, Integer, Integer>&& xyz, const Real rc) {
         return {std::get<0>(xyz) * rc, std::get<1>(xyz) * rc, std::get<2>(xyz) * rc};
@@ -40,8 +51,12 @@ public:
             position[2] = local_pos_x+bbox[4];
         return position;
     }
-    template<int N> static Integer
-    translate_position_into_global_index(const std::array<Real, N>& position){}
+    template<int N> static std::array<Integer, N>
+    translate_position_into_xyz(const std::array<Real, N>& position, Real rc){
+        std::array<Integer, N> ret;
+        std::transform(position.cbegin(), position.cend(), std::begin(ret), [rc](Real v){ return (Integer) (v/rc); });
+        return ret;
+    }
     template<int N> static std::array<Real, N>
     translate_global_index_into_position(Integer global_index){}
 };

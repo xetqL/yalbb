@@ -63,8 +63,7 @@ void get_geometry_list(void *data, int sizeGID, int sizeLID,
     for (i=0;  i < num_obj; i++){
         geom_vec[N * i] = mesh->els[i].position.at(0);
         geom_vec[N * i + 1] = mesh->els[i].position.at(1);
-
-        if(N == 3) geom_vec[N * i + 2] = mesh->els[i].position.at(2);
+        if constexpr(N == 3) geom_vec[N * i + 2] = mesh->els[i].position.at(2);
     }
 }
 
@@ -76,7 +75,7 @@ int cpt_obj_size( void *data,
                   ZOLTAN_ID_PTR local_id,
                   int *ierr) {
     ierr = ZOLTAN_OK;
-    return sizeof(int) * 2 + sizeof(Real) * N * 3 /*pos, vel, acc*/;
+    return sizeof(class elements::Element<N>);
 }
 
 template<int N>

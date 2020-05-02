@@ -357,6 +357,8 @@ std::vector<T> get_ghost_data(
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }
     CLL_init<N, T>({{elements.data(), nb_elements}}, getPosFunc, bbox, rc, head, lscl);
-    return exchange_data<T>(elements, head, lscl, borders, datatype, comm, r, s);
+    auto remote_el = exchange_data<T>(elements, head, lscl, borders, datatype, comm, r, s);
+    update_bounding_box<N>(bbox, rc, getPosFunc, remote_el);
+    return remote_el;
 }
 #endif //NBMPI_PARALLEL_UTILS_HPP

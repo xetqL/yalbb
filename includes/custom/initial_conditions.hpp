@@ -239,24 +239,24 @@ public:
         int trial = 0;
         std::array<Real, N>  element_position, velocity;
 
-        Integer lcxyz, lc[N];
+        Integer lcxyz;
+        std::array<Integer, N> lc;
         Real cut_off = condition->params->rc;
-        lc[0] = std::round((condition->xmax - condition->xmin) / cut_off);
-        lc[1] = std::round((condition->ymax - condition->ymin) / cut_off);
+        lc[0] = (condition->xmax - condition->xmin) / cut_off;
+        lc[1] = (condition->ymax - condition->ymin) / cut_off;
         lcxyz = lc[0] * lc[1];
         if constexpr (N==3){
-            lc[2] = std::round((condition->zmax - condition->zmin) / cut_off);
+            lc[2] = (condition->zmax - condition->zmin) / cut_off;
             lcxyz *= lc[2];
         }
         const Integer EMPTY = -1;
         std::vector<Integer> head(lcxyz, -1), lscl(n, -1);
-        Integer generated = 0;
+        Integer generated = elements.size();
         std::array<Real, N> singularity;
         std::generate(singularity.begin(), singularity.end(), [&my_gen, &udist=udistx](){return udist(my_gen);});
         while(generated < n) {
             while(trial < max_trial) {
-
-                if constexpr (N==3){
+                if constexpr (N==3) {
                     element_position = { udistx(my_gen), udisty(my_gen), udistz(my_gen) };
                     auto strength    = utemp_dist(my_gen);
                     velocity         = {
@@ -273,62 +273,57 @@ public:
                     };
                 }
 
-                auto element = elements::Element<N>(element_position, velocity, elements.size(), elements.size());
-
-                bool accepted = true;
+                auto element = elements::Element<N>(element_position, velocity, generated, generated);
 
                 std::array<Real, 3> delta_dim;
-                Integer c, c1, ic[N], ic1[N], j;
+                Integer c, c1,  j;
+                std::array<Integer, N> ic, ic1;
                 elements::Element<N> receiver;
+
                 c = position_to_cell<N>(element.position, cut_off, lc[0], lc[1]);
 
-                for (auto d = 0; d < N; ++d)
-                    ic[d] = c / lc[d];
-                for (ic1[0] = ic[0] - 1; ic1[0] < (ic[0]+1); ic1[0]++) {
-                    for (ic1[1] = ic[1] - 1; ic1[1] < ic[1] + 1; ic1[1]++) {
-                        if constexpr (N==3) {
-                            for (ic1[2] = ic[2] - 1; ic1[2] < ic[2] + 1; ic1[2]++) {
-                                if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) ||
-                                    (ic1[2] < 0 || ic1[2] >= lc[2]))
-                                    continue;
-                                c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
-                                j = head[c1];
-                                while (j != EMPTY) {
-                                    if (generated < j) {
-                                        receiver = elements[j];
-                                        accepted =
-                                                accepted && elements::distance2(receiver, element) >= condition->min_r2;
-                                    }
-                                    j = lscl[j];
-                                }
-                            }
-                        } else {
-                            if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]))
+                for(int d = 0; d < 3; ++d)
+                    ic[d] = (element.position[d]) / cut_off;
+
+                bool accepted = true;
+                for (ic1[0] = (ic[0] - 1); ic1[0] <= (ic[0]+1); ic1[0]++) {
+                    for (ic1[1] = (ic[1] - 1); ic1[1] <= (ic[1] + 1); ic1[1]++) {
+                        for (ic1[2] = (ic[2] - 1); ic1[2] <= (ic[2] + 1); ic1[2]++) {
+
+                            if ((ic1[0] < 0 || ic1[0] >= lc[0])
+                            ||  (ic1[1] < 0 || ic1[1] >= lc[1]) ||
+                                (ic1[2] < 0 || ic1[2] >= lc[2])) {
                                 continue;
-                            c1 = (ic1[0]) + (lc[0] * ic1[1]);
+                            }
+
+                            c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+
                             j = head[c1];
-                            while (j != EMPTY) {
-                                if (generated < j) {
-                                    receiver = elements[j];
-                                    accepted = accepted && elements::distance2(receiver, element) >= condition->min_r2;
-                                }
-                                j = lscl[j];
+
+                            while (j != EMPTY && accepted) {
+                               receiver = elements[j];
+                               if(elements::distance2(receiver, element) <= condition->min_r2) {
+                                   accepted = false;
+                               }
+                               j = lscl[j];
                             }
                         }
                     }
                 }
-
-                if(accepted) {
+                if(accepted){
                     trial = 0;
-                    elements.push_back(element);
                     CLL_append<N>(generated, c, element, &head, &lscl);
-                    generated++;
+                    elements.push_back(element);
+                    generated = elements.size();
+                    std::cout << generated << std::endl;
                     break;
                 } else {
                     trial++;
                 }
+
             }
-            if(trial == max_trial) break; // when you cant generate new particles with less than max trials stop.
+            if(trial == max_trial)
+                return; // when you cant generate new particles with less than max trials stop.
         }
     }
 };

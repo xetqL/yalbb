@@ -30,7 +30,9 @@ int main(int argc, char** argv) {
     auto params = option.value();
 
     params.world_size = nproc;
+
     params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
+    params.rc = 2.5f * params.sig_lj;
     MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
@@ -60,7 +62,7 @@ int main(int argc, char** argv) {
         } else {
             std::cout << "Generating data ..." << std::endl;
             std::shared_ptr<initial_condition::lj::RejectionCondition<N>> condition;
-            const int MAX_TRIAL = 100000;
+            const int MAX_TRIAL = 1000000;
             int NB_CLUSTERS;
             std::vector<int> clusters;
             using ElementGeneratorCfg = std::pair<std::shared_ptr<initial_condition::RandomElementsGenerator<N>>, int>;
@@ -86,7 +88,7 @@ int main(int argc, char** argv) {
                     break;
                 case 3: //Wall of particle
                     condition = std::make_shared<initial_condition::lj::RejectionCondition<N>>(
-                            &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                            &(mesh_data.els), params.sig_lj, 2.5 * params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
                     elements_generators.push(std::make_pair(
@@ -107,7 +109,7 @@ int main(int argc, char** argv) {
                     break;
                 case 5: //custom various density
                     condition = std::make_shared<initial_condition::lj::RejectionCondition<N>>(
-                            &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
+                            &(mesh_data.els), params.sig_lj, 6.25*params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
                     );
                     NB_CLUSTERS = 2;
@@ -140,9 +142,8 @@ int main(int argc, char** argv) {
                 ElementGeneratorCfg el_gen = elements_generators.front();
                 el_gen.first->generate_elements(mesh_data.els, el_gen.second, condition);
                 elements_generators.pop();
-                std::cout << el_gen.second << std::endl;
             }
-            std::cout << "Done !" << std::endl;
+            std::cout << mesh_data.els.size() << " Done !" << std::endl;
         }
     }
 
@@ -179,6 +180,7 @@ int main(int argc, char** argv) {
         for (int dim = 0; dim < 3; ++dim) {
             force.at(dim) = (C_LJ * delta_dim[dim]);
         }
+        std::cout << force << " " << source << " " << receiver << std::endl;
         return force;
     };
 
@@ -251,85 +253,85 @@ int main(int argc, char** argv) {
     }
 
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
-    Zoltan_Copy_To(zlb, zz);
-
-    {   /* Experiment 3 */
-
-        mesh_data = original_data;
-
-        Probe probe(nproc);
-        probe.push_load_balancing_time(load_balancing_cost);
-        probe.push_load_balancing_parallel_efficiency(load_balancing_parallel_efficiency);
-
-        Zoltan_Do_LB(&mesh_data, zlb);
-
-        if(!rank) {
-            std::cout << "SIM (Procassini Criterion): Computation is starting." << std::endl;
-            std::cout << "Average C = " << probe.compute_avg_lb_time() << std::endl;
-        }
-
-        PolicyExecutor procassini_criterion_policy(&probe,
-        [npframe = params.npframe](Probe probe){
-                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
-                Real epsilon_c = probe.get_efficiency();
-                Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
-                Real S         = epsilon_c / epsilon_lb;
-                Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
-                Real tau       = probe.get_max_it();
-                return is_new_batch && (tau_prime < tau);
-            });
-
-        auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(procassini_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "procassini_");
-
-        if(!rank) {
-            std::ofstream ofcri;
-            ofcri.open(prefix+"_criterion_procassini.txt");
-            ofcri << std::fixed << std::setprecision(6) << t << std::endl;
-            ofcri << cum << std::endl;
-            ofcri << dec << std::endl;
-            ofcri << thist << std::endl;
-            ofcri << probe.lb_cost_to_string() << std::endl;
-            ofcri.close();
-        }
-    }
+//    Zoltan_Copy_To(zlb, zz);
+//
+//    {   /* Experiment 3 */
+//
+//        mesh_data = original_data;
+//
+//        Probe probe(nproc);
+//        probe.push_load_balancing_time(load_balancing_cost);
+//        probe.push_load_balancing_parallel_efficiency(load_balancing_parallel_efficiency);
+//
+//        Zoltan_Do_LB(&mesh_data, zlb);
+//
+//        if(!rank) {
+//            std::cout << "SIM (Procassini Criterion): Computation is starting." << std::endl;
+//            std::cout << "Average C = " << probe.compute_avg_lb_time() << std::endl;
+//        }
+//
+//        PolicyExecutor procassini_criterion_policy(&probe,
+//        [npframe = params.npframe](Probe probe){
+//                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
+//                Real epsilon_c = probe.get_efficiency();
+//                Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
+//                Real S         = epsilon_c / epsilon_lb;
+//                Real tau_prime = probe.get_max_it() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
+//                Real tau       = probe.get_max_it();
+//                return is_new_batch && (tau_prime < tau);
+//            });
+//
+//        auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(procassini_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "procassini_");
+//
+//        if(!rank) {
+//            std::ofstream ofcri;
+//            ofcri.open(prefix+"_criterion_procassini.txt");
+//            ofcri << std::fixed << std::setprecision(6) << t << std::endl;
+//            ofcri << cum << std::endl;
+//            ofcri << dec << std::endl;
+//            ofcri << thist << std::endl;
+//            ofcri << probe.lb_cost_to_string() << std::endl;
+//            ofcri.close();
+//        }
+//    }
 
     // Do not use Zoltan_Copy(...) as it invalidates pointer, zlb must be valid throughout the entire program
-    Zoltan_Copy_To(zlb, zz);
-
-    {   /* Experiment 4 */
-
-        mesh_data = original_data;
-
-        Probe probe(nproc);
-
-        Zoltan_Do_LB(&mesh_data, zlb);
-
-        if(!rank) {
-            std::cout << "SIM (Marquez Criterion): Computation is starting." << std::endl;
-        }
-
-        PolicyExecutor marquez_criterion_policy(&probe,
-            [rank, threshold = 0.1, npframe = params.npframe](Probe probe){
-                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
-                Real tolerance      = probe.get_avg_it() * threshold;
-                Real tolerance_plus = probe.get_avg_it() + tolerance;
-                Real tolerance_minus= probe.get_avg_it() - tolerance;
-                return is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
-            });
-
-        auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(marquez_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "marquez_");
-
-        if(!rank) {
-            std::ofstream ofcri;
-            ofcri.open(prefix+"_criterion_marquez.txt");
-            ofcri << std::fixed << std::setprecision(6) << t << std::endl;
-            ofcri << cum << std::endl;
-            ofcri << dec << std::endl;
-            ofcri << thist << std::endl;
-            ofcri << probe.lb_cost_to_string() << std::endl;
-            ofcri.close();
-        }
-    }
+//    Zoltan_Copy_To(zlb, zz);
+//
+//    {   /* Experiment 4 */
+//
+//        mesh_data = original_data;
+//
+//        Probe probe(nproc);
+//
+//        Zoltan_Do_LB(&mesh_data, zlb);
+//
+//        if(!rank) {
+//            std::cout << "SIM (Marquez Criterion): Computation is starting." << std::endl;
+//        }
+//
+//        PolicyExecutor marquez_criterion_policy(&probe,
+//            [rank, threshold = 0.1, npframe = params.npframe](Probe probe){
+//                bool is_new_batch = (probe.get_current_iteration() % npframe == 0);
+//                Real tolerance      = probe.get_avg_it() * threshold;
+//                Real tolerance_plus = probe.get_avg_it() + tolerance;
+//                Real tolerance_minus= probe.get_avg_it() - tolerance;
+//                return is_new_batch && (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
+//            });
+//
+//        auto [t, cum, dec, thist] = simulate<N>(zlb, &mesh_data, std::move(marquez_criterion_policy), fWrapper, &params, &probe, datatype, APP_COMM, "marquez_");
+//
+//        if(!rank) {
+//            std::ofstream ofcri;
+//            ofcri.open(prefix+"_criterion_marquez.txt");
+//            ofcri << std::fixed << std::setprecision(6) << t << std::endl;
+//            ofcri << cum << std::endl;
+//            ofcri << dec << std::endl;
+//            ofcri << thist << std::endl;
+//            ofcri << probe.lb_cost_to_string() << std::endl;
+//            ofcri.close();
+//        }
+//    }
 
     MPI_Finalize();
     return 0;

@@ -139,11 +139,11 @@ template <typename T, size_t N> std::ostream& operator<<(std::ostream& os, const
 }
 template <typename T> std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
-    os << std::fixed << std::setprecision(6) ;
+    os << std::fixed << std::setprecision(6);
     const auto s = v.size();
     for (int i = 0; i < s; ++i) {
         os << v[i];
-        if (i != s - 1) os << " ";
+        if (i != s - 1) os << "\n";
     }
     return os;
 }
@@ -168,6 +168,7 @@ template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { 
 
 template<int N, class GetPosFunc>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) {}
+
 template <int N, class GetPosFunc, class First, class... Rest>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, First& first, Rest&... rest) {
     for(int i = 0; i < N; ++i) {
@@ -178,34 +179,41 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, 
         }
     }
     update_bbox_for_container<N>(new_bbox, getPosFunc, rest...);
+
+
 }
 
 template<int N, class GetPosFunc, class... T>
 BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     BoundingBox<N> new_bbox;
-    if constexpr (N==3)
+
+    if constexpr (N==3) {
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
-    else
+    }else {
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
+    }
+
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
+
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor(new_bbox.at(2*i) / rc) * rc - (Real) 2.0*rc);
-        new_bbox.at(2*i+1) = std::ceil(new_bbox.at(2*i+1) / rc) * rc + (Real) 2.0 * rc;
+        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - rc);
+        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc)* rc + rc;
     }
+
     return new_bbox;
 }
 
-template<int N, class... T>
-void update_bounding_box(BoundingBox<N>& bbox, Real rc, T&... elementContainers){
-    update_bbox_for_container<N>(bbox, elementContainers...);
+template<int N, class GetPosFunc, class... T>
+void update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
+    update_bbox_for_container<N>(bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
-        bbox.at(2*i)   = std::max((Real) 0.0, std::floor(bbox.at(2*i) / rc) * rc - 2*rc);
-        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc + 2*rc;
+        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc);
+        bbox.at(2*i+1) =  std::ceil(bbox.at(2*i+1) / rc)* rc;
     }
 }
 template<int N, class T>
@@ -224,8 +232,8 @@ void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
 
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
-        bbox.at(2*i)   = std::max((Real) 0.0, std::floor(bbox.at(2*i) / rc) * rc - 2*rc);
-        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc + 2*rc;
+        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - rc);
+        bbox.at(2*i+1) =  std::ceil(bbox.at(2*i+1) / rc)* rc + rc;
     }
 }
 

@@ -15,7 +15,7 @@ namespace {
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, std::vector<T>& elements
-        ,GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
+        ,GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr)  {
     int i = 0;
     constexpr Real two = 2.0;
     constexpr Real maxSpeedPercentage = 0.9;
@@ -30,12 +30,13 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
              * is too big to prevent them to cross the min radius. If a particle cross the min radius of another one
              * it creates an almost infinity repulsive force that breaks everything. */
             if(std::abs(vel->at(dim) * dt) >= cut_off ) {
+
                 vel->at(dim) = maxSpeedPercentage * cut_off / dt; //max speed is 90% of cutoff per timestep
+                //throw std::logic_error("yo!");
             }
             pos->at(dim) += vel->at(dim) * dt;
         }
-        //setPosFunc(el, pos);
-        //setVelFunc(el, vel);
+        i++;
     }
 }
 
@@ -81,7 +82,7 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
 template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
 Complexity nbody_compute_step(
         std::vector<T>&        elements,
-        const std::vector<T>& remote_el,
+        std::vector<T>& remote_el,
         SetPosFunc getPosPtrFunc,                  // function to get force of an entity
         SetVelFunc getVelPtrFunc,                  // function to get force of an entity
         std::vector<Integer> *head,                // the cell starting point
@@ -106,14 +107,13 @@ Complexity nbody_compute_step(
     if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
         lscl->resize(n_particles);
     }
-
-    CLL_init<N, T>({ {elements.data(), nb_elements}, {elements.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
+    CLL_init<N, T>({ {elements.data(), nb_elements}, {remote_el.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
     leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
-    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
 
+    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
     apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
 
     return cmplx;

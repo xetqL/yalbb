@@ -144,14 +144,13 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             total_time += it_compute_time;
             time_hist.push_back(total_time);
 
-            auto t1   = std::chrono::high_resolution_clock::now();
+            START_TIMER(other_it);
             bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             borders   = get_border_cells_index<N>(LB, bbox, params->rc, boxIntersectFunc, comm);
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
-            auto t2   = std::chrono::high_resolution_clock::now();
-            auto tspan= std::chrono::duration_cast<std::chrono::duration<double>>(t2-t1);
+            END_TIMER(other_it);
 
-            other     += tspan.count();
+            other     += other_it;
             comp_time += it_compute_time;
             probe->next_iteration();
         }
