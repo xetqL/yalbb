@@ -282,30 +282,45 @@ public:
 
                 c = position_to_cell<N>(element.position, cut_off, lc[0], lc[1]);
 
-                for(int d = 0; d < 3; ++d)
+                for(int d = 0; d < N; ++d)
                     ic[d] = (element.position[d]) / cut_off;
 
                 bool accepted = true;
                 for (ic1[0] = (ic[0] - 1); ic1[0] <= (ic[0]+1); ic1[0]++) {
                     for (ic1[1] = (ic[1] - 1); ic1[1] <= (ic[1] + 1); ic1[1]++) {
-                        for (ic1[2] = (ic[2] - 1); ic1[2] <= (ic[2] + 1); ic1[2]++) {
+                        if constexpr(N==3) {
+                            for (ic1[2] = (ic[2] - 1); ic1[2] <= (ic[2] + 1); ic1[2]++) {
+                                if ((ic1[0] < 0 || ic1[0] >= lc[0])
+                                ||  (ic1[1] < 0 || ic1[1] >= lc[1]) ||
+                                    (ic1[2] < 0 || ic1[2] >= lc[2])) {
+                                    continue;
+                                }
+                                c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
 
-                            if ((ic1[0] < 0 || ic1[0] >= lc[0])
-                            ||  (ic1[1] < 0 || ic1[1] >= lc[1]) ||
-                                (ic1[2] < 0 || ic1[2] >= lc[2])) {
+                                j = head[c1];
+
+                                while (j != EMPTY && accepted) {
+                                   receiver = elements[j];
+                                   if(elements::distance2(receiver, element) <= condition->min_r2) {
+                                       accepted = false;
+                                   }
+                                   j = lscl[j];
+                                }
+                            }
+                        }else{
+                            if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1])) {
                                 continue;
                             }
-
-                            c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+                            c1 = (ic1[0]) + (lc[0] * ic1[1]);
 
                             j = head[c1];
 
                             while (j != EMPTY && accepted) {
-                               receiver = elements[j];
-                               if(elements::distance2(receiver, element) <= condition->min_r2) {
-                                   accepted = false;
-                               }
-                               j = lscl[j];
+                                receiver = elements[j];
+                                if(elements::distance2<N>(receiver, element) <= condition->min_r2) {
+                                    accepted = false;
+                                }
+                                j = lscl[j];
                             }
                         }
                     }
@@ -315,7 +330,6 @@ public:
                     CLL_append<N>(generated, c, element, &head, &lscl);
                     elements.push_back(element);
                     generated = elements.size();
-                    std::cout << generated << std::endl;
                     break;
                 } else {
                     trial++;

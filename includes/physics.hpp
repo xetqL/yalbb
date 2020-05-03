@@ -30,9 +30,7 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
              * is too big to prevent them to cross the min radius. If a particle cross the min radius of another one
              * it creates an almost infinity repulsive force that breaks everything. */
             if(std::abs(vel->at(dim) * dt) >= cut_off ) {
-
                 vel->at(dim) = maxSpeedPercentage * cut_off / dt; //max speed is 90% of cutoff per timestep
-                //throw std::logic_error("yo!");
             }
             pos->at(dim) += vel->at(dim) * dt;
         }
@@ -94,25 +92,25 @@ Complexity nbody_compute_step(
         const Real dt,
         const Real simwidth) {               // simulation parameters
 
+    std::fill(acc.begin(), acc.end(), (Real) 0.0);
+
     const size_t nb_elements = elements.size();
 
     if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); head->size() < n_cells) {
         head->resize(n_cells);
     }
-
     if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
         acc.resize(N*n_force_elements);
     }
-
     if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
         lscl->resize(n_particles);
     }
+
     CLL_init<N, T>({ {elements.data(), nb_elements}, {remote_el.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
     leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
-
     leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
     apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
 

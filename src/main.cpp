@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
                             std::make_shared<initial_condition::lj::UniformRandomElementsGenerator<N>>(
                                     params.seed, MAX_TRIAL), params.npart));
                     break;
-                case 2: //Half full half empty
+                /*case 2: //Half full half empty
                     condition = std::make_shared<initial_condition::lj::RejectionCondition<N>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
                     break;
                 default:
                     MPI_Finalize();
-                    throw std::runtime_error("Unknown particle distribution.");
+                    throw std::runtime_error("Unknown particle distribution.");*/
             }
             while (!elements_generators.empty()) {
                 ElementGeneratorCfg el_gen = elements_generators.front();
@@ -172,15 +172,18 @@ int main(int argc, char** argv) {
         const Real sig2 = sig*sig;
         std::array<Real, N> delta_dim;
         std::array<Real, N> force;
-        for (int dim = 0; dim < 3; ++dim)
+
+        for (int dim = 0; dim < N; ++dim)
             delta_dim[dim] = receiver.position.at(dim) - source.position.at(dim);
-        for (int dim = 0; dim < 3; ++dim)
+        for (int dim = 0; dim < N; ++dim)
             delta += (delta_dim[dim] * delta_dim[dim]);
-        Real C_LJ = compute_LJ_scalar(delta, eps_lj, sig2, rc*rc);
-        for (int dim = 0; dim < 3; ++dim) {
+
+        Real C_LJ = -compute_LJ_scalar(delta, eps_lj, sig2, rc*rc);
+        for (int dim = 0; dim < N; ++dim) {
             force.at(dim) = (C_LJ * delta_dim[dim]);
         }
-        std::cout << force << " " << source << " " << receiver << std::endl;
+        //if(receiver.gid == 4 && source.gid == 7) std::cout << elements::distance2<2>(receiver, source) << " " << source << " " << force << std::endl;
+        //if(receiver.gid == 4) std::cout << source << " "<< force << std::endl;
         return force;
     };
 
