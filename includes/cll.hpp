@@ -23,7 +23,7 @@ void CLL_update(std::initializer_list<std::pair<T*, size_t>>&& elements,
         auto n_els  = span.second;
         for (size_t i = 0; i < n_els; ++i) {
             c = position_to_local_cell_index<N>(*getPositionFunc(el_ptr[i]), rc, bbox, lc[0], lc[1]);
-            if( c >= head->size() ){
+            if( c >= head->size() ) {
                 std::cout << "acc " << acc << std::endl;
                 std::cout << bbox << std::endl;
                 std::cout << el_ptr[i] << std::endl;
@@ -65,7 +65,6 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
     std::array<Integer, 3> ic;
     T source, receiver;
     Integer cmplx = n_elements;
-    std::fill(acc->begin(), acc->end(), (Real) 0.0);
     for (size_t i = 0; i < n_elements; ++i) {
         const auto& pos = *getPosFunc(const_cast<T&>(elements[i]));
         c = position_to_local_cell_index<3>(pos, rc, bbox, lc[0], lc[1]);
@@ -113,7 +112,6 @@ Integer CLL_compute_forces2d(std::vector<Real>* acc,
     std::array<Integer, 2> ic;
     T source, receiver;
     Integer cmplx = n_elements;
-    std::fill(acc->begin(), acc->end(), (Real) 0.0);
     for (size_t i = 0; i < n_elements; ++i) {
         const auto& pos = *getPosFunc(const_cast<T&>(elements[i]));
         receiver = elements[i];
@@ -157,6 +155,8 @@ Integer CLL_compute_forces(std::vector<Real>* acc,
                            const BoundingBox<N>& bbox, Real rc,
                            const std::vector<Integer> *head, const std::vector<Integer> *lscl,
                            ComputeForceFunc computeForceFunc) {
+    //std::memset(acc->data(), 0.0f, sizeof(Real) * acc->size());
+    std::fill(acc->begin(), acc->end(), 0.0f);
     if constexpr(N==3) {
         return CLL_compute_forces3d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);
     }else {

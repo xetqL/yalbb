@@ -8,7 +8,7 @@
 #include "probe.hpp"
 int main(int argc, char** argv) {
 
-    constexpr int N = 3;
+    constexpr int N = 2;
 
     int rank, nproc;
     float ver;
@@ -158,14 +158,17 @@ int main(int argc, char** argv) {
     auto boxIntersectFunc   = [](Zoltan_Struct* zlb, double x1, double y1, double z1, double x2, double y2, double z2, int* PEs, int* num_found){
         Zoltan_LB_Box_Assign(zlb, x1, y1, z1, x2, y2, z2, PEs, num_found);
     };
+
     auto pointAssignFunc    = [](Zoltan_Struct* zlb, const elements::Element<N>& e, int* PE) {
         auto pos_in_double = get_as_double_array<N>(e.position);
         Zoltan_LB_Point_Assign(zlb, &pos_in_double.front(), PE);
     };
+
     auto doLoadBalancingFunc= [](Zoltan_Struct* zlb, MESH_DATA<elements::Element<N>>* mesh_data){ Zoltan_Do_LB(mesh_data, zlb); };
     auto getPositionPtrFunc = [](elements::Element<N>& e) {
         return &e.position;
     };
+
     auto getVelocityPtrFunc = [](elements::Element<N>& e) { return &e.velocity; };
     auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj, rc=params.rc](const auto& receiver, const auto& source){
         Real delta = 0.0;
@@ -182,8 +185,7 @@ int main(int argc, char** argv) {
         for (int dim = 0; dim < N; ++dim) {
             force.at(dim) = (C_LJ * delta_dim[dim]);
         }
-        //if(receiver.gid == 4 && source.gid == 7) std::cout << elements::distance2<2>(receiver, source) << " " << source << " " << force << std::endl;
-        //if(receiver.gid == 4) std::cout << source << " "<< force << std::endl;
+
         return force;
     };
 

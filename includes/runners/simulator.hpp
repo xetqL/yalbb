@@ -148,6 +148,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             borders   = get_border_cells_index<N>(LB, bbox, params->rc, boxIntersectFunc, comm);
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+            std::cout << borders.neighbors.size() << std::endl;
             END_TIMER(other_it);
 
             other     += other_it;

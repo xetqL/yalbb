@@ -58,13 +58,14 @@ struct Borders {
 // This function is a synchronization point.
 std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
 
-template<int N, class LoadBalancer, class BoxIntersectFunc>
-Borders get_border_cells_index(
+template<class LoadBalancer, class BoxIntersectFunc>
+Borders get_border_cells_index3d(
         LoadBalancer* LB,
-        const BoundingBox<N>& bbox,
+        const BoundingBox<3>& bbox,
         const Real rc,
         BoxIntersectFunc boxIntersectFunc,
         MPI_Comm comm) {
+    constexpr int N = 3;
     int caller_rank, wsize, num_found;
 
     MPI_Comm_rank(comm, &caller_rank);
@@ -88,26 +89,19 @@ Borders get_border_cells_index(
     std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
     std::array<double, N> pos_in_double;
     Integer border_cell_cnt = 0;
-    for(Integer z = 0; z < lc[2]; ++z){
-        for(Integer y = 0; y < lc[1]; ++y){
+
+    for(Integer z = 0; z < lc[2]; ++z) {
+        for(Integer y = 0; y < lc[1]; ++y) {
             Integer condition = !(y^0)|!(y^(lc[1]-1)) | !(z^0)|!(z^(lc[2]-1));
             for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
                 Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
                 put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
-                if constexpr (N == 3) {
-                    boxIntersectFunc(LB,
-                            pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                            pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
-                            pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
-                            &PEs.front(), &num_found);
-                } else {
-                    boxIntersectFunc(LB,
-                            pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                            0.0, pos_in_double.at(0) + rc/2.0 + rc,
-                            pos_in_double.at(1) + rc/2.0 + rc, 0.0,
-                            &PEs.front(), &num_found);
-                }
-                if(num_found){
+                boxIntersectFunc(LB,
+                        pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                        pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
+                        pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
+                        &PEs.front(), &num_found);
+                if(num_found) {
                     bordering_cell_index.push_back(cell_id);
                     neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
                     border_cell_cnt++;
@@ -116,6 +110,75 @@ Borders get_border_cells_index(
         }
     }
     return {neighbors, bordering_cell_index};
+}
+
+//// PROBLEM'S HERE!
+template<class LoadBalancer, class BoxIntersectFunc>
+Borders get_border_cells_index2d(
+        LoadBalancer* LB,
+        const BoundingBox<2>& bbox,
+        const Real rc,
+        BoxIntersectFunc boxIntersectFunc,
+        MPI_Comm comm) {
+    constexpr int N = 2;
+    int caller_rank, wsize, num_found;
+
+    MPI_Comm_rank(comm, &caller_rank);
+    MPI_Comm_size(comm, &wsize);
+
+    if (wsize == 1) return {};
+    auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+
+    std::vector<Index> bordering_cell_index;
+    // number of bordering cell in 3D is xyz - (x-2)(y-2)(z-2)
+    int nb_local_cells     = std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p*v;});
+    int nb_bordering_cells = std::min(nb_local_cells, nb_local_cells - std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p * (v-2);}));
+
+    // If I have no bordering cell (impossible, but we never know (: )
+    if(nb_bordering_cells <= 0) return {};
+
+    bordering_cell_index.reserve(nb_bordering_cells);
+
+    std::vector<Rank> PEs(wsize);
+    std::vector< std::vector<Rank> > neighbors(nb_bordering_cells);
+    std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
+    std::array<double, N> pos_in_double;
+    Integer border_cell_cnt = 0;
+    auto lcxy = get_total_cell_number<N>(bbox, rc);
+    for(Integer y = 0; y < lc[1]; ++y) {
+        Integer condition = !(y^0) | !(y^(lc[1]-1)); // condition is true when y is either the first (0) or the last (lc[1]-1) index;
+        for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
+            Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,1}, bbox, rc);
+            assert(cell_id < lcxy);
+            put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
+            boxIntersectFunc(LB,
+                    pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                    0.0, pos_in_double.at(0) + rc/2.0 + rc,
+                    pos_in_double.at(1) + rc/2.0 + rc, 0.0,
+                    &PEs.front(), &num_found);
+
+            if(num_found) {
+                bordering_cell_index.push_back(cell_id);
+                neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                border_cell_cnt++;
+            }
+        }
+    }
+
+    return {neighbors, bordering_cell_index};
+}
+template<int N, class LoadBalancer, class BoxIntersectFunc>
+Borders get_border_cells_index(
+        LoadBalancer* LB,
+        const BoundingBox<N>& bbox,
+        const Real rc,
+        BoxIntersectFunc boxIntersectFunc,
+        MPI_Comm comm) {
+    if constexpr(N==3){
+        return get_border_cells_index3d<LoadBalancer, BoxIntersectFunc>(LB, bbox, rc, boxIntersectFunc, comm);
+    } else {
+        return get_border_cells_index2d<LoadBalancer, BoxIntersectFunc>(LB, bbox, rc, boxIntersectFunc, comm);
+    }
 }
 
 template<class T>

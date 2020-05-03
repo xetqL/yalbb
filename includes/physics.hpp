@@ -29,7 +29,7 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
              * Let say that particles are so close that they produce so much force on them such that the timestep
              * is too big to prevent them to cross the min radius. If a particle cross the min radius of another one
              * it creates an almost infinity repulsive force that breaks everything. */
-            if(std::abs(vel->at(dim) * dt) >= cut_off ) {
+            if(std::abs(vel->at(dim) * dt) >= cut_off || std::isnan(vel->at(dim))) {
                 vel->at(dim) = maxSpeedPercentage * cut_off / dt; //max speed is 90% of cutoff per timestep
             }
             pos->at(dim) += vel->at(dim) * dt;
@@ -79,7 +79,7 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
 
 template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
 Complexity nbody_compute_step(
-        std::vector<T>&        elements,
+        std::vector<T>& elements,
         std::vector<T>& remote_el,
         SetPosFunc getPosPtrFunc,                  // function to get force of an entity
         SetVelFunc getVelPtrFunc,                  // function to get force of an entity
@@ -99,9 +99,11 @@ Complexity nbody_compute_step(
     if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); head->size() < n_cells) {
         head->resize(n_cells);
     }
+
     if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
         acc.resize(N*n_force_elements);
     }
+
     if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
         lscl->resize(n_particles);
     }
