@@ -14,6 +14,8 @@ int main(int argc, char** argv) {
     float ver;
     MESH_DATA<elements::Element<N>> mesh_data;
 
+    std::cout << std::fixed << std::setprecision(6);
+
     // Initialize the MPI environment
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -30,9 +32,10 @@ int main(int argc, char** argv) {
     auto params = option.value();
 
     params.world_size = nproc;
-
-    params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
     params.rc = 2.5f * params.sig_lj;
+    params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
+    std::cout << params.simsize << std::endl;
+
     MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
@@ -165,25 +168,26 @@ int main(int argc, char** argv) {
     };
 
     auto doLoadBalancingFunc= [](Zoltan_Struct* zlb, MESH_DATA<elements::Element<N>>* mesh_data){ Zoltan_Do_LB(mesh_data, zlb); };
-    auto getPositionPtrFunc = [](elements::Element<N>& e) {
-        return &e.position;
+    auto getPositionPtrFunc = [](elements::Element<N>* e) {
+        return &e->position;
     };
 
-    auto getVelocityPtrFunc = [](elements::Element<N>& e) { return &e.velocity; };
-    auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj, rc=params.rc](const auto& receiver, const auto& source){
+    auto getVelocityPtrFunc = [](elements::Element<N>* e) { return &e->velocity; };
+    auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj, rc=params.rc](const auto* receiver, const auto* source){
         Real delta = 0.0;
         const Real sig2 = sig*sig;
         std::array<Real, N> delta_dim;
         std::array<Real, N> force;
 
         for (int dim = 0; dim < N; ++dim)
-            delta_dim[dim] = receiver.position.at(dim) - source.position.at(dim);
+            delta_dim[dim] = receiver->position[dim] - source->position[dim];
         for (int dim = 0; dim < N; ++dim)
             delta += (delta_dim[dim] * delta_dim[dim]);
 
         Real C_LJ = -compute_LJ_scalar(delta, eps_lj, sig2, rc*rc);
+
         for (int dim = 0; dim < N; ++dim) {
-            force.at(dim) = (C_LJ * delta_dim[dim]);
+            force[dim] = (C_LJ * delta_dim[dim]);
         }
 
         return force;

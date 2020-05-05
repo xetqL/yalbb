@@ -42,7 +42,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
     parser.add_opt_value('s', "siglj", params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
     parser.add_opt_value('S', "seed", params.seed, rand(), "Random seed", "INT").require();
-    parser.add_opt_value('t', "dt", params.dt, 1e-4f, "Time step", "float");
+    parser.add_opt_value('t', "dt", params.dt, 1e-5f, "Time step", "float");
     parser.add_opt_value('T', "temperature", params.T0, 1.0f, "Initial temperatore", "float");
     parser.add_opt_value('w', "width", params.simsize, 1.0f, "Simulation box width", "FLOAT");
 

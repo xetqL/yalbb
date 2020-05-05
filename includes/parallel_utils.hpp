@@ -89,26 +89,31 @@ Borders get_border_cells_index3d(
     std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
     std::array<double, N> pos_in_double;
     Integer border_cell_cnt = 0;
-
+    std::vector<std::tuple<Integer, Integer, Integer>> border_ids; border_ids.reserve(nb_bordering_cells);
     for(Integer z = 0; z < lc[2]; ++z) {
-        for(Integer y = 0; y < lc[1]; ++y) {
-            Integer condition = !(y^0)|!(y^(lc[1]-1)) | !(z^0)|!(z^(lc[2]-1));
-            for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
-                Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
-                put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
-                boxIntersectFunc(LB,
-                        pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                        pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
-                        pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
-                        &PEs.front(), &num_found);
-                if(num_found) {
-                    bordering_cell_index.push_back(cell_id);
-                    neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
-                    border_cell_cnt++;
-                }
+        for (Integer y = 0; y < lc[1]; ++y) {
+            Integer condition = !(y ^ 0) | !(y ^ (lc[1] - 1)) | !(z ^ 0) | !(z ^ (lc[2] - 1));
+            for (Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
+                border_ids.emplace_back(x,y,z);
             }
         }
     }
+
+    for(std::tuple<Integer, Integer, Integer> xyz : border_ids) {
+        Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>(xyz, bbox, rc);
+        put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
+        boxIntersectFunc(LB,
+                pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
+                pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
+                pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
+                &PEs.front(), &num_found);
+        if(num_found) {
+            bordering_cell_index.push_back(cell_id);
+            neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+            border_cell_cnt++;
+        }
+    }
+
     return {neighbors, bordering_cell_index};
 }
 
@@ -137,33 +142,61 @@ Borders get_border_cells_index2d(
     // If I have no bordering cell (impossible, but we never know (: )
     if(nb_bordering_cells <= 0) return {};
 
-    bordering_cell_index.reserve(nb_bordering_cells);
+    bordering_cell_index.reserve(nb_local_cells);
 
     std::vector<Rank> PEs(wsize);
-    std::vector< std::vector<Rank> > neighbors(nb_bordering_cells);
+    std::vector< std::vector<Rank> > neighbors(nb_local_cells);
     std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
-    std::array<double, N> pos_in_double;
+    std::array<double, 3> pos_in_double;
     Integer border_cell_cnt = 0;
     auto lcxy = get_total_cell_number<N>(bbox, rc);
-    for(Integer y = 0; y < lc[1]; ++y) {
+
+    /*for(Integer y = 0; y < lc[1]; ++y) {
         Integer condition = !(y^0) | !(y^(lc[1]-1)); // condition is true when y is either the first (0) or the last (lc[1]-1) index;
         for(Integer x = 0; x < lc[0]; x += bitselect(condition, (Integer) 1, lc[0] - 1)) {
-            Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,1}, bbox, rc);
-            assert(cell_id < lcxy);
+            Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x, y, 0}, bbox, rc);
             put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_index_into_position<N>(cell_id, bbox, rc));
             boxIntersectFunc(LB,
-                    pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                    0.0, pos_in_double.at(0) + rc/2.0 + rc,
-                    pos_in_double.at(1) + rc/2.0 + rc, 0.0,
+                    pos_in_double.at(0) + rc/2.0 - 2.0 * rc, pos_in_double.at(1) + rc/2.0 - 2.0 * rc,
+                    0.0, pos_in_double.at(0) + rc/2.0 + 2.0 * rc,
+                    pos_in_double.at(1) + rc/2.0 + 2.0 * rc, 0.0,
                     &PEs.front(), &num_found);
-
             if(num_found) {
+                bordering_cell_index.push_back(cell_id);
+                if(border_cell_cnt >= neighbors.size()){
+                    std::cout << x << std::endl;
+                    std::cout << y << std::endl;
+                    std::cout << lc << std::endl;
+                    std::cout << nb_bordering_cells << std::endl;
+                    std::cout << bbox << std::endl;
+                    std::cout << border_cell_cnt << std::endl;
+                }
+                neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                border_cell_cnt++;
+            }
+        }
+    } */
+
+    double radius = rc;
+    for(Integer y = 0; y < lc[1]; ++y) {
+        for(Integer x = 0; x < lc[0]; x += 1) {
+            Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>({x, y, 0}, bbox, rc);
+            put_in_double_array<3>(pos_in_double,
+                                   CoordinateTranslater::translate_local_xyz_into_position<N>({x, y, 0}, bbox, rc));
+            boxIntersectFunc(LB,
+                             pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
+                             0.0, pos_in_double.at(0) + rc / 2.0 + radius,
+                             pos_in_double.at(1) + rc / 2.0 + radius, 0.0,
+                             &PEs.front(), &num_found);
+
+            if (num_found) {
                 bordering_cell_index.push_back(cell_id);
                 neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
                 border_cell_cnt++;
             }
         }
     }
+
 
     return {neighbors, bordering_cell_index};
 }
@@ -174,6 +207,11 @@ Borders get_border_cells_index(
         const Real rc,
         BoxIntersectFunc boxIntersectFunc,
         MPI_Comm comm) {
+
+    int size;
+    MPI_Comm_size(comm, &size);
+    if(size == 1) return {};
+
     if constexpr(N==3){
         return get_border_cells_index3d<LoadBalancer, BoxIntersectFunc>(LB, bbox, rc, boxIntersectFunc, comm);
     } else {
@@ -230,10 +268,10 @@ std::vector<T> exchange_data(
         auto p = head->at(cidx);
         while(p != -1){
             for(auto rank : bordering_cells.neighbors.at(cell_cnt)) {
-                if(rank != caller_rank){
+                if(rank != caller_rank) {
                     const auto& el = data[p];
-                    export_gids[num_known] = el.gid;
-                    export_lids[num_known] = el.lid;
+                    export_gids[num_known]  = el.gid;
+                    export_lids[num_known]  = el.lid;
                     export_procs[num_known] = rank;
                     data_to_migrate.at(rank).push_back(el);
                     num_known ++;
@@ -381,6 +419,7 @@ typename std::vector<T>::const_iterator migrate_data(
         recv_count--;
     }
     const int nb_data = data.size();
+    //std::sort(data.begin(), data.end());
     for(int i = 0; i < nb_data; ++i) data[i].lid = i;
     MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
     return std::next(data.begin(), nb_data - prev_size);
@@ -412,10 +451,11 @@ std::vector<T> get_ghost_data(
         GetPosFunc getPosFunc,
         std::vector<Integer>* head, std::vector<Integer>* lscl,
         BoundingBox<N>& bbox, Borders borders, Real rc,
-        MPI_Datatype datatype, MPI_Comm comm){
+        MPI_Datatype datatype, MPI_Comm comm) {
     int r, s;
     MPI_Comm_size(comm, &s);
     if(s == 1) return {};
+
     const size_t nb_elements = elements.size();
     if(const auto n_cells = get_total_cell_number<N>(bbox, rc); head->size() < n_cells){ head->resize(n_cells); }
     if(nb_elements > lscl->size()) { lscl->resize(nb_elements); }

@@ -20,8 +20,8 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
     constexpr Real two = 2.0;
     constexpr Real maxSpeedPercentage = 0.9;
     for(auto &el : elements){
-        std::array<Real, N>* pos = getPosPtr(el);//(getPosFunc(el));
-        std::array<Real, N>* vel = getVelPtr(el);//(getVelFunc(el));
+        std::array<Real, N>* pos = getPosPtr(&el);//(getPosFunc(el));
+        std::array<Real, N>* vel = getVelPtr(&el);//(getVelFunc(el));
         for(size_t dim = 0; dim < N; ++dim) {
             vel->at(dim) += acc.at(N*i+dim) * dt / two;
             /**
@@ -44,7 +44,7 @@ void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elem
     int i = 0;
     constexpr Real two = 2.0;
     for(auto &el : elements){
-        std::array<Real, N>* vel = getVelPtr(el); //getVelFunc(el);
+        std::array<Real, N>* vel = getVelPtr(&el); //getVelFunc(el);
         for(size_t dim = 0; dim < N; ++dim) {
             vel->at(dim) += acc.at(N*i+dim) * dt / two;
         }
@@ -65,13 +65,13 @@ template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
     for(auto &element: elements) {
         size_t dim = 0;
-        std::array<Real, N>* pos  = getPosPtr(element);
-        std::array<Real, N>* vel  = getVelPtr(element);
+        std::array<Real, N>* pos  = getPosPtr(&element);
+        std::array<Real, N>* vel  = getVelPtr(&element);
         while(dim < N) {
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &pos->at(dim), &vel->at(dim));
-            if(pos->at(dim) >= simsize)
-                reflect(simsize-std::numeric_limits<Real>::epsilon(), &pos->at(dim), &vel->at(dim));
+            if(simsize-pos->at(dim) <= 0.000001f)
+                reflect(simsize-0.000001f, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }
@@ -92,29 +92,44 @@ Complexity nbody_compute_step(
         const Real dt,
         const Real simwidth) {               // simulation parameters
 
+
     std::fill(acc.begin(), acc.end(), (Real) 0.0);
 
-    const size_t nb_elements = elements.size();
+    const size_t
+          n_local_particles = elements.size(),
+          n_remote_particles= remote_el.size(),
+          n_total_particles = n_local_particles+n_remote_particles,
+          n_allocated_particles= lscl->size(),
+          n_allocated_force_components= acc.size(),
+          n_allocated_cells = head->size();
 
-    if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); head->size() < n_cells) {
+    if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); n_allocated_cells < n_cells) {
         head->resize(n_cells);
+    } else if(n_allocated_cells >= 2 * n_cells){
+        head->resize(n_allocated_cells/2.0 + n_cells /2.0);
     }
 
-    if(const auto n_force_elements = N*elements.size(); acc.size() < n_force_elements) {
-        acc.resize(N*n_force_elements);
+    if(const auto n_force_components = N*n_local_particles; n_allocated_force_components < n_force_components) {
+        acc.resize(n_force_components);
+    } else if (n_allocated_force_components >= 2.0*n_force_components) {
+        acc.resize(n_allocated_force_components/2.0 + n_force_components/2.0);
     }
 
-    if(const auto n_particles = elements.size()+remote_el.size();  lscl->size() < n_particles) {
-        lscl->resize(n_particles);
+    if(n_allocated_particles < n_total_particles) {//resize up
+        lscl->resize(n_total_particles);
+    } else if ( n_allocated_particles >= 2 * n_total_particles ){ //resize down
+        lscl->resize(n_allocated_particles / 2.0 + n_total_particles / 2.0);
     }
 
-    CLL_init<N, T>({ {elements.data(), nb_elements}, {remote_el.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
+    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
+
+    apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
+
+    CLL_init<N, T>({ {elements.data(), elements.size()}, {remote_el.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
     leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
-    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
-    apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
 
     return cmplx;
 };

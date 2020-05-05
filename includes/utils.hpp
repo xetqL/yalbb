@@ -116,6 +116,14 @@ inline void put_in_double_array(std::array<double, N>& double_array, const std::
         double_array[2] = real_array[2];
 }
 
+template<int N, class F>
+inline void map(std::array<double, N>& double_array, F f){
+    double_array[0] = f(double_array[0]);
+    double_array[1] = f(double_array[1]);
+    if constexpr (N==3)
+        double_array[2] = f(double_array[2]);
+}
+
 template<class T>
 inline void update_local_ids(std::vector<T>& els, std::function<void (T&, Integer)> setLidF) {
     Integer i = 0; for(auto& el : els) setLidF(els->at(i), i++);
@@ -129,7 +137,6 @@ inline IntegerType bitselect(IntegerType condition, IntegerType truereturnvalue,
 // C++ template to print vector container elements
 template <typename T, size_t N> std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
 {
-    os << std::fixed << std::setprecision(6);
     for (int i = 0; i < N; ++i) {
         os << v[i];
         if (i != v.size() - 1)
@@ -139,7 +146,6 @@ template <typename T, size_t N> std::ostream& operator<<(std::ostream& os, const
 }
 template <typename T> std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
-    os << std::fixed << std::setprecision(6);
     const auto s = v.size();
     for (int i = 0; i < s; ++i) {
         os << v[i];
@@ -162,7 +168,7 @@ template<typename T> T dto(double v) {
 }
 
 template<int N> using BoundingBox = std::array<Real, 2*N>;
-template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox)    { return bbox.at(2*D+1) - bbox.at(2*D); }
+template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) { return bbox.at(2*D+1) - bbox.at(2*D); }
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
@@ -173,7 +179,7 @@ template <int N, class GetPosFunc, class First, class... Rest>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, First& first, Rest&... rest) {
     for(int i = 0; i < N; ++i) {
         for (auto &el : first) {
-            const auto& pos    = *getPosFunc(el);
+            const auto& pos    = *getPosFunc(&el);
             new_bbox.at(2*i)   = std::min(new_bbox.at(2*i),   pos.at(i));
             new_bbox.at(2*i+1) = std::max(new_bbox.at(2*i+1), pos.at(i));
         }
@@ -200,8 +206,8 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
 
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - rc);
-        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc)* rc + rc;
+        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc);
+        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc) * rc;
     }
 
     return new_bbox;
@@ -213,7 +219,7 @@ void update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
         bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc);
-        bbox.at(2*i+1) =  std::ceil(bbox.at(2*i+1) / rc)* rc;
+        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc;
     }
 }
 template<int N, class T>
@@ -240,16 +246,17 @@ void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
 template<int N>
 inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
     std::array<Integer, N> lc;
-    lc [0] = get_size<0, N>(bbox) / rc;
-    lc [1] = get_size<1, N>(bbox) / rc;
-    if constexpr(N==3) lc [2] = get_size<2, N>(bbox) / rc;
+    lc [0] = std::round(get_size<0, N>(bbox) / rc);
+    lc [1] = std::round(get_size<1, N>(bbox) / rc);
+    if constexpr(N==3)
+        lc [2] = std::round(get_size<2, N>(bbox) / rc);
     return lc;
 }
 
 template<int N>
 Integer get_total_cell_number(const BoundingBox<N>& bbox, Real rc){
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
-    return std::accumulate(lc.begin(), lc.end(), 1, [](auto prev, auto v){return prev*v;});
+    return std::accumulate(lc.begin(), lc.end(), 1, [](auto prev, auto v){return prev * v;});
 }
 
 template<int N>

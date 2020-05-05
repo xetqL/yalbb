@@ -105,18 +105,33 @@ namespace elements {
         }
 
         friend std::ostream &operator<<(std::ostream &os, const Element &element) {
-            std::string pos = std::to_string(element.position.at(0));
+            os << element.position.at(0);
             for(int i = 1; i < N; i++){
-                pos += "," + std::to_string(element.position.at(i));
+                os << "," << element.position.at(i);
             }
-
-            std::string vel = std::to_string(element.velocity.at(0));
+            os << "; ";
+            os << element.position.at(0);
             for(int i = 1; i < N; i++){
-                vel += " " + std::to_string(element.velocity.at(i));
+                os << "," << element.velocity.at(i);
             }
-
-            os << pos << ";" << vel << ";" << element.gid << ";" << element.lid;
+            os << element.gid << ";" << element.lid;
             return os;
+        }
+
+        bool operator<(const Element &rhs) const {
+            return gid < rhs.gid;
+        }
+
+        bool operator>(const Element &rhs) const {
+            return rhs < *this;
+        }
+
+        bool operator<=(const Element &rhs) const {
+            return !(rhs < *this);
+        }
+
+        bool operator>=(const Element &rhs) const {
+            return !(*this < rhs);
         }
 
         std::string to_string(Real lsub) {
