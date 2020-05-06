@@ -6,7 +6,8 @@ data/
 
 # Application
 *.out
-logs
+logs/
+lib/
 
 # IDEA
 .idea

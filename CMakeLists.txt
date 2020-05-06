@@ -1,12 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(nbmpi)
 
-MESSAGE("Compile with A* standard implementation")
-ADD_DEFINITIONS(-DASTAR_STD_IMPL)
-
 find_package(MPI REQUIRED)
 
-set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
+set(CMAKE_CXX_COMPILER mpic++)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -23,68 +20,38 @@ set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
-find_library(ZOLTAN
-        NAMES zoltan libzoltan
-        HINTS /usr/local ~/local/lib ${CMAKE_PREFIX_PATH}/Zoltan/lib
-        PATHS ${ZOLTAN_LIBRARY_PATH})
-find_path(ZOLTAN_INCLUDES
-        NAMES zoltan zoltan.h
-        HINTS ${CMAKE_PREFIX_PATH}/Zoltan/include
-        )
 find_package (Threads)
-
-# speedlog build toolchain and link
-execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
-execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
-execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
 
 ########################################################################################################################
 # Executable
 ########################################################################################################################
 ## Main build
 
-add_executable(build
-        ${EXECUTABLE_SOURCE_DIRECTORY}/main.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/zupply/src/zupply.cpp
-        ${INCLUDE_DIRECTORY}/example/spatial_elements.hpp
-        ${INCLUDE_DIRECTORY}/example/ljpotential.hpp
-        ${INCLUDE_DIRECTORY}/example/initial_conditions.hpp
-        ${INCLUDE_DIRECTORY}/example/zoltan_fn.hpp
-        ${INCLUDE_DIRECTORY}/physics.hpp
-        ${INCLUDE_DIRECTORY}/params.hpp
-        ${INCLUDE_DIRECTORY}/runners/simulator.hpp
-        ${INCLUDE_DIRECTORY}/runners/shortest_path.hpp
-        src/probe.cpp
-        src/params.cpp
-        src/utils.cpp
-        src/coordinate_translater.cpp
-        src/node.cpp
-        src/ljpotential.cpp
-        src/strategy.cpp
-        src/parallel_utils.cpp
-        src/zoltan_fn.cpp
-        src/physics.cpp includes/cll.hpp)
+file(GLOB SRC_FILES src/*.cpp)
+file(GLOB_RECURSE INCLUDE_FILES includes/*.hpp)
+file(GLOB_RECURSE SPDLOG_INCLUDE_FILES ${CMAKE_CURRENT_LIST_DIR}/spdlog/include/*)
 
-target_include_directories(build PRIVATE
+add_library(yallb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp)
+
+target_include_directories(yallb PRIVATE ${MPI_C_INCLUDE_PATH})
+target_include_directories(yallb PUBLIC
         ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
         ${INCLUDE_DIRECTORY}
-        ${MPI_C_INCLUDE_PATH}
-        ${ZOLTAN_INCLUDE_DIRECTORY}
-        zupply/src
-)
+        zupply/src)
 
-# end of processing speedlog
-
-set_target_properties(build PROPERTIES OUTPUT_NAME "yalbb")
-
-set(ZOLTAN_LIBRARY_PATH zoltan CACHE STRING "zoltan library path (zoltan.a)")
-
-target_link_libraries(build PRIVATE
+target_link_libraries(yallb PRIVATE
         ${MPI_C_LIBRARIES}
-        ${ZOLTAN_LIBRARY_PATH}
-        ${CMAKE_CURRENT_LIST_DIR}/spdlog/build/libspdlog.a
         ${CMAKE_THREAD_LIBS_INIT})
 
-#set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
+set_target_properties(yallb PROPERTIES "PUBLIC_HEADER" "${INCLUDE_FILES}")
+
+install(TARGETS yallb
+        LIBRARY
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+          COMPONENT Libraries
+        PUBLIC_HEADER
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/include/yallb
+        COMPONENT Development)
+
 ########################################################################################################################
 

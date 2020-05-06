@@ -12,8 +12,9 @@
 #include <map>
 #include <unordered_map>
 #include <cstdlib>
-#include <probe.hpp>
+#include <filesystem>
 
+#include "probe.hpp"
 #include "strategy.hpp"
 #include "output_formatter.hpp"
 #include "utils.hpp"
@@ -21,13 +22,11 @@
 #include "physics.hpp"
 #include "params.hpp"
 
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/basic_file_sink.h"
-
 using ApplicationTime = Time;
 using CumulativeLoadImbalanceHistory = std::vector<Time>;
 using TimeHistory = std::vector<Time>;
 using Decisions = std::vector<int>;
+
 template<int N> using Position  = std::array<Real, N>;
 template<int N> using Velocity  = std::array<Real, N>;
 
@@ -36,7 +35,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
         simulate(
               LoadBalancer* LB,
               MESH_DATA<T> *mesh_data,
-              LBPolicy<D>&& lb_policy,
+              LBPolicy<D> *lb_policy,
               Wrapper fWrapper,
               sim_param_t *params,
               Probe* probe,
@@ -62,23 +61,25 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
     SimpleCSVFormatter frame_formater(',');
 
-    auto time_logger = spdlog::basic_logger_mt("frame_time_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/time/frame-p"+std::to_string(rank)+".txt");
-    auto cmplx_logger = spdlog::basic_logger_mt("frame_cmplx_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/complexity/frame-p"+std::to_string(rank)+".txt");
+    //auto time_logger = spdlog::basic_logger_mt("frame_time_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/time/frame-p"+std::to_string(rank)+".txt");
+    //auto cmplx_logger = spdlog::basic_logger_mt("frame_cmplx_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/complexity/frame-p"+std::to_string(rank)+".txt");
 
-    time_logger->set_pattern("%v");
-    cmplx_logger->set_pattern("%v");
+    //time_logger->set_pattern("%v");
+    //cmplx_logger->set_pattern("%v");
 
     std::vector<T> recv_buf;
+    std::ofstream fparticle;
     if (params->record) {
         recv_buf.reserve(params->npart);
         gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
         if (!rank) {
-            auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv.0");
-            particle_logger->set_pattern("%v");
+            std::filesystem::create_directories("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames");
+            fparticle.open("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particle.csv.0");
             std::stringstream str;
             frame_formater.write_header(str, params->npframe, params->simsize);
             write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
-            particle_logger->info(str.str());
+            fparticle << str.str();
+            fparticle.close();
         }
     }
 
@@ -122,7 +123,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
             if(probe->is_balanced()) { probe->update_lb_parallel_efficiencies(); }
 
-            bool lb_decision = lb_policy.should_load_balance();
+            bool lb_decision = lb_policy->should_load_balance();
 
             cum_li_hist.push_back(probe->get_cumulative_imbalance_time());
             dec.push_back(lb_decision);
@@ -162,21 +163,14 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
 
         // Write metrics to report file
         if (params->record) {
-            time_logger->info("{:0.6f}", comp_time);
-            cmplx_logger->info("{}", complexity);
-
-            if(frame % 5 == 0) { time_logger->flush(); cmplx_logger->flush(); }
-
             gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
-
             if (rank == 0) {
-                spdlog::drop("particle_logger");
-                auto particle_logger = spdlog::basic_logger_mt("particle_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particles.csv."+ std::to_string(frame + 1));
-                particle_logger->set_pattern("%v");
+                fparticle.open("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particle.csv."+ std::to_string(frame + 1));
                 std::stringstream str;
                 frame_formater.write_header(str, params->npframe, params->simsize);
                 write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
-                particle_logger->info(str.str());
+                fparticle << str.str();
+                fparticle.close();
             }
         }
 
@@ -190,16 +184,6 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     std::vector<Complexity > max_cmplx(nframes), min_cmplx(nframes), avg_cmplx(nframes);
     Complexity sum_cmplx;
 
-    std::shared_ptr<spdlog::logger> lb_time_logger;
-    std::shared_ptr<spdlog::logger> lb_cmplx_logger;
-
-    if(!rank){
-        lb_time_logger = spdlog::basic_logger_mt("lb_times_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/time/frame_statistics.txt");
-        lb_time_logger->set_pattern("%v");
-        lb_cmplx_logger = spdlog::basic_logger_mt("lb_cmplx_logger", "logs/"+output_names_prefix+std::to_string(params->seed)+"/complexity/frame_statistics.txt");
-        lb_cmplx_logger->set_pattern("%v");
-    }
-
     for (int frame = 0; frame < nframes; ++frame) {
         MPI_Reduce(&my_frame_times[frame], &max_times[frame], 1, MPI_TIME, MPI_MAX, 0, MPI_COMM_WORLD);
         MPI_Reduce(&my_frame_times[frame], &min_times[frame], 1, MPI_TIME, MPI_MIN, 0, MPI_COMM_WORLD);
@@ -212,16 +196,8 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
         if(!rank) {
             avg_times[frame] = sum_times / nproc;
             avg_cmplx[frame] = sum_cmplx / nproc;
-            lb_time_logger->info("{}\t{}\t{}\t{}", max_times[frame], min_times[frame], avg_times[frame], (max_times[frame]/avg_times[frame]-1.0));
-            lb_cmplx_logger->info("{}\t{}\t{}\t{}", max_cmplx[frame], min_cmplx[frame], avg_cmplx[frame], (max_cmplx[frame]/avg_cmplx[frame]-1.0));
         }
     }
-
-    spdlog::drop("particle_logger");
-    spdlog::drop("lb_times_logger");
-    spdlog::drop("lb_cmplx_logger");
-    spdlog::drop("frame_time_logger");
-    spdlog::drop("frame_cmplx_logger");
 
     return { app_time, cum_li_hist, dec, time_hist};
 }

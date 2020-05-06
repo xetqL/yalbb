@@ -1,0 +1,43 @@
+==============================================
+= Parameters: 
+= Particles: 10000
+= Seed: 1
+= id: 0
+= PEs: 1
+= Simulation size: 1.025
+= Number of time-steps: 100x1
+= Initial conditions: 
+= SIG:0.01
+= EPS:  1
+= Borders: collisions 
+= Gravity:  1
+= Temperature: 1
+==============================================
+Generating data ...
+10000 Done !
+SIM (Menon Criterion): Computation is starting.
+Average C = 0
+0
+0.697821,0.197328,0.280124;-0.517910 1.579905 0.877715;8451;8451
+0.701805,0.203534,0.280748;-0.234137 0.698578 0.390504;137;137
+5.47729e-05
+0.0001
+[ubuntu:03506] *** Process received signal ***
+[ubuntu:03506] Signal: Aborted (6)
+[ubuntu:03506] Signal code:  (-6)
+[ubuntu:03506] [ 0] /lib/x86_64-linux-gnu/libpthread.so.0(+0x12890)[0x7f8a3cec5890]
+[ubuntu:03506] [ 1] /lib/x86_64-linux-gnu/libc.so.6(gsignal+0xc7)[0x7f8a3bfa7e97]
+[ubuntu:03506] [ 2] /lib/x86_64-linux-gnu/libc.so.6(abort+0x141)[0x7f8a3bfa9801]
+[ubuntu:03506] [ 3] /usr/lib/x86_64-linux-gnu/libstdc++.so.6(+0x8c957)[0x7f8a3c99c957]
+[ubuntu:03506] [ 4] /usr/lib/x86_64-linux-gnu/libstdc++.so.6(+0x92ae6)[0x7f8a3c9a2ae6]
+[ubuntu:03506] [ 5] /usr/lib/x86_64-linux-gnu/libstdc++.so.6(+0x92b21)[0x7f8a3c9a2b21]
+[ubuntu:03506] [ 6] /usr/lib/x86_64-linux-gnu/libstdc++.so.6(+0x92d54)[0x7f8a3c9a2d54]
+[ubuntu:03506] [ 7] bin/nbmpi(+0x2b282)[0x557450f64282]
+[ubuntu:03506] [ 8] bin/nbmpi(+0x2b8d6)[0x557450f648d6]
+[ubuntu:03506] [ 9] bin/nbmpi(+0x2a4ea)[0x557450f634ea]
+[ubuntu:03506] [10] bin/nbmpi(+0x2992c)[0x557450f6292c]
+[ubuntu:03506] [11] bin/nbmpi(+0x25d38)[0x557450f5ed38]
+[ubuntu:03506] [12] bin/nbmpi(+0x22853)[0x557450f5b853]
+[ubuntu:03506] [13] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xe7)[0x7f8a3bf8ab97]
+[ubuntu:03506] [14] bin/nbmpi(+0x2097a)[0x557450f5997a]
+[ubuntu:03506] *** End of error message ***

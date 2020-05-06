@@ -1,0 +1,12 @@
+/usr/local/lib/libyallb.a
+/usr/local/include/yallb/cll.hpp
+/usr/local/include/yallb/coordinate_translater.hpp
+/usr/local/include/yallb/ljpotential.hpp
+/usr/local/include/yallb/output_formatter.hpp
+/usr/local/include/yallb/parallel_utils.hpp
+/usr/local/include/yallb/params.hpp
+/usr/local/include/yallb/physics.hpp
+/usr/local/include/yallb/probe.hpp
+/usr/local/include/yallb/simulator.hpp
+/usr/local/include/yallb/strategy.hpp
+/usr/local/include/yallb/utils.hpp

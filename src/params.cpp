@@ -1,15 +1,15 @@
 //
 // Created by xetql on 4/29/20.
 //
-
+#include "zupply.hpp"
 #include "params.hpp"
+
 void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "==============================================" << std::endl;
     stream << "= Parameters: " << std::endl;
     stream << "= Particles: " << params.npart << std::endl;
     stream << "= Seed: " << params.seed << std::endl;
     stream << "= id: " << params.id << std::endl;
-    stream << "= PEs: " << params.world_size << std::endl;
     stream << "= Simulation size: " << params.simsize << std::endl;
     stream << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
     stream << "= Initial conditions: " << std::endl;
