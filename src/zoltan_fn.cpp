@@ -2,7 +2,7 @@
 // Created by xetql on 4/29/20.
 //
 
-#include "custom/zoltan_fn.hpp"
+#include "example/zoltan_fn.hpp"
 Zoltan_Struct* zoltan_create_wrapper(MPI_Comm comm) {
     auto zz = Zoltan_Create(comm);
 

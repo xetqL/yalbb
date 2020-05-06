@@ -3,9 +3,10 @@
 #include <random>
 
 #include "runners/simulator.hpp"
-#include "custom/initial_conditions.hpp"
 #include "runners/shortest_path.hpp"
 #include "probe.hpp"
+#include "example/initial_conditions.hpp"
+
 int main(int argc, char** argv) {
 
     constexpr int N = 2;
@@ -34,7 +35,6 @@ int main(int argc, char** argv) {
     params.world_size = nproc;
     params.rc = 2.5f * params.sig_lj;
     params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
-    std::cout << params.simsize << std::endl;
 
     MPI_Bcast(&params.seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
                             std::make_shared<initial_condition::lj::RandomElementsInNClustersGenerator<N>>(
                                     clusters, params.seed, MAX_TRIAL), params.npart));
                     break;
-                case 5: //custom various density
+                case 5: //example various density
                     condition = std::make_shared<initial_condition::lj::RejectionCondition<N>>(
                             &(mesh_data.els), params.sig_lj, 6.25*params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
                             std::make_shared<initial_condition::lj::HalfLoadedRandomElementsGenerator<N>>(
                                     params.simsize / 10, false, params.seed, MAX_TRIAL), 3 * params.npart / 4));
                     break;
-                case 6: //custom various density
+                case 6: //example various density
                     condition = std::make_shared<initial_condition::lj::RejectionCondition<N>>(
                             &(mesh_data.els), params.sig_lj, params.sig_lj * params.sig_lj, params.T0, 0, 0, 0,
                             params.simsize, params.simsize, params.simsize, &params
@@ -161,41 +161,25 @@ int main(int argc, char** argv) {
     auto boxIntersectFunc   = [](Zoltan_Struct* zlb, double x1, double y1, double z1, double x2, double y2, double z2, int* PEs, int* num_found){
         Zoltan_LB_Box_Assign(zlb, x1, y1, z1, x2, y2, z2, PEs, num_found);
     };
-
-    auto pointAssignFunc    = [](Zoltan_Struct* zlb, const elements::Element<N>& e, int* PE) {
-        auto pos_in_double = get_as_double_array<N>(e.position);
+    auto pointAssignFunc    = [](Zoltan_Struct* zlb, const auto* e, int* PE) {
+        auto pos_in_double = get_as_double_array<N>(e->position);
         Zoltan_LB_Point_Assign(zlb, &pos_in_double.front(), PE);
     };
-
-    auto doLoadBalancingFunc= [](Zoltan_Struct* zlb, MESH_DATA<elements::Element<N>>* mesh_data){ Zoltan_Do_LB(mesh_data, zlb); };
-    auto getPositionPtrFunc = [](elements::Element<N>* e) {
-        return &e->position;
+    auto doLoadBalancingFunc= [](Zoltan_Struct* zlb, MESH_DATA<elements::Element<N>>* mesh_data){
+        Zoltan_Do_LB<N>(mesh_data, zlb);
     };
 
-    auto getVelocityPtrFunc = [](elements::Element<N>* e) { return &e->velocity; };
-    auto getForceFunc       = [eps_lj=params.eps_lj, sig=params.sig_lj, rc=params.rc](const auto* receiver, const auto* source){
-        Real delta = 0.0;
-        const Real sig2 = sig*sig;
-        std::array<Real, N> delta_dim;
-        std::array<Real, N> force;
+    auto getPositionPtrFunc = [](auto* e) -> std::array<Real, N>* { return &e->position; };
+    auto getVelocityPtrFunc = [](auto* e) -> std::array<Real, N>* { return &e->velocity; };
 
-        for (int dim = 0; dim < N; ++dim)
-            delta_dim[dim] = receiver->position[dim] - source->position[dim];
-        for (int dim = 0; dim < N; ++dim)
-            delta += (delta_dim[dim] * delta_dim[dim]);
-
-        Real C_LJ = -compute_LJ_scalar(delta, eps_lj, sig2, rc*rc);
-
-        for (int dim = 0; dim < N; ++dim) {
-            force[dim] = (C_LJ * delta_dim[dim]);
-        }
-
-        return force;
+    auto getForceFunc = [eps=params.eps_lj, sig=params.sig_lj, rc=params.rc, getPositionPtrFunc](const auto* receiver, const auto* source){
+        return lj_compute_force<N>(receiver, source, eps, sig*sig, rc, getPositionPtrFunc);
     };
 
     FunctionWrapper fWrapper(getPositionPtrFunc, getVelocityPtrFunc, getForceFunc, boxIntersectFunc, pointAssignFunc, doLoadBalancingFunc);
 
     auto datatype = elements::register_datatype<N>();
+
     std::string prefix = std::to_string(params.id)+"_"+std::to_string(params.seed);
 
     /* Experiment 1 */

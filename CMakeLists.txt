@@ -33,6 +33,11 @@ find_path(ZOLTAN_INCLUDES
         )
 find_package (Threads)
 
+# speedlog build toolchain and link
+execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
+execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
+execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
+
 ########################################################################################################################
 # Executable
 ########################################################################################################################
@@ -41,10 +46,12 @@ find_package (Threads)
 add_executable(build
         ${EXECUTABLE_SOURCE_DIRECTORY}/main.cpp
         ${CMAKE_CURRENT_LIST_DIR}/zupply/src/zupply.cpp
-        ${INCLUDE_DIRECTORY}/custom/spatial_elements.hpp
+        ${INCLUDE_DIRECTORY}/example/spatial_elements.hpp
+        ${INCLUDE_DIRECTORY}/example/ljpotential.hpp
+        ${INCLUDE_DIRECTORY}/example/initial_conditions.hpp
+        ${INCLUDE_DIRECTORY}/example/zoltan_fn.hpp
         ${INCLUDE_DIRECTORY}/physics.hpp
         ${INCLUDE_DIRECTORY}/params.hpp
-        ${INCLUDE_DIRECTORY}/custom/zoltan_fn.hpp
         ${INCLUDE_DIRECTORY}/runners/simulator.hpp
         ${INCLUDE_DIRECTORY}/runners/shortest_path.hpp
         src/probe.cpp
@@ -58,11 +65,6 @@ add_executable(build
         src/zoltan_fn.cpp
         src/physics.cpp includes/cll.hpp)
 
-# speedlog build toolchain and link
-execute_process(COMMAND mkdir -p build WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog)
-execute_process(COMMAND cmake .. WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
-execute_process(COMMAND make -j WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/spdlog/build)
-
 target_include_directories(build PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
         ${INCLUDE_DIRECTORY}
@@ -70,11 +72,10 @@ target_include_directories(build PRIVATE
         ${ZOLTAN_INCLUDE_DIRECTORY}
         zupply/src
 )
+
 # end of processing speedlog
 
-set_target_properties(build 
-        PROPERTIES
-        OUTPUT_NAME "nbmpi")
+set_target_properties(build PROPERTIES OUTPUT_NAME "yalbb")
 
 set(ZOLTAN_LIBRARY_PATH zoltan CACHE STRING "zoltan library path (zoltan.a)")
 
@@ -85,6 +86,5 @@ target_link_libraries(build PRIVATE
         ${CMAKE_THREAD_LIBS_INIT})
 
 #set(ZOLTAN_INCLUDE_DIRECTORY "" CACHE STRING "zoltan include directory")
-
 ########################################################################################################################
 

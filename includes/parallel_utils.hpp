@@ -356,7 +356,7 @@ typename std::vector<T>::const_iterator migrate_data(
         export_lids.reserve(nb_elements / wsize);
         export_procs.reserve(nb_elements / wsize);
         while (data_id < nb_elements) {
-            pointAssignFunc(LB, data.at(data_id), &PE);
+            pointAssignFunc(LB, &data.at(data_id), &PE);
             if (PE != caller_rank) {
                 export_gids.push_back(data.at(data_id).gid);
                 export_lids.push_back(data.at(data_id).lid);
@@ -377,7 +377,6 @@ typename std::vector<T>::const_iterator migrate_data(
         export_procs.shrink_to_fit();
         std::vector<int> sends_to_proc(wsize);
         std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
-
         import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
     }
 

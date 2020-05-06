@@ -15,13 +15,13 @@
 #include <cstdlib>
 
 #include "../strategy.hpp"
-#include "custom/ljpotential.hpp"
+#include "example/ljpotential.hpp"
 #include "../physics.hpp"
 #include "../output_formatter.hpp"
 #include "../utils.hpp"
 
 #include "../params.hpp"
-#include "../custom/zoltan_fn.hpp"
+#include "../example/zoltan_fn.hpp"
 #include "../node.hpp"
 #include "../parallel_utils.hpp"
 

@@ -3,7 +3,7 @@
 #define NBMPI_NODE_HPP
 
 #include "utils.hpp"
-#include "custom/zoltan_fn.hpp"
+#include "example/zoltan_fn.hpp"
 #include "probe.hpp"
 
 #include <set>

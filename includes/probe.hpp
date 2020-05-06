@@ -32,7 +32,7 @@ public:
     Time get_min_it() const;
     Time get_sum_it() const;
 
-    Time get_cumulative_imbalance_time() const;
+    Time  get_cumulative_imbalance_time() const;
 
     Time* sum_it_time();
     void  push_load_balancing_time(Time lb_time);
