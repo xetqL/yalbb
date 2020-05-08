@@ -16,20 +16,14 @@ endif()
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/src)
 set(TEST_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests)
 set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 
 find_package (Threads)
-
-########################################################################################################################
-# Executable
-########################################################################################################################
-## Main build
-
 file(GLOB SRC_FILES src/*.cpp)
 file(GLOB_RECURSE INCLUDE_FILES includes/*.hpp)
-file(GLOB_RECURSE SPDLOG_INCLUDE_FILES ${CMAKE_CURRENT_LIST_DIR}/spdlog/include/*)
 
 add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp)
 
