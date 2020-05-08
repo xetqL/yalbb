@@ -189,6 +189,15 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, 
 
 }
 
+template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t minimum_size){
+    size_t actual_size = vec->size();
+    if(actual_size < minimum_size) {
+        vec->resize(minimum_size);
+    } else if(actual_size >= 2.0 * minimum_size) {
+        vec->resize(actual_size / 2.0 + minimum_size / 2.0);
+    }
+}
+
 template<int N, class GetPosFunc, class... T>
 BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     BoundingBox<N> new_bbox;
@@ -206,8 +215,8 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
 
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc);
-        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc) * rc;
+        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - rc);
+        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc) * rc + rc;
     }
 
     return new_bbox;

@@ -32,9 +32,11 @@ inline void CLL_update(std::initializer_list<std::pair<T*, size_t>>&& elements,
 template<int N, class T, class GetPositionFunc>
 inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
               GetPositionFunc getPositionFunc,
-              const BoundingBox<N>& bbox, Real rc,
+              const BoundingBox<N>& bbox,
+              Real rc,
               std::vector<Integer> *head,
               std::vector<Integer> *lscl) {
+    apply_resize_strategy(head, get_total_cell_number<N>(bbox, rc));
     std::fill(head->begin(), head->end(), EMPTY);
     CLL_update<N, T, GetPositionFunc>(std::move(elements), getPositionFunc, bbox, rc, head, lscl);
 }
@@ -139,10 +141,12 @@ Integer CLL_compute_forces(std::vector<Real>* acc,
                            const std::vector<T>& loc_el,
                            const std::vector<T>& rem_el,
                            GetPositionFunc getPosFunc,
-                           const BoundingBox<N>& bbox, Real rc,
-                           const std::vector<Integer> *head, const std::vector<Integer> *lscl,
+                           const BoundingBox<N>& bbox,
+                           Real rc,
+                           const std::vector<Integer> *head,
+                           const std::vector<Integer> *lscl,
                            ComputeForceFunc computeForceFunc) {
-    //std::memset(acc->data(), 0.0f, sizeof(Real) * acc->size());
+    std::fill(acc->begin(), acc->end(), (Real) 0.0); // reset force buffer
     if constexpr(N==3) {
         return CLL_compute_forces3d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);
     }else {

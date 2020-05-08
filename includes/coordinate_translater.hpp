@@ -75,7 +75,10 @@ public:
     translate_position_into_local_xyz(const std::array<Real, N>& position, const BoundingBox<N>& bbox, Real rc){
         std::array<Integer, N> ret;
         for(int i = 0; i<N; ++i) {
-            ret[i] = (position[i]-bbox[2*i]) / rc;
+            if(bbox[2*i+1]-position[i] > std::numeric_limits<Real>::epsilon())
+                ret[i] = (position[i]-bbox[2*i]) / rc;
+            else
+                ret[i] = ((bbox[2*i+1]-bbox[2*i]) - rc/1000.0 ) / rc;
         }
         return ret;
     }

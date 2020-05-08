@@ -70,8 +70,8 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
         while(dim < N) {
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &pos->at(dim), &vel->at(dim));
-            if(simsize-pos->at(dim) <= 0.000001f)
-                reflect(simsize-0.000001f, &pos->at(dim), &vel->at(dim));
+            if(simsize-pos->at(dim) <= 0.00000001f)
+                reflect(simsize, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }
@@ -90,42 +90,13 @@ Complexity nbody_compute_step(
         const Borders& borders,                    // bordering cells and neighboring processors
         const Real cutoff,
         const Real dt,
-        const Real simwidth) {               // simulation parameters
+        const Real simwidth) {                     // simulation parameters
 
-
-    std::fill(acc.begin(), acc.end(), (Real) 0.0);
-
-    const size_t
-          n_local_particles = elements.size(),
-          n_remote_particles= remote_el.size(),
-          n_total_particles = n_local_particles+n_remote_particles,
-          n_allocated_particles= lscl->size(),
-          n_allocated_force_components= acc.size(),
-          n_allocated_cells = head->size();
-
-    if(const auto n_cells = get_total_cell_number<N>(bbox, cutoff); n_allocated_cells < n_cells) {
-        head->resize(n_cells);
-    } else if(n_allocated_cells >= 2 * n_cells){
-        head->resize(n_allocated_cells/2.0 + n_cells /2.0);
-    }
-
-    if(const auto n_force_components = N*n_local_particles; n_allocated_force_components < n_force_components) {
-        acc.resize(n_force_components);
-    } else if (n_allocated_force_components >= 2.0*n_force_components) {
-        acc.resize(n_allocated_force_components/2.0 + n_force_components/2.0);
-    }
-
-    if(n_allocated_particles < n_total_particles) {//resize up
-        lscl->resize(n_total_particles);
-    } else if ( n_allocated_particles >= 2 * n_total_particles ){ //resize down
-        lscl->resize(n_allocated_particles / 2.0 + n_total_particles / 2.0);
-    }
+    apply_resize_strategy(&acc, N*elements.size());
 
     leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
 
     apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
-
-    CLL_init<N, T>({ {elements.data(), elements.size()}, {remote_el.data(), remote_el.size()} }, getPosPtrFunc, bbox, cutoff, head, lscl);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
