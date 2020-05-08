@@ -98,7 +98,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     // Resize vector according to the memory strategy
     apply_resize_strategy(&lscl, n_local_particles + n_remote_particles);
     // Update linked-list with the remote data recently gathered
-    CLL_update<N>({remote_el.data(), n_remote_particles}, getPosPtrFunc, bbox, rc, &head, &lscl);
+    CLL_update<N, T>({{remote_el.data(), n_remote_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
     ApplicationTime app_time = 0.0;
     CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes*npframe);
@@ -153,7 +153,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
             n_remote_particles = remote_el.size();
             apply_resize_strategy(&lscl, n_local_particles + n_remote_particles);
-            CLL_update<N>({remote_el.data(), n_remote_particles}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            CLL_update<N, T>({{remote_el.data(), n_remote_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             END_TIMER(other_it);
 
