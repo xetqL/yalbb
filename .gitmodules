@@ -1,0 +1,3 @@
+[submodule "zupply"]
+	path = zupply
+	url = https://github.com/zhreshold/zupply.git
