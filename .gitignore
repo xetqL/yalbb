@@ -3,6 +3,7 @@
 *.ovito
 dataset*
 data/
+Makefile
 
 # Application
 *.out
