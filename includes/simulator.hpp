@@ -51,19 +51,19 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
     auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
     auto getForceFunc       = fWrapper.getForceFunc();
-    size_t n_local_particles= mesh_data->els.size();
+
+    doLoadBalancingFunc(LB, mesh_data);
+    probe->set_balanced(true);
 
     int nproc, rank;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
 
-    doLoadBalancingFunc(LB, mesh_data);
-    probe->set_balanced(true);
-
     const int nframes = params->nframes;
     const int npframe = params->npframe;
 
     SimpleCSVFormatter frame_formater(',');
+
 
     std::vector<T> recv_buf;
     std::ofstream fparticle;
@@ -82,23 +82,19 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     }
 
     std::vector<Time> times(nproc), my_frame_times(nframes);
-    std::vector<Index> lscl(n_local_particles), head;
+    std::vector<Index> lscl(mesh_data->els.size()), head;
     std::vector<Complexity> my_frame_cmplx(nframes);
 
     // Compute my bounding box as function of my local data
     auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
-    // Init the cell linked-list
-    CLL_init<N, T>({{mesh_data->els.data(), n_local_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+    // Init Cell linked-list
+    CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
     // Compute which cells are on my borders
-    auto borders   = get_border_cells_index<N>(LB, bbox, params->rc, &head, boxIntersectFunc, comm);
+    auto borders   = get_border_cells_index<N>(LB,  &head, bbox, params->rc, boxIntersectFunc, comm);
     // Get the ghost data from neighboring processors
     auto remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
-    // Compute useful size variable
-    size_t n_remote_particles = remote_el.size();
-    // Resize vector according to the memory strategy
-    apply_resize_strategy(&lscl, n_local_particles + n_remote_particles);
-    // Update linked-list with the remote data recently gathered
-    CLL_update<N, T>({{remote_el.data(), n_remote_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+    apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
+    CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
     ApplicationTime app_time = 0.0;
     CumulativeLoadImbalanceHistory cum_li_hist; cum_li_hist.reserve(nframes*npframe);
@@ -122,6 +118,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             it_compute_time = *probe->max_it_time();
 
             if(probe->is_balanced()) { probe->update_lb_parallel_efficiencies(); }
+
             bool lb_decision = lb_policy->should_load_balance();
 
             cum_li_hist.push_back(probe->get_cumulative_imbalance_time());
@@ -145,15 +142,14 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             time_hist.push_back(total_time);
 
             START_TIMER(other_it);
-
-            n_local_particles = mesh_data->els.size();
             bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
-            CLL_init<N, T>({{mesh_data->els.data(), n_local_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-            borders   = get_border_cells_index<N>(LB, bbox, params->rc, &head, boxIntersectFunc, comm);
+            apply_resize_strategy(&lscl, mesh_data->els.size());
+            // Init Cell linked-list
+            CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            borders   = get_border_cells_index<N>(LB, &head, bbox, params->rc, boxIntersectFunc, comm);
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
-            n_remote_particles = remote_el.size();
-            apply_resize_strategy(&lscl, n_local_particles + n_remote_particles);
-            CLL_update<N, T>({{remote_el.data(), n_remote_particles}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
+            CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             END_TIMER(other_it);
 

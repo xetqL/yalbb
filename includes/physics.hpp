@@ -70,8 +70,8 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
         while(dim < N) {
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &pos->at(dim), &vel->at(dim));
-            if(simsize-pos->at(dim) <= 0.00000001f)
-                reflect(simsize, &pos->at(dim), &vel->at(dim));
+            if(simsize-pos->at(dim) <= 0.000001f)
+                reflect(simsize-0.000001f, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }
@@ -90,9 +90,20 @@ Complexity nbody_compute_step(
         const Borders& borders,                    // bordering cells and neighboring processors
         const Real cutoff,
         const Real dt,
-        const Real simwidth) {                     // simulation parameters
+        const Real simwidth) {               // simulation parameters
 
-    apply_resize_strategy(&acc, N*elements.size());
+
+    std::fill(acc.begin(), acc.end(), (Real) 0.0);
+
+    const size_t
+          n_local_particles = elements.size(),
+          n_remote_particles= remote_el.size(),
+          n_total_particles = n_local_particles+n_remote_particles,
+          n_allocated_particles= lscl->size(),
+          n_allocated_force_components= acc.size(),
+          n_allocated_cells = head->size();
+
+    apply_resize_strategy(&acc, N*n_local_particles);
 
     leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
 

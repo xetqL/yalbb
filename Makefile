@@ -68,10 +68,10 @@ RM = /snap/cmake/340/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/xetql/ljmpi
+CMAKE_SOURCE_DIR = /home/xetql/yalbb
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/xetql/ljmpi
+CMAKE_BINARY_DIR = /home/xetql/yalbb
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -91,13 +91,24 @@ install/strip/fast: preinstall/fast
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/snap/cmake/340/bin/cmake-gui -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	/snap/cmake/340/bin/ccmake -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
 edit_cache/fast: edit_cache
 
 .PHONY : edit_cache/fast
+
+# Special rule for the target rebuild_cache
+rebuild_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
+	/snap/cmake/340/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : rebuild_cache
+
+# Special rule for the target rebuild_cache
+rebuild_cache/fast: rebuild_cache
+
+.PHONY : rebuild_cache/fast
 
 # Special rule for the target list_install_components
 list_install_components:
@@ -121,17 +132,6 @@ install/local/fast: preinstall/fast
 	/snap/cmake/340/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
 .PHONY : install/local/fast
 
-# Special rule for the target rebuild_cache
-rebuild_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/snap/cmake/340/bin/cmake --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : rebuild_cache
-
-# Special rule for the target rebuild_cache
-rebuild_cache/fast: rebuild_cache
-
-.PHONY : rebuild_cache/fast
-
 # Special rule for the target install
 install: preinstall
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
@@ -146,9 +146,9 @@ install/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/ljmpi/CMakeFiles /home/xetql/ljmpi/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/yalbb/CMakeFiles /home/xetql/yalbb/CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/ljmpi/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/xetql/yalbb/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -177,17 +177,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named yallb
+# Target rules for targets named yalbb
 
 # Build rule for target.
-yallb: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 yallb
-.PHONY : yallb
+yalbb: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 yalbb
+.PHONY : yalbb
 
 # fast build rule for target.
-yallb/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/build
-.PHONY : yallb/fast
+yalbb/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/build
+.PHONY : yalbb/fast
 
 src/coordinate_translater.o: src/coordinate_translater.cpp.o
 
@@ -195,7 +195,7 @@ src/coordinate_translater.o: src/coordinate_translater.cpp.o
 
 # target to build an object file
 src/coordinate_translater.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/coordinate_translater.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/coordinate_translater.cpp.o
 .PHONY : src/coordinate_translater.cpp.o
 
 src/coordinate_translater.i: src/coordinate_translater.cpp.i
@@ -204,7 +204,7 @@ src/coordinate_translater.i: src/coordinate_translater.cpp.i
 
 # target to preprocess a source file
 src/coordinate_translater.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/coordinate_translater.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/coordinate_translater.cpp.i
 .PHONY : src/coordinate_translater.cpp.i
 
 src/coordinate_translater.s: src/coordinate_translater.cpp.s
@@ -213,7 +213,7 @@ src/coordinate_translater.s: src/coordinate_translater.cpp.s
 
 # target to generate assembly for a file
 src/coordinate_translater.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/coordinate_translater.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/coordinate_translater.cpp.s
 .PHONY : src/coordinate_translater.cpp.s
 
 src/ljpotential.o: src/ljpotential.cpp.o
@@ -222,7 +222,7 @@ src/ljpotential.o: src/ljpotential.cpp.o
 
 # target to build an object file
 src/ljpotential.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/ljpotential.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/ljpotential.cpp.o
 .PHONY : src/ljpotential.cpp.o
 
 src/ljpotential.i: src/ljpotential.cpp.i
@@ -231,7 +231,7 @@ src/ljpotential.i: src/ljpotential.cpp.i
 
 # target to preprocess a source file
 src/ljpotential.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/ljpotential.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/ljpotential.cpp.i
 .PHONY : src/ljpotential.cpp.i
 
 src/ljpotential.s: src/ljpotential.cpp.s
@@ -240,7 +240,7 @@ src/ljpotential.s: src/ljpotential.cpp.s
 
 # target to generate assembly for a file
 src/ljpotential.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/ljpotential.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/ljpotential.cpp.s
 .PHONY : src/ljpotential.cpp.s
 
 src/parallel_utils.o: src/parallel_utils.cpp.o
@@ -249,7 +249,7 @@ src/parallel_utils.o: src/parallel_utils.cpp.o
 
 # target to build an object file
 src/parallel_utils.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/parallel_utils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/parallel_utils.cpp.o
 .PHONY : src/parallel_utils.cpp.o
 
 src/parallel_utils.i: src/parallel_utils.cpp.i
@@ -258,7 +258,7 @@ src/parallel_utils.i: src/parallel_utils.cpp.i
 
 # target to preprocess a source file
 src/parallel_utils.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/parallel_utils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/parallel_utils.cpp.i
 .PHONY : src/parallel_utils.cpp.i
 
 src/parallel_utils.s: src/parallel_utils.cpp.s
@@ -267,7 +267,7 @@ src/parallel_utils.s: src/parallel_utils.cpp.s
 
 # target to generate assembly for a file
 src/parallel_utils.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/parallel_utils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/parallel_utils.cpp.s
 .PHONY : src/parallel_utils.cpp.s
 
 src/params.o: src/params.cpp.o
@@ -276,7 +276,7 @@ src/params.o: src/params.cpp.o
 
 # target to build an object file
 src/params.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/params.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/params.cpp.o
 .PHONY : src/params.cpp.o
 
 src/params.i: src/params.cpp.i
@@ -285,7 +285,7 @@ src/params.i: src/params.cpp.i
 
 # target to preprocess a source file
 src/params.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/params.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/params.cpp.i
 .PHONY : src/params.cpp.i
 
 src/params.s: src/params.cpp.s
@@ -294,7 +294,7 @@ src/params.s: src/params.cpp.s
 
 # target to generate assembly for a file
 src/params.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/params.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/params.cpp.s
 .PHONY : src/params.cpp.s
 
 src/physics.o: src/physics.cpp.o
@@ -303,7 +303,7 @@ src/physics.o: src/physics.cpp.o
 
 # target to build an object file
 src/physics.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/physics.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/physics.cpp.o
 .PHONY : src/physics.cpp.o
 
 src/physics.i: src/physics.cpp.i
@@ -312,7 +312,7 @@ src/physics.i: src/physics.cpp.i
 
 # target to preprocess a source file
 src/physics.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/physics.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/physics.cpp.i
 .PHONY : src/physics.cpp.i
 
 src/physics.s: src/physics.cpp.s
@@ -321,7 +321,7 @@ src/physics.s: src/physics.cpp.s
 
 # target to generate assembly for a file
 src/physics.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/physics.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/physics.cpp.s
 .PHONY : src/physics.cpp.s
 
 src/probe.o: src/probe.cpp.o
@@ -330,7 +330,7 @@ src/probe.o: src/probe.cpp.o
 
 # target to build an object file
 src/probe.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/probe.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/probe.cpp.o
 .PHONY : src/probe.cpp.o
 
 src/probe.i: src/probe.cpp.i
@@ -339,7 +339,7 @@ src/probe.i: src/probe.cpp.i
 
 # target to preprocess a source file
 src/probe.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/probe.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/probe.cpp.i
 .PHONY : src/probe.cpp.i
 
 src/probe.s: src/probe.cpp.s
@@ -348,7 +348,7 @@ src/probe.s: src/probe.cpp.s
 
 # target to generate assembly for a file
 src/probe.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/probe.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/probe.cpp.s
 .PHONY : src/probe.cpp.s
 
 src/strategy.o: src/strategy.cpp.o
@@ -357,7 +357,7 @@ src/strategy.o: src/strategy.cpp.o
 
 # target to build an object file
 src/strategy.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/strategy.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/strategy.cpp.o
 .PHONY : src/strategy.cpp.o
 
 src/strategy.i: src/strategy.cpp.i
@@ -366,7 +366,7 @@ src/strategy.i: src/strategy.cpp.i
 
 # target to preprocess a source file
 src/strategy.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/strategy.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/strategy.cpp.i
 .PHONY : src/strategy.cpp.i
 
 src/strategy.s: src/strategy.cpp.s
@@ -375,7 +375,7 @@ src/strategy.s: src/strategy.cpp.s
 
 # target to generate assembly for a file
 src/strategy.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/strategy.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/strategy.cpp.s
 .PHONY : src/strategy.cpp.s
 
 src/utils.o: src/utils.cpp.o
@@ -384,7 +384,7 @@ src/utils.o: src/utils.cpp.o
 
 # target to build an object file
 src/utils.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/utils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/utils.cpp.o
 .PHONY : src/utils.cpp.o
 
 src/utils.i: src/utils.cpp.i
@@ -393,7 +393,7 @@ src/utils.i: src/utils.cpp.i
 
 # target to preprocess a source file
 src/utils.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/utils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/utils.cpp.i
 .PHONY : src/utils.cpp.i
 
 src/utils.s: src/utils.cpp.s
@@ -402,7 +402,7 @@ src/utils.s: src/utils.cpp.s
 
 # target to generate assembly for a file
 src/utils.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/src/utils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/src/utils.cpp.s
 .PHONY : src/utils.cpp.s
 
 zupply/src/zupply.o: zupply/src/zupply.cpp.o
@@ -411,7 +411,7 @@ zupply/src/zupply.o: zupply/src/zupply.cpp.o
 
 # target to build an object file
 zupply/src/zupply.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/zupply/src/zupply.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/zupply/src/zupply.cpp.o
 .PHONY : zupply/src/zupply.cpp.o
 
 zupply/src/zupply.i: zupply/src/zupply.cpp.i
@@ -420,7 +420,7 @@ zupply/src/zupply.i: zupply/src/zupply.cpp.i
 
 # target to preprocess a source file
 zupply/src/zupply.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/zupply/src/zupply.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/zupply/src/zupply.cpp.i
 .PHONY : zupply/src/zupply.cpp.i
 
 zupply/src/zupply.s: zupply/src/zupply.cpp.s
@@ -429,7 +429,7 @@ zupply/src/zupply.s: zupply/src/zupply.cpp.s
 
 # target to generate assembly for a file
 zupply/src/zupply.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/yallb.dir/build.make CMakeFiles/yallb.dir/zupply/src/zupply.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/yalbb.dir/build.make CMakeFiles/yalbb.dir/zupply/src/zupply.cpp.s
 .PHONY : zupply/src/zupply.cpp.s
 
 # Help Target
@@ -444,7 +444,7 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
-	@echo "... yallb"
+	@echo "... yalbb"
 	@echo "... src/coordinate_translater.o"
 	@echo "... src/coordinate_translater.i"
 	@echo "... src/coordinate_translater.s"

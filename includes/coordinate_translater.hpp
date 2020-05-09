@@ -28,7 +28,10 @@ public:
     inline translate_xyz_into_position(std::tuple<Integer, Integer, Integer>&& xyz, const Real rc) {
         return {std::get<0>(xyz) * rc, std::get<1>(xyz) * rc, std::get<2>(xyz) * rc};
     };
-
+    static std::array<Real, 3>
+    inline translate_xyz_into_position(std::array<Integer,3>& xyz, const Real rc) {
+        return {xyz[0] * rc, xyz[1] * rc, xyz[2] * rc};
+    };
 
     template<int N>
     static inline Integer translate_xyz_into_linear_index(const std::tuple<Integer, Integer, Integer> xyz, const BoundingBox<N>& bbox, const Real rc) {
@@ -65,6 +68,14 @@ public:
         for(auto i = 0; i < N; ++i) global_position[i] += bbox[2*i];
         return global_position;
     }
+    template<int N>
+    static std::array<Real, 3>
+    translate_local_xyz_into_position(std::array<Integer, 3>& local_index, const BoundingBox<N>& bbox, const Real rc){
+        auto local_position = CoordinateTranslater::translate_xyz_into_position(local_index, rc);
+        for(auto i = 0; i < N; ++i) local_position[i] += bbox[2*i];
+        return local_position;
+    }
+
     template<int N> static std::array<Integer, N>
     translate_position_into_xyz(const std::array<Real, N>& position, Real rc){
         std::array<Integer, N> ret;
