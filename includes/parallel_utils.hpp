@@ -210,7 +210,7 @@ std::vector<T> exchange_data(
 
     int num_found, num_known = 0;
 
-    std::vector<int> export_gids, export_lids, export_procs;
+    //std::vector<int> export_gids, export_lids, export_procs;
     int cell_cnt = 0;
     for(auto cidx : bordering_cells.bordering_cells) {
         auto p = head->at(cidx);
@@ -220,9 +220,6 @@ std::vector<T> exchange_data(
         }
         cell_cnt++;
     }
-    export_gids.resize(num_known);
-    export_lids.resize(num_known);
-    export_procs.resize(num_known);
 
     cell_cnt = 0;
     num_known = 0;
@@ -232,9 +229,6 @@ std::vector<T> exchange_data(
             for(auto rank : bordering_cells.neighbors.at(cell_cnt)) {
                 if(rank != caller_rank) {
                     const auto& el = data[p];
-                    export_gids[num_known]  = el.gid;
-                    export_lids[num_known]  = el.lid;
-                    export_procs[num_known] = rank;
                     data_to_migrate.at(rank).push_back(el);
                     num_known ++;
                 }
@@ -313,16 +307,16 @@ typename std::vector<T>::const_iterator migrate_data(
     int PE, num_known = 0, num_found;
     std::vector<int> import_from_procs;
     {
-        std::vector<int> export_gids, export_lids, export_procs;
-        export_gids.reserve(nb_elements / wsize);
-        export_lids.reserve(nb_elements / wsize);
-        export_procs.reserve(nb_elements / wsize);
+        //std::vector<int> export_gids, export_lids, export_procs;
+        //export_gids.reserve(nb_elements / wsize);
+        //export_lids.reserve(nb_elements / wsize);
+        //export_procs.reserve(nb_elements / wsize);
         while (data_id < nb_elements) {
             pointAssignFunc(LB, &data.at(data_id), &PE);
             if (PE != caller_rank) {
-                export_gids.push_back(data.at(data_id).gid);
-                export_lids.push_back(data.at(data_id).lid);
-                export_procs.push_back(PE);
+                //export_gids.push_back(data.at(data_id).gid);
+                //export_lids.push_back(data.at(data_id).lid);
+                //export_procs.push_back(PE);
                 //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
                 //swap iterator values in constant time
                 std::iter_swap(data.begin() + data_id, data.end() - 1);
@@ -334,9 +328,9 @@ typename std::vector<T>::const_iterator migrate_data(
                 num_known++;
             } else data_id++; //if the element must stay with me then check the next one
         }
-        export_gids.shrink_to_fit();
-        export_lids.shrink_to_fit();
-        export_procs.shrink_to_fit();
+        //export_gids.shrink_to_fit();
+        //export_lids.shrink_to_fit();
+        //export_procs.shrink_to_fit();
         std::vector<int> sends_to_proc(wsize);
         std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
         import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
