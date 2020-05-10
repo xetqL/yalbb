@@ -172,6 +172,15 @@ template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) { ret
 template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
 template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
+template<int N>
+bool is_within(const BoundingBox<N>& bbox, std::array<Real, N>& xyz){
+    bool within = true;
+    for(int i = 0; i < N; i++){
+        within = within && (bbox[2*i] <= xyz[i]) && (xyz[i] <= bbox[2*i+1]);
+    }
+    return within;
+}
+
 template<int N, class GetPosFunc>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) {}
 
@@ -213,10 +222,10 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
 
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-
+    Real radius = 2.0*rc;
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - rc);
-        new_bbox.at(2*i+1) =  std::ceil(new_bbox.at(2*i+1) / rc) * rc + rc;
+        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - radius);
+        new_bbox.at(2*i+1) = std::ceil(new_bbox.at(2*i+1) / rc) * rc + radius;
     }
 
     return new_bbox;
@@ -226,9 +235,10 @@ template<int N, class GetPosFunc, class... T>
 void update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     update_bbox_for_container<N>(bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
+    Real radius = 4*rc;
     for(int i = 0; i < N; ++i) {
-        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc);
-        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) * rc;
+        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - radius);
+        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) + rc + radius;
     }
 }
 template<int N, class T>

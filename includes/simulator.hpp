@@ -93,6 +93,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     auto borders   = get_border_cells_index<N>(LB,  &head, bbox, params->rc, boxIntersectFunc, comm);
     // Get the ghost data from neighboring processors
     auto remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
+
     apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
     CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
@@ -150,7 +151,6 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             remote_el = get_ghost_data<N>(mesh_data->els, getPosPtrFunc, &head, &lscl, bbox, borders, params->rc, datatype, comm);
             apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
             CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-
             END_TIMER(other_it);
 
             other     += other_it;

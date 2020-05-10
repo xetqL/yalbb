@@ -18,7 +18,7 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
         ,GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr)  {
     int i = 0;
     constexpr Real two = 2.0;
-    constexpr Real maxSpeedPercentage = 0.9;
+    constexpr Real maxSpeedPercentage = 0.5;
     for(auto &el : elements){
         std::array<Real, N>* pos = getPosPtr(&el);//(getPosFunc(el));
         std::array<Real, N>* vel = getVelPtr(&el);//(getVelFunc(el));

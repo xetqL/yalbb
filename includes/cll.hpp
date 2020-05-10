@@ -18,13 +18,15 @@ inline void CLL_update(Integer acc,
                        std::vector<Integer> *lscl) {
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
     Integer c;
-    for(const auto& span : elements){
+    for(const auto& span : elements) {
         auto el_ptr = span.first;
         auto n_els  = span.second;
         for (size_t i = 0; i < n_els; ++i) {
             c = CoordinateTranslater::translate_position_into_local_index<N>(*getPositionFunc(&el_ptr[i]), rc, bbox, lc[0], lc[1]);
-            lscl->at(i + acc) = head->at(c);
-            head->at(c) = i + acc;
+            if(is_within<N>(bbox, *getPositionFunc(&el_ptr[i]))) {
+                lscl->at(i + acc) = head->at(c);
+                head->at(c) = i + acc;
+            }
         }
         acc += n_els;
     }

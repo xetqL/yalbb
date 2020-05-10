@@ -83,37 +83,30 @@ Borders get_border_cells_index3d(
     if(nb_bordering_cells <= 0) return {};
 
     std::vector<Rank> PEs(wsize);
-    std::array<double, N> pos_in_double;
+    std::array<double, 3> pos_in_double;
     Integer border_cell_cnt = 0;
-    std::vector<std::tuple<Integer, Integer, Integer>> border_ids; border_ids.reserve(nb_bordering_cells);
-    for(Integer z = 0; z < lc[2]; ++z) {
-        for (Integer y = 0; y < lc[1]; ++y) {
-            for (Integer x = 0; x < lc[0]; x++) {
-                auto c = CoordinateTranslater::translate_xyz_into_linear_index<N>({x,y,z}, bbox, rc);
-                if(head->at(c) != EMPTY)
-                    border_ids.emplace_back(x,y,z);
+    std::vector<Index> bordering_cell_index;
+    bordering_cell_index.reserve(nb_bordering_cells);
+    std::vector< std::vector<Rank> > neighbors; neighbors.reserve(nb_bordering_cells);
+    double radius = 2.0*rc;
+    for(Index cell_id = 0; cell_id < nb_local_cells; ++cell_id) {
+        if(head->at(cell_id) != -1) {
+            auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
+            put_in_double_array<3>(pos_in_double,
+                                   CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
+            boxIntersectFunc(LB,
+                             pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
+                             pos_in_double.at(2) + rc / 2.0 - radius, pos_in_double.at(0) + rc / 2.0 + radius,
+                             pos_in_double.at(1) + rc / 2.0 + radius, pos_in_double.at(2) + rc / 2.0 + radius,
+                             &PEs.front(), &num_found);
+            if (num_found) {
+                bordering_cell_index.push_back(cell_id);
+                neighbors.push_back(std::vector<Rank>());
+                neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                border_cell_cnt++;
             }
         }
     }
-    std::vector<Index> bordering_cell_index;
-    bordering_cell_index.reserve(border_ids.size());
-    std::vector< std::vector<Rank> > neighbors(border_ids.size());
-    std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
-    for(auto& xyz : border_ids) {
-        Index cell_id = CoordinateTranslater::translate_xyz_into_linear_index<N>(xyz, bbox, rc);
-        put_in_double_array<N>(pos_in_double, CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
-        boxIntersectFunc(LB,
-                pos_in_double.at(0) + rc/2.0 - rc, pos_in_double.at(1) + rc/2.0 - rc,
-                pos_in_double.at(2) + rc/2.0 - rc, pos_in_double.at(0) + rc/2.0 + rc,
-                pos_in_double.at(1) + rc/2.0 + rc, pos_in_double.at(2) + rc/2.0 + rc,
-                &PEs.front(), &num_found);
-        if(num_found) {
-            bordering_cell_index.push_back(cell_id);
-            neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
-            border_cell_cnt++;
-        }
-    }
-
     return {neighbors, bordering_cell_index};
 }
 
@@ -141,40 +134,31 @@ Borders get_border_cells_index2d(
 
     // If I have no bordering cell (impossible, but we never know (: )
     if(nb_bordering_cells <= 0) return {};
-
     std::vector<Rank> PEs(wsize);
-
     std::array<double, 3> pos_in_double;
     Integer border_cell_cnt = 0;
-    auto lcxy = get_total_cell_number<N>(bbox, rc);
-
     std::vector<Index> bordering_cell_index;
     bordering_cell_index.reserve(nb_bordering_cells);
     std::vector< std::vector<Rank> > neighbors; neighbors.reserve(nb_bordering_cells);
-    //std::for_each(neighbors.begin(), neighbors.end(), [](auto& vec){vec.reserve(10);});
-    double radius = rc;
-
+    double radius = rc/2.0+rc;
     for(Index cell_id = 0; cell_id < nb_local_cells; ++cell_id) {
-        if(head->at(cell_id) == -1) continue;
-        auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
-        put_in_double_array<3>(pos_in_double,
-                               CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
-        boxIntersectFunc(LB,
-                         pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
-                         0.0, pos_in_double.at(0) + rc / 2.0 + radius,
-                         pos_in_double.at(1) + rc / 2.0 + radius, 0.0,
-                         &PEs.front(), &num_found);
-
-        if (num_found) {
-            bordering_cell_index.push_back(cell_id);
-            neighbors.push_back({});
-            neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
-            border_cell_cnt++;
+        if(head->at(cell_id) != -1){
+            auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
+            put_in_double_array<3>(pos_in_double,
+                                   CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
+            boxIntersectFunc(LB,
+                             pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
+                             0.0, pos_in_double.at(0) + rc / 2.0 + radius,
+                             pos_in_double.at(1) + rc / 2.0 + radius, 0.0,
+                             &PEs.front(), &num_found);
+            if (num_found) {
+                bordering_cell_index.push_back(cell_id);
+                neighbors.push_back({});
+                neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                border_cell_cnt++;
+            }
         }
-
     }
-
-
     return {neighbors, bordering_cell_index};
 }
 template<int N, class LoadBalancer, class BoxIntersectFunc>
