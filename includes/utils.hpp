@@ -208,7 +208,7 @@ template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t minimum
 }
 
 template<int N, class GetPosFunc, class... T>
-BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementContainers){
+BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     BoundingBox<N> new_bbox;
 
     if constexpr (N==3) {
@@ -222,10 +222,10 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
 
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-    Real radius = 2.0*rc;
+    Real radius = rc;
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - radius);
-        new_bbox.at(2*i+1) = std::ceil(new_bbox.at(2*i+1) / rc) * rc + radius;
+        new_bbox.at(2*i+1) = std::min((Real)simwidth, std::ceil(new_bbox.at(2*i) / rc)  * rc + radius);
     }
 
     return new_bbox;

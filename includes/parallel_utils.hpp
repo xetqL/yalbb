@@ -88,16 +88,19 @@ Borders get_border_cells_index3d(
     std::vector<Index> bordering_cell_index;
     bordering_cell_index.reserve(nb_bordering_cells);
     std::vector< std::vector<Rank> > neighbors; neighbors.reserve(nb_bordering_cells);
-    double radius = 2.0*rc;
+    double radius = 1.5*rc;
     for(Index cell_id = 0; cell_id < nb_local_cells; ++cell_id) {
         if(head->at(cell_id) != -1) {
             auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
             put_in_double_array<3>(pos_in_double,
                                    CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
             boxIntersectFunc(LB,
-                             pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
-                             pos_in_double.at(2) + rc / 2.0 - radius, pos_in_double.at(0) + rc / 2.0 + radius,
-                             pos_in_double.at(1) + rc / 2.0 + radius, pos_in_double.at(2) + rc / 2.0 + radius,
+                             pos_in_double.at(0) + rc / 2.0 - radius,
+                             pos_in_double.at(1) + rc / 2.0 - radius,
+                             pos_in_double.at(2) + rc / 2.0 - radius,
+                             pos_in_double.at(0) + rc / 2.0 + radius,
+                             pos_in_double.at(1) + rc / 2.0 + radius,
+                             pos_in_double.at(2) + rc / 2.0 + radius,
                              &PEs.front(), &num_found);
             if (num_found) {
                 bordering_cell_index.push_back(cell_id);

@@ -86,7 +86,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
     std::vector<Complexity> my_frame_cmplx(nframes);
 
     // Compute my bounding box as function of my local data
-    auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+    auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els);
     // Init Cell linked-list
     CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
     // Compute which cells are on my borders
@@ -143,7 +143,7 @@ std::tuple<ApplicationTime, CumulativeLoadImbalanceHistory, Decisions, TimeHisto
             time_hist.push_back(total_time);
 
             START_TIMER(other_it);
-            bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+            bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els);
             apply_resize_strategy(&lscl, mesh_data->els.size());
             // Init Cell linked-list
             CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
