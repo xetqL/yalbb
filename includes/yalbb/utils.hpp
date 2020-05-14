@@ -232,7 +232,7 @@ BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T
 
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-    Real radius = rc;
+    Real radius = 2.0*rc;
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius);
         new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;
