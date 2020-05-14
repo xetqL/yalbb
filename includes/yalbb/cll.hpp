@@ -22,8 +22,9 @@ inline void CLL_update(Integer acc,
         auto el_ptr = span.first;
         auto n_els  = span.second;
         for (size_t i = 0; i < n_els; ++i) {
-            c = CoordinateTranslater::translate_position_into_local_index<N>(*getPositionFunc(&el_ptr[i]), rc, bbox, lc[0], lc[1]);
-            if(is_within<N>(bbox, *getPositionFunc(&el_ptr[i]))) {
+            auto& pos = *getPositionFunc(&el_ptr[i]);
+            c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
+            if(is_within<N>(bbox, pos)) {
                 lscl->at(i + acc) = head->at(c);
                 head->at(c) = i + acc;
             }

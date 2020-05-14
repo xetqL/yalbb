@@ -88,7 +88,7 @@ Borders get_border_cells_index3d(
     std::vector<Index> bordering_cell_index;
     bordering_cell_index.reserve(nb_bordering_cells);
     std::vector< std::vector<Rank> > neighbors; neighbors.reserve(nb_bordering_cells);
-    double radius = 1.5*rc;
+    double radius = 10.0*rc;
     for(Index cell_id = 0; cell_id < nb_local_cells; ++cell_id) {
         if(head->at(cell_id) != -1) {
             auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
@@ -104,10 +104,10 @@ Borders get_border_cells_index3d(
                              &PEs.front(), &num_found);
             if (num_found) {
                 bordering_cell_index.push_back(cell_id);
-                neighbors.push_back(std::vector<Rank>());
-                neighbors.at(border_cell_cnt).assign(PEs.begin(), PEs.begin() + num_found);
+                neighbors.emplace_back(PEs.begin(), PEs.begin() + num_found);
                 border_cell_cnt++;
             }
+            std::fill(PEs.begin(), PEs.end(), 0);
         }
     }
     return {neighbors, bordering_cell_index};
@@ -130,7 +130,6 @@ Borders get_border_cells_index2d(
     if (wsize == 1) return {};
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
 
-
     // number of bordering cell in 3D is xyz - (x-2)(y-2)(z-2)
     int nb_local_cells     = std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p*v;});
     int nb_bordering_cells = std::min(nb_local_cells, nb_local_cells - std::accumulate(lc.cbegin(), lc.cend(), 1, [](auto p, auto v){return p * (v-2);}));
@@ -143,17 +142,19 @@ Borders get_border_cells_index2d(
     std::vector<Index> bordering_cell_index;
     bordering_cell_index.reserve(nb_bordering_cells);
     std::vector< std::vector<Rank> > neighbors; neighbors.reserve(nb_bordering_cells);
-    double radius = rc/2.0+rc;
+    double radius = 5.0*rc;
     for(Index cell_id = 0; cell_id < nb_local_cells; ++cell_id) {
         if(head->at(cell_id) != -1){
             auto xyz = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(cell_id, lc[0], lc[1]);
             put_in_double_array<3>(pos_in_double,
                                    CoordinateTranslater::translate_local_xyz_into_position<N>(xyz, bbox, rc));
             boxIntersectFunc(LB,
-                             pos_in_double.at(0) + rc / 2.0 - radius, pos_in_double.at(1) + rc / 2.0 - radius,
-                             0.0, pos_in_double.at(0) + rc / 2.0 + radius,
-                             pos_in_double.at(1) + rc / 2.0 + radius, 0.0,
-                             &PEs.front(), &num_found);
+                             pos_in_double.at(0) + rc / 2.0 - radius,
+                             pos_in_double.at(1) + rc / 2.0 - radius,
+                             0.0,
+                             pos_in_double.at(0) + rc / 2.0 + radius,
+                             pos_in_double.at(1) + rc / 2.0 + radius,
+                             0.0, &PEs.front(), &num_found);
             if (num_found) {
                 bordering_cell_index.push_back(cell_id);
                 neighbors.push_back({});
@@ -177,7 +178,7 @@ Borders get_border_cells_index(
     MPI_Comm_size(comm, &size);
     if(size == 1) return {};
 
-    if constexpr(N==3){
+    if constexpr(N==3) {
         return get_border_cells_index3d<LoadBalancer, BoxIntersectFunc>(LB, head, bbox, rc, boxIntersectFunc, comm);
     } else {
         return get_border_cells_index2d<LoadBalancer, BoxIntersectFunc>(LB, head, bbox, rc, boxIntersectFunc, comm);
@@ -211,21 +212,8 @@ std::vector<T> exchange_data(
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
-    int num_found, num_known = 0;
+    int num_found, num_known = 0, cell_cnt = 0;
 
-    //std::vector<int> export_gids, export_lids, export_procs;
-    int cell_cnt = 0;
-    for(auto cidx : bordering_cells.bordering_cells) {
-        auto p = head->at(cidx);
-        while(p != -1) {
-            num_known += bordering_cells.neighbors.at(cell_cnt).size();
-            p = lscl->at(p);
-        }
-        cell_cnt++;
-    }
-
-    cell_cnt = 0;
-    num_known = 0;
     for(auto cidx : bordering_cells.bordering_cells){
         auto p = head->at(cidx);
         while(p != -1){
@@ -310,16 +298,10 @@ typename std::vector<T>::const_iterator migrate_data(
     int PE, num_known = 0, num_found;
     std::vector<int> import_from_procs;
     {
-        //std::vector<int> export_gids, export_lids, export_procs;
-        //export_gids.reserve(nb_elements / wsize);
-        //export_lids.reserve(nb_elements / wsize);
-        //export_procs.reserve(nb_elements / wsize);
+
         while (data_id < nb_elements) {
             pointAssignFunc(LB, &data.at(data_id), &PE);
             if (PE != caller_rank) {
-                //export_gids.push_back(data.at(data_id).gid);
-                //export_lids.push_back(data.at(data_id).lid);
-                //export_procs.push_back(PE);
                 //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
                 //swap iterator values in constant time
                 std::iter_swap(data.begin() + data_id, data.end() - 1);
@@ -384,7 +366,7 @@ typename std::vector<T>::const_iterator migrate_data(
 }
 
 template<class T>
-inline void gather_elements_on(const int world_size,
+inline std::vector<int> gather_elements_on(const int world_size,
                                const int my_rank,
                                const int nb_elements,
                                const std::vector<T> &local_el,
@@ -393,14 +375,22 @@ inline void gather_elements_on(const int world_size,
                                const MPI_Datatype &sendtype,
                                const MPI_Comm &comm) {
     int nlocal = local_el.size();
+    std::vector<int> el_rank(nlocal, my_rank);
     std::vector<int> counts(world_size, 0), displs(world_size, 0);
     MPI_Gather(&nlocal, 1, MPI_INT, &counts.front(), 1, MPI_INT, dest_rank, comm);
     for (int cpt = 0; cpt < world_size; ++cpt) displs[cpt] = cpt == 0 ? 0 : displs[cpt - 1] + counts[cpt - 1];
     if (my_rank == dest_rank) dest_el.resize(nb_elements);
+    if (my_rank == dest_rank) el_rank.resize(nb_elements);
+    std::vector<int> all_el_rank(nb_elements);
     MPI_Gatherv(&local_el.front(), nlocal, sendtype,
                 &dest_el.front(),
                 &counts.front(),
                 &displs.front(), sendtype, dest_rank, comm);
+    MPI_Gatherv(&el_rank.front(), nlocal, MPI_INT,
+                &all_el_rank.front(),
+                &counts.front(),
+                &displs.front(), MPI_INT, dest_rank, comm);
+    return all_el_rank;
 }
 
 template<int N, class T, class GetPosFunc>
@@ -415,5 +405,93 @@ std::vector<T> get_ghost_data(
     if(s == 1) return {};
     auto remote_el = exchange_data<T>(els, head, lscl, borders, datatype, comm, r, s);
     return remote_el;
+}
+template<int N, class T, class LB, class GetPosFunc, class BoxIntersectFunc>
+std::vector<T> get_ghost_data(
+        LB* lb,
+        std::vector<T>& data,
+        GetPosFunc getPosPtrFunc,
+        BoxIntersectFunc boxIntersect,
+        Real rc,
+        MPI_Datatype datatype, MPI_Comm LB_COMM) {
+        const auto nb_elements = data.size();
+
+        int wsize, caller_rank;
+        MPI_Comm_size(LB_COMM, &wsize);
+        MPI_Comm_rank(LB_COMM, &caller_rank);
+
+        std::vector<T> buffer;
+        std::vector<T> remote_data_gathered;
+
+        if (wsize == 1)
+            return remote_data_gathered;
+
+        std::vector<std::vector<T > > data_to_migrate(wsize);
+        std::for_each(data_to_migrate.begin(), data_to_migrate.end(), [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+
+        int num_found, num_known = 0, cell_cnt = 0;
+        std::array<double, 3> pos_in_double;
+        double radius = rc;
+        std::vector<int> PEs(wsize);
+        for(size_t i = 0; i < nb_elements; ++i) {
+            auto& element = data.at(i);
+            put_in_3d_double_array<N>(pos_in_double, *getPosPtrFunc(&element));
+            boxIntersect(lb, pos_in_double.at(0) - radius,
+                             pos_in_double.at(1) - radius,
+                             pos_in_double.at(2) - radius,
+                             pos_in_double.at(0) + radius,
+                             pos_in_double.at(1) + radius,
+                             pos_in_double.at(2) + radius,
+                             &PEs.front(), &num_found);
+            for(int j = 0; j < num_found; ++j) {
+                if(PEs[j] != caller_rank) {
+                    data_to_migrate.at(PEs[j]).push_back(element);
+                }
+            }
+        }
+
+        std::vector<int> sends_to_proc(wsize);
+        std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
+
+        auto import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
+
+        int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
+        int cpt = 0;
+
+        // Send the data to neighbors
+        std::vector<MPI_Request> reqs(nb_reqs);
+        for (size_t PE = 0; PE < wsize; PE++) {
+            int send_size = data_to_migrate.at(PE).size();
+            if (send_size && PE != caller_rank) {
+                MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 400, LB_COMM, &reqs[cpt]);
+                cpt++;
+            }
+        }
+
+        // Import the data from neighbors
+        remote_data_gathered.reserve(num_found);
+        int recv_count = import_from_procs.size();
+        MPI_Status status;
+        int size;
+        auto total_recv = 0;
+        while(recv_count) {
+            // Probe for next incoming message
+            MPI_Probe(MPI_ANY_SOURCE, 400, LB_COMM, &status);
+            // Get message size
+            MPI_Get_count(&status, datatype, &size);
+            // Resize buffer if needed
+            if(buffer.capacity() < size) buffer.reserve(size);
+            // Receive data
+            MPI_Recv(buffer.data(), size, datatype, status.MPI_SOURCE, 400, LB_COMM, MPI_STATUS_IGNORE);
+            // Move to my data
+            std::move(buffer.begin(), buffer.begin()+size, std::back_inserter(remote_data_gathered));
+            // One less message to recover
+            recv_count--;
+        }
+
+        MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
+
+        return remote_data_gathered;
+
 }
 #endif //NBMPI_PARALLEL_UTILS_HPP

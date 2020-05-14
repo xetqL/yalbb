@@ -87,10 +87,9 @@ Complexity nbody_compute_step(
         std::vector<Integer> *lscl,                // the particle linked list
         BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
         GetForceFunc getForceFunc,                 // function to compute force between entities
-        const Borders& borders,                    // bordering cells and neighboring processors
         const Real cutoff,
         const Real dt,
-        const Real simwidth) {               // simulation parameters
+        const Real simwidth) {                     // simulation parameters
 
 
     std::fill(acc.begin(), acc.end(), (Real) 0.0);

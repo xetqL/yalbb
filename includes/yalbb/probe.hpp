@@ -33,13 +33,14 @@ public:
     Time get_sum_it() const;
 
     Time  get_cumulative_imbalance_time() const;
-
+    Time compute_load_imbalance() { return (get_max_it()/get_avg_it() - 1.0); }
     Time* sum_it_time();
     void  push_load_balancing_time(Time lb_time);
     void  push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency);
     void update_lb_parallel_efficiencies();
 
     Real compute_avg_lb_parallel_efficiency();
+    Real get_current_parallel_efficiency();
 
     void next_iteration();
 

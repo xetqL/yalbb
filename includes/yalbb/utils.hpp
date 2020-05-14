@@ -116,6 +116,16 @@ inline void put_in_double_array(std::array<double, N>& double_array, const std::
         double_array[2] = real_array[2];
 }
 
+template<int N>
+inline void put_in_3d_double_array(std::array<double, 3>& double_array, const std::array<Real, N>& real_array){
+    double_array[0] = real_array[0];
+    double_array[1] = real_array[1];
+    if constexpr (N==3)
+        double_array[2] = real_array[2];
+    else
+        double_array[2] = 0.0;
+}
+
 template<int N, class F>
 inline void map(std::array<double, N>& double_array, F f){
     double_array[0] = f(double_array[0]);
@@ -140,7 +150,7 @@ template <typename T, size_t N> std::ostream& operator<<(std::ostream& os, const
     for (int i = 0; i < N; ++i) {
         os << v[i];
         if (i != v.size() - 1)
-            os << " ";
+            os << ",";
     }
     return os;
 }
@@ -224,23 +234,25 @@ BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     Real radius = rc;
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real)0.0, std::floor(new_bbox.at(2*i) / rc)  * rc - radius);
-        new_bbox.at(2*i+1) = std::min((Real)simwidth, std::ceil(new_bbox.at(2*i) / rc)  * rc + radius);
+        new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius);
+        new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;
     }
 
     return new_bbox;
 }
-
+/*
 template<int N, class GetPosFunc, class... T>
 void update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     update_bbox_for_container<N>(bbox, getPosFunc, elementContainers...);
-    /* hook to grid, resulting bbox is divisible by lc[i] forall i */
+    // hook to grid, resulting bbox is divisible by lc[i] forall i
     Real radius = 4*rc;
     for(int i = 0; i < N; ++i) {
         bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - radius);
         bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) + rc + radius;
     }
 }
+*/
+/*
 template<int N, class T>
 void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
     while(begin != end){
@@ -255,13 +267,12 @@ void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
         begin++;
     }
 
-    /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     for(int i = 0; i < N; ++i) {
         bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - rc);
         bbox.at(2*i+1) =  std::ceil(bbox.at(2*i+1) / rc)* rc + rc;
     }
 }
-
+*/
 template<int N>
 inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
     std::array<Integer, N> lc;
