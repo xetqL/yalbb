@@ -232,7 +232,7 @@ BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T
 
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-    Real radius = 2.0*rc;
+    Real radius = 2.0 * rc;
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius);
         new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;
@@ -240,39 +240,7 @@ BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T
 
     return new_bbox;
 }
-/*
-template<int N, class GetPosFunc, class... T>
-void update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
-    update_bbox_for_container<N>(bbox, getPosFunc, elementContainers...);
-    // hook to grid, resulting bbox is divisible by lc[i] forall i
-    Real radius = 4*rc;
-    for(int i = 0; i < N; ++i) {
-        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - radius);
-        bbox.at(2*i+1) = std::ceil(bbox.at(2*i+1) / rc) + rc + radius;
-    }
-}
-*/
-/*
-template<int N, class T>
-void add_to_bounding_box(BoundingBox<N>& bbox, Real rc, T begin, T end){
-    while(begin != end){
-        bbox[0] = std::min(bbox.at(0), (*begin).position.at(0));
-        bbox[1] = std::max(bbox.at(1), (*begin).position.at(0));
-        bbox[2] = std::min(bbox.at(2), (*begin).position.at(1));
-        bbox[3] = std::max(bbox.at(3), (*begin).position.at(1));
-        if constexpr (N==3) {
-            bbox[4] = std::min(bbox.at(4), (*begin).position.at(2));
-            bbox[5] = std::max(bbox.at(5), (*begin).position.at(2));
-        }
-        begin++;
-    }
 
-    for(int i = 0; i < N; ++i) {
-        bbox.at(2*i)   = std::max((Real)0.0, std::floor(bbox.at(2*i) / rc)  * rc - rc);
-        bbox.at(2*i+1) =  std::ceil(bbox.at(2*i+1) / rc)* rc + rc;
-    }
-}
-*/
 template<int N>
 inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
     std::array<Integer, N> lc;

@@ -65,7 +65,6 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
     for (size_t i = 0; i < n_elements; ++i) {
         const auto& pos = *getPosFunc(const_cast<T*>(&elements[i]));
         receiver = &elements[i];
-        //ic = CoordinateTranslater::translate_linear_index_into_xyz_array<3>(c, lc[0], lc[1]);
         for(int d = 0; d < 3; ++d)
             ic[d] = (pos[d]-bbox[2*d]) / rc;
 
