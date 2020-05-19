@@ -114,10 +114,13 @@ void simulate(
             }
 
             START_TIMER(it_compute_time);
+            apply_resize_strategy(&lscl, mesh_data->els.size());
             auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els);
+
             CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
+
             CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             nbody_compute_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
             END_TIMER(it_compute_time);
