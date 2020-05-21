@@ -95,11 +95,13 @@ void simulate(
     }
     auto nb_cell_estimation = std::pow(simsize / rc, 3.0)  / nproc;
     std::vector<Index> lscl(mesh_data->els.size()), head(nb_cell_estimation);
+    std::vector<Real> flocal(mesh_data->els.size(), (Real) 0.0);
     Time it_time = 0.0;
-    MPI_Barrier(comm);
+
     for (int frame = 0; frame < nframes; ++frame) {
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
         for (int i = 0; i < npframe; ++i) {
+
             it_time = 0.0;
 
             bool lb_decision = lb_policy->should_load_balance();
@@ -114,13 +116,15 @@ void simulate(
             }
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-            START_TIMER(it_compute_time);
+            PAR_START_TIMER(it_compute_time, comm);
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els, remote_el);
-            apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
-            CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}, {remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-            nbody_compute_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
-            END_TIMER(it_compute_time);
+            const auto nlocal = mesh_data->els.size(), nremote = remote_el.size();
+            apply_resize_strategy(&lscl,   nlocal + nremote );
+            apply_resize_strategy(&flocal, N*nlocal);
+            CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
+            PAR_END_TIMER(it_compute_time, comm);
 
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 

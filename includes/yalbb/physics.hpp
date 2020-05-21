@@ -9,10 +9,6 @@
 #include "parallel_utils.hpp"
 #include "cll.hpp"
 
-namespace {
-    std::vector<Real> acc;
-}
-
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, std::vector<T>& elements
         ,GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr)  {
@@ -79,6 +75,7 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
 
 template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
 Complexity nbody_compute_step(
+        std::vector<Real>& flocal,
         std::vector<T>& elements,
         std::vector<T>& remote_el,
         SetPosFunc getPosPtrFunc,                  // function to get force of an entity
@@ -91,26 +88,15 @@ Complexity nbody_compute_step(
         const Real dt,
         const Real simwidth) {                     // simulation parameters
 
+    std::fill(flocal.begin(), flocal.end(), (Real) 0.0);
 
-    std::fill(acc.begin(), acc.end(), (Real) 0.0);
-
-    const size_t
-          n_local_particles = elements.size(),
-          n_remote_particles= remote_el.size(),
-          n_total_particles = n_local_particles+n_remote_particles,
-          n_allocated_particles= lscl->size(),
-          n_allocated_force_components= acc.size(),
-          n_allocated_cells = head->size();
-
-    apply_resize_strategy(&acc, N*n_local_particles);
-
-    leapfrog1<N, T>(dt, cutoff, acc, elements, getPosPtrFunc, getVelPtrFunc);
+    leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 
     apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
 
-    Complexity cmplx = CLL_compute_forces<N, T>(&acc, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
+    Complexity cmplx = CLL_compute_forces<N, T>(&flocal, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
-    leapfrog2<N, T>(dt, acc, elements, getVelPtrFunc);
+    leapfrog2<N, T>(dt, flocal, elements, getVelPtrFunc);
 
     return cmplx;
 };

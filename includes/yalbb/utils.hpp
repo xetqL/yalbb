@@ -212,12 +212,13 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, 
 
 }
 
-template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t minimum_size){
+template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t minimum_size) {
     size_t actual_size = vec->size();
     if(actual_size < minimum_size) {
-        vec->resize(minimum_size);
-    } else if(actual_size >= 2.0 * minimum_size) {
-        vec->resize(actual_size / 2.0 + minimum_size / 2.0);
+        vec->resize(2*minimum_size);
+    } else if(actual_size >= 4.0 * minimum_size) {
+        vec->resize(actual_size / 2);
+        vec->shrink_to_fit();
     }
 }
 
