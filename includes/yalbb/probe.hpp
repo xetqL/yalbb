@@ -9,7 +9,7 @@
 
 class Probe {
     int current_iteration = 0;
-    Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0;
+    Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0, lb_imbalance_baseline = 0;
     std::vector<Time> lb_times;
     std::vector<Real> lb_parallel_efficiencies;
     bool balanced = true;
@@ -18,8 +18,8 @@ class Probe {
 public:
     unsigned int batch_id = 0;
     Probe(int nproc);
-    void  update_cumulative_imbalance_time() ;
-    void   reset_cumulative_imbalance_time() ;
+    void  update_cumulative_imbalance_time();
+    void   reset_cumulative_imbalance_time();
     Time  compute_avg_lb_time();
     Time* max_it_time() ;
     Time* min_it_time() ;

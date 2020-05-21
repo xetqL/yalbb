@@ -62,11 +62,10 @@ void simulate(
     const int nframes = params->nframes;
     const int npframe = params->npframe;
 
-    SimpleCSVFormatter frame_formater(',');
-
     std::vector<T> recv_buf;
     std::ofstream fparticle, fimbalance, ftime, fefficiency, flbit, flbcost;
     std::string monitoring_files_folder = "logs/"+output_names_prefix+std::to_string(params->seed)+"/monitoring";
+
     if(!rank) {
         std::filesystem::create_directories(monitoring_files_folder);
         fimbalance.open(monitoring_files_folder+"/imbalance.txt");
@@ -102,6 +101,7 @@ void simulate(
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
         for (int i = 0; i < npframe; ++i) {
             it_time = 0.0;
+
             bool lb_decision = lb_policy->should_load_balance();
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
@@ -112,15 +112,14 @@ void simulate(
                 probe->reset_cumulative_imbalance_time();
                 it_time += lb_time_spent;
             }
+            probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
             START_TIMER(it_compute_time);
-
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els, remote_el);
             apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
             CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}, {remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             nbody_compute_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
-
             END_TIMER(it_compute_time);
 
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
@@ -142,7 +141,6 @@ void simulate(
                 if(lb_decision) flbcost << probe->compute_avg_lb_time() << " " << std::endl;
             }
 
-            probe->set_balanced(lb_decision);
             probe->next_iteration();
         }
         if (params->record) {

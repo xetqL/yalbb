@@ -7,7 +7,10 @@
 
 Probe::Probe(int nproc) : nproc(nproc) {}
 
-void  Probe::update_cumulative_imbalance_time() { cumulative_imbalance_time += max_it - sum_it/nproc; }
+void  Probe::update_cumulative_imbalance_time() {
+    if(is_balanced()) lb_imbalance_baseline = (max_it - (sum_it/nproc));
+    cumulative_imbalance_time += ((max_it - (sum_it/nproc)) - lb_imbalance_baseline);
+} //max - avg
 void  Probe::reset_cumulative_imbalance_time() { cumulative_imbalance_time = 0.0; }
 Time  Probe::compute_avg_lb_time() { return lb_times.size() == 0 ? 0.0 : std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
 Time* Probe::max_it_time() { return &max_it; }
@@ -16,9 +19,11 @@ Time* Probe::min_it_time() { return &min_it; }
 void Probe::set_balanced(bool lb_status) {
     Probe::balanced = lb_status;
 }
+
 Real Probe::get_efficiency() {
     return get_avg_it() / get_max_it();
 }
+
 bool Probe::is_balanced() const {
     return balanced;
 }
@@ -26,7 +31,7 @@ bool Probe::is_balanced() const {
 int Probe::get_current_iteration() const {
     return current_iteration;
 }
-Time  Probe::get_avg_it() {
+Time Probe::get_avg_it() {
     return sum_it/nproc;
 }
 
