@@ -18,6 +18,10 @@
 #include <random>
 #include <cstring>
 
+#ifdef DEBUG
+#define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<<__LINE__<< " = " << (x) << std::endl;
+#endif
+
 inline std::string get_date_as_string();
 bool file_exists(const std::string fileName);
 std::vector<std::string> split(const std::string &s, char delimiter);

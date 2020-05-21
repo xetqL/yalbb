@@ -84,7 +84,7 @@ void simulate(
             fparticle.open("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particle.csv.0");
             std::stringstream str;
             str << "x coord,y coord";
-            if constexpr(N==3) str << ",z coord";
+            if constexpr (N==3) str << ",z coord";
             str << ",rank" << std::endl;
             //write_frame_data<N>(str, recv_buf, [](auto& e){return e.position;}, frame_formater);
             for(int i = 0; i < params->npart; i++){
@@ -94,7 +94,7 @@ void simulate(
             fparticle.close();
         }
     }
-    Real nb_cell_estimation = ((simsize / rc) *  (simsize / rc) *  (simsize / rc)) / nproc;
+    auto nb_cell_estimation = std::pow(simsize / rc, 3.0)  / nproc;
     std::vector<Index> lscl(mesh_data->els.size()), head(nb_cell_estimation);
     Time it_time = 0.0;
     MPI_Barrier(comm);
@@ -114,15 +114,13 @@ void simulate(
             }
 
             START_TIMER(it_compute_time);
-            apply_resize_strategy(&lscl, mesh_data->els.size());
-            auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els);
 
-            CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
+            auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els, remote_el);
             apply_resize_strategy(&lscl, mesh_data->els.size() + remote_el.size() );
-
-            CLL_update<N, T>(mesh_data->els.size(), {{remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            CLL_init<N, T>({{mesh_data->els.data(), mesh_data->els.size()}, {remote_el.data(), remote_el.size()}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             nbody_compute_step<N>(mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
+
             END_TIMER(it_compute_time);
 
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
