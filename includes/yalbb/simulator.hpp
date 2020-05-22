@@ -94,16 +94,19 @@ void simulate(
         }
     }
     auto nb_cell_estimation = std::pow(simsize / rc, 3.0)  / nproc;
-    std::vector<Index> lscl(mesh_data->els.size()), head(nb_cell_estimation);
-    std::vector<Real> flocal(mesh_data->els.size(), (Real) 0.0);
+    std::vector<Index> lscl, head;
+    std::vector<Real> flocal;
+
+    apply_resize_strategy(&lscl,     mesh_data->els.size());
+    apply_resize_strategy(&flocal, N*mesh_data->els.size());
+    apply_resize_strategy(&head,     nb_cell_estimation);
+
     Time it_time = 0.0;
 
     for (int frame = 0; frame < nframes; ++frame) {
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
         for (int i = 0; i < npframe; ++i) {
-
             it_time = 0.0;
-
             bool lb_decision = lb_policy->should_load_balance();
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
@@ -114,13 +117,14 @@ void simulate(
                 probe->reset_cumulative_imbalance_time();
                 it_time += lb_time_spent;
             }
+
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
             PAR_START_TIMER(it_compute_time, comm);
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
-            auto bbox      = get_bounding_box<N>(params->simsize, params->rc, getPosPtrFunc, mesh_data->els, remote_el);
-            const auto nlocal = mesh_data->els.size(), nremote = remote_el.size();
-            apply_resize_strategy(&lscl,   nlocal + nremote );
+            auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
+            const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
+            apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
             nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
@@ -134,15 +138,16 @@ void simulate(
             MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
 
             probe->update_cumulative_imbalance_time();
-            it_time += *probe->max_it_time();
             probe->update_lb_parallel_efficiencies();
 
+            it_time += *probe->max_it_time();
+
             if(!rank) {
-                fimbalance << probe->compute_load_imbalance() << " " << std::endl;
-                ftime << it_time << " " << std::endl;
-                fefficiency << probe->get_current_parallel_efficiency() << " " << std::endl;
-                if(lb_decision) flbit << ((i+1)+frame*npframe) << " " << std::endl;
-                if(lb_decision) flbcost << probe->compute_avg_lb_time() << " " << std::endl;
+                fimbalance << probe->compute_load_imbalance() << std::endl;
+                ftime << it_time << std::endl;
+                fefficiency << probe->get_current_parallel_efficiency()   << std::endl;
+                if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
+                if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
             }
 
             probe->next_iteration();

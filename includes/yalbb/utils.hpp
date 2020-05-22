@@ -208,34 +208,36 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, 
         }
     }
     update_bbox_for_container<N>(new_bbox, getPosFunc, rest...);
-
-
 }
 
-template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t minimum_size) {
-    size_t actual_size = vec->size();
-    if(actual_size < minimum_size) {
-        vec->resize(2*minimum_size);
-    } else if(actual_size >= 4.0 * minimum_size) {
-        vec->resize(actual_size / 2);
-        vec->shrink_to_fit();
+template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t required_size) {
+    auto current_size = vec->size();
+    auto current_capacity = vec->capacity();
+
+    if(current_size < required_size) {
+        vec->reserve(2 * required_size);   // the capacity is twice the req size
+    } else if(current_capacity >= 4.0 * required_size) {
+        vec->resize(current_capacity / 2); // resize to 2*req size
+        vec->shrink_to_fit();              // shrink to fit to 2*req size
     }
+    vec->resize(required_size);            // the size is the one we needed
 }
 
 template<int N, class GetPosFunc, class... T>
-BoundingBox<N> get_bounding_box(Real simwidth, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
+BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementContainers){
     BoundingBox<N> new_bbox;
 
     if constexpr (N==3) {
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
-    }else {
+    } else {
         new_bbox = {std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest(),
                     std::numeric_limits<Real>::max(), std::numeric_limits<Real>::lowest()};
     }
 
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
+
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     Real radius = 2.0 * rc;
     for(int i = 0; i < N; ++i) {

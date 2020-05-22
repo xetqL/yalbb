@@ -7,9 +7,14 @@
 
 Probe::Probe(int nproc) : nproc(nproc) {}
 
-void  Probe::update_cumulative_imbalance_time() {
-    if(is_balanced()) lb_imbalance_baseline = (max_it - (sum_it/nproc));
-    cumulative_imbalance_time += ((max_it - (sum_it/nproc)) - lb_imbalance_baseline);
+void Probe::update_cumulative_imbalance_time() {
+    /**The cumulative load imbalance since a load balancing.
+     * I don't think that we have to take into account the remaining imbalance after a load balancing because
+     * re-using the LB algorithm won't remove it. For instance, let pretends that the load balancing cost is
+     * C=0.1s and the remaining imbalance (max-avg) >= C, then the criterion is matched at every iteration, alas,
+     * we know that the algorithm is not capable to do better. Hence, we can treat C as a baseline.*/
+    if(this->balanced) lb_imbalance_baseline = (max_it - (sum_it/nproc)); // use the remaining imbalance as baseline
+    cumulative_imbalance_time += std::max(0.0, ((max_it - (sum_it/nproc)) - lb_imbalance_baseline));
 }
 
 void  Probe::reset_cumulative_imbalance_time() { cumulative_imbalance_time = 0.0; }
@@ -17,7 +22,7 @@ Time  Probe::compute_avg_lb_time() { return lb_times.size() == 0 ? 0.0 : std::ac
 Time* Probe::max_it_time() { return &max_it; }
 Time* Probe::min_it_time() { return &min_it; }
 
-void Probe::set_balanced(bool lb_status) {
+void Probe::set_balanced(bool lb_status){
     Probe::balanced = lb_status;
 }
 
