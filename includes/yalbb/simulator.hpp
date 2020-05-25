@@ -149,7 +149,6 @@ void simulate(
                 if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
                 if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
             }
-
             probe->next_iteration();
         }
         if (params->record) {
