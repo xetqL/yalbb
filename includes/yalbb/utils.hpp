@@ -163,7 +163,7 @@ template <typename T> std::ostream& operator<<(std::ostream& os, const std::vect
     const auto s = v.size();
     for (int i = 0; i < s; ++i) {
         os << v[i];
-        if (i != s - 1) os << "\n";
+        if (i != s - 1) os << " ";
     }
     return os;
 }
