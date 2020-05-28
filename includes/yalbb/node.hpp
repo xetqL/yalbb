@@ -71,11 +71,9 @@ public:
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         stats = Probe(size);
     }
-
     ~Node() {
         lb_delete_f(lb);
     }
-
     std::array<std::shared_ptr<Node<LBStruct, LBStructCopyF, LBStructDeleteF>>, 2> get_children() {
         if(this->end_it == 0){
             return {
@@ -84,7 +82,7 @@ public:
             };
         }else
             return {
-                    std::make_shared<Node>(0, end_it, batch_size, Decision::DoLB, stats, this->shared_from_this()),
+                    std::make_shared<Node>(0, end_it, batch_size, Decision::DoLB,   stats, this->shared_from_this()),
                     std::make_shared<Node>(0, end_it, batch_size, Decision::DontLB, stats, this->shared_from_this())
             };
     }
@@ -106,7 +104,6 @@ public:
     Time cost() const { return concrete_cost; }
     Decision get_decision() const { return decision; }
     int get_target() { return decision == Decision::DoLB; }
-
 };
 
 class Compare

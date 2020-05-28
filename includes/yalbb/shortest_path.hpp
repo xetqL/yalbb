@@ -97,7 +97,7 @@ Probe simulate_shortest_path(
     while (solutions.size() < 1) {
         std::shared_ptr<Node> currentNode = *pQueue.begin();
         pQueue.erase(pQueue.begin());
-        if (!rank) std::cout << currentNode << std::endl;
+        if (!rank) std::cout << currentNode << " " << currentNode->cost() << std::endl;
         //Ok, I found a Yes Node for a given depth of the binary tree, no other Yes node at this depth can be better
         if (currentNode->decision == DoLB && currentNode->start_it > 0) {
             prune_similar_nodes(currentNode, pQueue);
