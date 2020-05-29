@@ -65,6 +65,7 @@ void simulate(
     std::vector<T> recv_buf;
     std::ofstream fparticle, fimbalance, ftime, fefficiency, flbit, flbcost;
     std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
+    std::string frame_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/frames";
 
     if(!rank) {
         std::filesystem::create_directories(monitoring_files_folder);
@@ -79,8 +80,8 @@ void simulate(
         recv_buf.reserve(params->npart);
         auto ranks = gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
         if (!rank) {
-            std::filesystem::create_directories("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames");
-            fparticle.open("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particle.csv.0");
+            std::filesystem::create_directories(frame_files_folder);
+            fparticle.open(frame_files_folder+"/particle.csv.0");
             std::stringstream str;
             str << "x coord,y coord";
             if constexpr (N==3) str << ",z coord";
@@ -154,7 +155,7 @@ void simulate(
         if (params->record) {
             auto ranks = gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
             if (rank == 0) {
-                fparticle.open("logs/"+output_names_prefix+std::to_string(params->seed)+"/frames/particle.csv."+ std::to_string(frame + 1));
+                fparticle.open(frame_files_folder+"/particle.csv."+ std::to_string(frame + 1));
                 std::stringstream str;
                 //frame_formater.write_header(str, params->npframe, params->simsize);
                 str << "x coord,y coord";
