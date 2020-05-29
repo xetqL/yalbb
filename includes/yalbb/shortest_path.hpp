@@ -34,7 +34,7 @@ Probe simulate_shortest_path(
         LBCopyF&& lb_copy_f,
         LBDeleteF&& lb_delete_f,
         const MPI_Comm comm = MPI_COMM_WORLD,
-        const std::string output_names_prefix = "") {
+        const std::string simulation_name = "") {
 
     using Node = Node<LoadBalancer, LBCopyF, LBDeleteF>;
     using LBSolutionPath = std::vector<std::shared_ptr<Node> >;
@@ -190,8 +190,8 @@ Probe simulate_shortest_path(
         LBDecHist decisions;
         std::vector<Time> time_hist;
         int sol_id = 0;
-        std::string monitoring_files_folder =
-                "logs/" + output_names_prefix + std::to_string(params->seed) + "/monitoring";
+        std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
+
         std::filesystem::create_directories(monitoring_files_folder);
         std::ofstream fimbalance, ftime, fefficiency, flbit, flbcost;
 

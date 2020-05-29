@@ -41,7 +41,7 @@ void simulate(
         Probe* probe,
         MPI_Datatype datatype,
         const MPI_Comm comm = MPI_COMM_WORLD,
-        const std::string output_names_prefix = "") {
+        const std::string simulation_name = "") {
     auto rc = params->rc;
     auto dt = params->dt;
     auto simsize = params->simsize;
@@ -64,7 +64,7 @@ void simulate(
 
     std::vector<T> recv_buf;
     std::ofstream fparticle, fimbalance, ftime, fefficiency, flbit, flbcost;
-    std::string monitoring_files_folder = "logs/"+output_names_prefix+std::to_string(params->seed)+"/monitoring";
+    std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
 
     if(!rank) {
         std::filesystem::create_directories(monitoring_files_folder);
