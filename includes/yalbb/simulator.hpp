@@ -159,6 +159,7 @@ void simulate(
             cum_time += it_time;
 
             if(!rank) {
+                cumulative_imbalance[iter] = probe->get_cumulative_imbalance_time();
                 //fimbalance << probe->compute_load_imbalance() << std::endl;
                 imbalance_per_it[iter] = probe->compute_load_imbalance();
 
@@ -199,10 +200,12 @@ void simulate(
 
     if(!rank) {
         fcumimbalance << cumulative_imbalance << std::endl;
-        ftime    << it_time << std::endl;
+        fimbalance << imbalance_per_it << std::endl;
+        ftime    << time_per_it << std::endl;
         fcumtime << cumulative_time<< std::endl;
         fefficiency << efficiency_per_it   << std::endl;
         flbit   << lb_status_per_it << std::endl;
+
         fimbalance.close();
         ftime.close();
         fefficiency.close();
