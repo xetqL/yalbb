@@ -221,7 +221,7 @@ Probe simulate_shortest_path(
 
             fimbalance << cumulative_load_imbalance << std::endl;
             ftime << time_hist << std::endl;
-            //fefficiency <<   << std::endl;
+            flbcost << solution->stats.compute_avg_lb_time() << std::endl;
             flbit << decisions << std::endl;
 
             sol_id++;

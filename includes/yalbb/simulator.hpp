@@ -63,7 +63,7 @@ void simulate(
     const int npframe = params->npframe;
 
     std::vector<T> recv_buf;
-    std::ofstream fparticle, fimbalance, ftime, fefficiency, flbit, flbcost;
+    std::ofstream fparticle, fimbalance, ftime, fcumtime, fefficiency, flbit, flbcost;
     std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
     std::string frame_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/frames";
 
@@ -71,6 +71,7 @@ void simulate(
         std::filesystem::create_directories(monitoring_files_folder);
         fimbalance.open(monitoring_files_folder+"/imbalance.txt");
         ftime.open(monitoring_files_folder+"/time.txt");
+        fcumtime.open(monitoring_files_folder+"/cum_time.txt");
         fefficiency.open(monitoring_files_folder+"/efficiency.txt");
         flbit.open(monitoring_files_folder+"/lb_it.txt");
         flbcost.open(monitoring_files_folder+"/lb_cost.txt");
@@ -102,7 +103,7 @@ void simulate(
     apply_resize_strategy(&flocal, N*mesh_data->els.size());
     apply_resize_strategy(&head,     nb_cell_estimation);
 
-    Time it_time = 0.0;
+    Time it_time = 0.0, cum_time = 0.0;
 
     for (int frame = 0; frame < nframes; ++frame) {
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
@@ -142,10 +143,11 @@ void simulate(
             probe->update_lb_parallel_efficiencies();
 
             it_time += *probe->max_it_time();
-
+            cum_time += it_time;
             if(!rank) {
                 fimbalance << probe->compute_load_imbalance() << std::endl;
-                ftime << it_time << std::endl;
+                ftime    << it_time << std::endl;
+                fcumtime << cum_time << std::endl;
                 fefficiency << probe->get_current_parallel_efficiency()   << std::endl;
                 if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
                 if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
