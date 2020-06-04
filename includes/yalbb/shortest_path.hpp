@@ -201,7 +201,7 @@ Probe simulate_shortest_path(
             auto it_dec = decisions.begin();
             auto it_time = time_hist.begin();
 
-            fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_imbalance.txt");
+            fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
             ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
             fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
             flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");

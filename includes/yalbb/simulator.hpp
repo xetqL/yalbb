@@ -56,19 +56,22 @@ void simulate(
     probe->set_balanced(true);
 
     int nproc, rank;
+
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nproc);
 
-    const int nframes = params->nframes;
-    const int npframe = params->npframe;
+    const auto nframes = params->nframes;
+    const auto npframe = params->npframe;
+    const auto niters  = nframes * npframe;
 
     std::vector<T> recv_buf;
-    std::ofstream fparticle, fimbalance, ftime, fcumtime, fefficiency, flbit, flbcost;
+    std::ofstream fparticle, fimbalance, fcumimbalance, ftime, fcumtime, fefficiency, flbit, flbcost;
     std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
     std::string frame_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/frames";
 
     if(!rank) {
         std::filesystem::create_directories(monitoring_files_folder);
+        fcumimbalance.open(monitoring_files_folder+"/cum_imbalance.txt");
         fimbalance.open(monitoring_files_folder+"/imbalance.txt");
         ftime.open(monitoring_files_folder+"/time.txt");
         fcumtime.open(monitoring_files_folder+"/cum_time.txt");
@@ -105,9 +108,19 @@ void simulate(
 
     Time it_time = 0.0, cum_time = 0.0;
 
+    /* Vector holding data for output */
+    std::vector<Time> cumulative_time(niters),
+                      cumulative_imbalance(niters),
+                      time_per_it(niters),
+                      imbalance_per_it(niters),
+                      efficiency_per_it(niters);
+    std::vector<int>    lb_status_per_it(niters);
+    std::vector<double> lb_costs;
+
     for (int frame = 0; frame < nframes; ++frame) {
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
         for (int i = 0; i < npframe; ++i) {
+            const auto iter = i + frame * npframe;
             it_time = 0.0;
             bool lb_decision = lb_policy->should_load_balance();
             if (lb_decision) {
@@ -144,14 +157,25 @@ void simulate(
 
             it_time += *probe->max_it_time();
             cum_time += it_time;
+
             if(!rank) {
-                fimbalance << probe->compute_load_imbalance() << std::endl;
-                ftime    << it_time << std::endl;
-                fcumtime << cum_time << std::endl;
-                fefficiency << probe->get_current_parallel_efficiency()   << std::endl;
-                if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
+                //fimbalance << probe->compute_load_imbalance() << std::endl;
+                imbalance_per_it[iter] = probe->compute_load_imbalance();
+
+                //ftime    << it_time << std::endl;
+                time_per_it[iter] = it_time;
+
+                //fcumtime << cum_time << std::endl;
+                cumulative_time[iter] = cum_time;
+
+                //fefficiency << probe->get_current_parallel_efficiency()   << std::endl;
+                efficiency_per_it[iter] = probe->get_current_parallel_efficiency();
+
+                //if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
+                lb_status_per_it[iter] = (int) lb_decision;
                 if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
             }
+
             probe->next_iteration();
         }
         if (params->record) {
@@ -174,6 +198,11 @@ void simulate(
     }
 
     if(!rank) {
+        fcumimbalance << cumulative_imbalance << std::endl;
+        ftime    << it_time << std::endl;
+        fcumtime << cumulative_time<< std::endl;
+        fefficiency << efficiency_per_it   << std::endl;
+        flbit   << lb_status_per_it << std::endl;
         fimbalance.close();
         ftime.close();
         fefficiency.close();
