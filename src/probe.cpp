@@ -53,6 +53,10 @@ Time Probe::get_sum_it() const {
     return sum_it;
 }
 
+Time Probe::get_batch_time() {
+    return batch_time;
+}
+
 Time Probe::get_cumulative_imbalance_time() const {
     return cumulative_imbalance_time;
 }

@@ -17,7 +17,7 @@ class Probe {
     bool batch_started = false;
     int i = 0, nproc, current_batch = 0;
 public:
-    void new_batch();
+    Time get_batch_time();
     unsigned int batch_id = 0;
     Probe(int nproc);
     void  update_cumulative_imbalance_time();
