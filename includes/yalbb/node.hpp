@@ -29,6 +29,7 @@ public:
     std::vector<Time> li_slowdown_hist;
     std::vector<int> dec_hist;
     std::vector<Time> time_hist;
+    std::vector<Time> time_per_it;
 
     Decision decision;             // Y / N boolean
     Probe stats{0};
@@ -40,7 +41,7 @@ public:
 
     Node (Index id, int startit, int batch_size, Decision decision, Probe stats, std::shared_ptr<NodeType> p) :
         id(id),
-        start_it(startit), end_it(startit+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size),
+        start_it(startit), end_it(startit+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), time_per_it(batch_size),
         parent(p), decision(decision), stats(stats),
         lb_copy_f(p->lb_copy_f), lb_delete_f(p->lb_delete_f),
         lb(lb_copy_f(parent->lb)),
@@ -61,11 +62,11 @@ public:
 
     Node(LBStruct* zz, int start_it, int batch_size, Decision decision, LBStructCopyF copy_f, LBStructDeleteF delete_f) :
             id(0),
-            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
+            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), time_per_it(batch_size), parent(nullptr),
             decision(decision),
             lb_copy_f(copy_f),
             lb_delete_f(delete_f),
-            lb(lb_copy_f(zz)){
+            lb(lb_copy_f(zz)) {
         int size;
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);

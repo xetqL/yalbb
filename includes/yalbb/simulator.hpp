@@ -119,6 +119,8 @@ void simulate(
 
     for (int frame = 0; frame < nframes; ++frame) {
         if(!rank) std::cout << "Computing frame "<< frame << std::endl;
+        Time batch_time = 0.0;
+        probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
             const auto iter = i + frame * npframe;
             it_time = 0.0;
@@ -155,40 +157,31 @@ void simulate(
             probe->update_cumulative_imbalance_time();
             probe->update_lb_parallel_efficiencies();
 
-            it_time += *probe->max_it_time();
-            cum_time += it_time;
+            it_time    += *probe->max_it_time();
+            cum_time   += it_time;
+            batch_time += it_time;
 
             if(!rank) {
-                cumulative_imbalance[iter] = probe->get_cumulative_imbalance_time();
-                //fimbalance << probe->compute_load_imbalance() << std::endl;
-                imbalance_per_it[iter] = probe->compute_load_imbalance();
-
-                //ftime    << it_time << std::endl;
-                time_per_it[iter] = it_time;
-
-                //fcumtime << cum_time << std::endl;
-                cumulative_time[iter] = cum_time;
-
-                //fefficiency << probe->get_current_parallel_efficiency()   << std::endl;
-                efficiency_per_it[iter] = probe->get_current_parallel_efficiency();
-
-                //if(lb_decision) flbit   << probe->get_current_iteration() << std::endl;
-                lb_status_per_it[iter] = (int) lb_decision;
+                cumulative_imbalance[iter]  = probe->get_cumulative_imbalance_time();
+                imbalance_per_it[iter]      = probe->compute_load_imbalance();
+                time_per_it[iter]           = it_time;
+                cumulative_time[iter]       = cum_time;
+                efficiency_per_it[iter]     = probe->get_current_parallel_efficiency();
+                lb_status_per_it[iter]      = (int) lb_decision;
                 if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
             }
-
             probe->next_iteration();
         }
+        probe->end_batch(batch_time);
+
         if (params->record) {
             auto ranks = gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
             if (rank == 0) {
                 fparticle.open(frame_files_folder+"/particle.csv."+ std::to_string(frame + 1));
                 std::stringstream str;
-                //frame_formater.write_header(str, params->npframe, params->simsize);
                 str << "x coord,y coord";
                 if constexpr(N==3) str << ",z coord";
                 str << ",rank" << std::endl;
-                //write_frame_data<N>(str, recv_buf, [rank](auto& e){return e.position << "," << rank;}, frame_formater);
                 for(int i = 0; i < params->npart; i++){
                     str << recv_buf[i].position <<","<<((Real) ranks[i])<<std::endl;
                 }
@@ -199,12 +192,12 @@ void simulate(
     }
 
     if(!rank) {
-        fcumimbalance << cumulative_imbalance << std::endl;
-        fimbalance << imbalance_per_it << std::endl;
-        ftime    << time_per_it << std::endl;
-        fcumtime << cumulative_time<< std::endl;
-        fefficiency << efficiency_per_it   << std::endl;
-        flbit   << lb_status_per_it << std::endl;
+        fcumimbalance   << cumulative_imbalance << std::endl;
+        fimbalance      << imbalance_per_it     << std::endl;
+        ftime           << time_per_it          << std::endl;
+        fcumtime        << cumulative_time      << std::endl;
+        fefficiency     << efficiency_per_it    << std::endl;
+        flbit           << lb_status_per_it     << std::endl;
 
         fimbalance.close();
         ftime.close();

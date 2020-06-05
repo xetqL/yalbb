@@ -193,7 +193,7 @@ Probe simulate_shortest_path(
         std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
 
         std::filesystem::create_directories(monitoring_files_folder);
-        std::ofstream fimbalance, ftime, fefficiency, flbit, flbcost;
+        std::ofstream fimbalance, fcumtime, ftime, fefficiency, flbit, flbcost;
 
         for (auto solution : solutions) {
             Time total_time = solution->cost();
@@ -202,6 +202,7 @@ Probe simulate_shortest_path(
             auto it_time = time_hist.begin();
 
             fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
+            fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
             ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
             fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
             flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
@@ -213,7 +214,6 @@ Probe simulate_shortest_path(
                 it_li = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(),
                                                          solution->li_slowdown_hist.end());
                 it_dec = decisions.insert(it_dec, solution->dec_hist.begin(), solution->dec_hist.end());
-
                 it_time = time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
                 solution = solution->parent;
             }
