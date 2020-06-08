@@ -25,7 +25,7 @@
 
 
 template<int N, class T, class LoadBalancer, class LBCopyF, class LBDeleteF, class Wrapper>
-Probe simulate_shortest_path(
+std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         LoadBalancer* LB,
         MESH_DATA<T> *_mesh_data,
         Wrapper fWrapper,
@@ -183,8 +183,8 @@ Probe simulate_shortest_path(
             }
         }
     }
+    std::vector<int> scenario;
 
-    if (!rank) {
         LBSolutionPath solution_path;
         LBLiHist cumulative_load_imbalance;
         LBDecHist decisions;
@@ -200,14 +200,14 @@ Probe simulate_shortest_path(
             auto it_li = cumulative_load_imbalance.begin();
             auto it_dec = decisions.begin();
             auto it_time = time_hist.begin();
-
-            fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
-            fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
-            ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
-            fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
-            flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
-            flbcost.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_cost.txt");
-
+            if (!rank) {
+                fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
+                fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
+                ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
+                fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
+                flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
+                flbcost.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_cost.txt");
+            }
             /* Reconstruct data from A* search */
             while (solution->start_it >= 0) { //reconstruct path
                 solution_path.push_back(solution);
@@ -218,24 +218,24 @@ Probe simulate_shortest_path(
                 solution = solution->parent;
             }
             std::reverse(solution_path.begin(), solution_path.end());
-
-            fimbalance << cumulative_load_imbalance << std::endl;
-            ftime << time_hist << std::endl;
-            flbcost << solution->stats.compute_avg_lb_time() << std::endl;
-            flbit << decisions << std::endl;
-
+            if(sol_id == 0) scenario = decisions;
+            if (!rank) {
+                /* write */
+                fimbalance << cumulative_load_imbalance << std::endl;
+                ftime << time_hist << std::endl;
+                flbcost << solution->stats.compute_avg_lb_time() << std::endl;
+                flbit << decisions << std::endl;
+                /* close files */
+                fimbalance.close();
+                ftime.close();
+                fefficiency.close();
+                flbit.close();
+                flbcost.close();
+            }
             sol_id++;
-
-            /* close files */
-            fimbalance.close();
-            ftime.close();
-            fefficiency.close();
-            flbit.close();
-            flbcost.close();
-
         }
-    }
 
-    return solutions[0]->stats;
+
+    return {solutions[0]->stats, scenario};
 }
 #endif //NBMPI_SHORTEST_PATH_HPP
