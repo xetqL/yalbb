@@ -137,13 +137,15 @@ void simulate(
 
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-            PAR_START_TIMER(it_compute_time, comm);
+
             auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
             const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+
+            PAR_START_TIMER(it_compute_time, comm);
             nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
             PAR_END_TIMER(it_compute_time, comm);
 
