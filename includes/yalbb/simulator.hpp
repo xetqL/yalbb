@@ -147,7 +147,7 @@ void simulate(
 
             PAR_START_TIMER(it_compute_time, comm);
             nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
-            PAR_END_TIMER(it_compute_time, comm);
+            END_TIMER(it_compute_time);
 
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 
