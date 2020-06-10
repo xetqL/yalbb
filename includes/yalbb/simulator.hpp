@@ -118,7 +118,7 @@ void simulate(
     std::vector<double> lb_costs;
 
     for (int frame = 0; frame < nframes; ++frame) {
-        if(!rank) std::cout << "Computing frame "<< frame << std::endl;
+        if(!rank) std::cout << "Computing frame "<< frame;
         Time batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
@@ -174,6 +174,7 @@ void simulate(
             }
             probe->next_iteration();
         }
+        if(!rank) std::cout << batch_time << std::endl;
         probe->end_batch(batch_time);
 
         if (params->record) {
