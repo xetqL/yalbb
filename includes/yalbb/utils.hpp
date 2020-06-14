@@ -30,7 +30,7 @@ template<class T>
 struct MESH_DATA {
     std::vector<T> els;
 };
-
+const double CUTOFF_RADIUS_FACTOR = 4.0;
 using Real       = float;
 using Time       = double;
 using Rank       = int;
@@ -239,7 +239,7 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
 
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-    Real radius = 2.0 * rc;
+    Real radius = CUTOFF_RADIUS_FACTOR * rc;
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius);
         new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;

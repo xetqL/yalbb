@@ -81,7 +81,6 @@ typename std::vector<T>::const_iterator migrate_data(
     int PE, num_known = 0, num_found;
     std::vector<int> import_from_procs;
     {
-
         while (data_id < nb_elements) {
             pointAssignFunc(LB, &data.at(data_id), &PE);
             if (PE != caller_rank) {
@@ -96,9 +95,6 @@ typename std::vector<T>::const_iterator migrate_data(
                 num_known++;
             } else data_id++; //if the element must stay with me then check the next one
         }
-        //export_gids.shrink_to_fit();
-        //export_lids.shrink_to_fit();
-        //export_procs.shrink_to_fit();
         std::vector<int> sends_to_proc(wsize);
         std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
         import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
@@ -176,7 +172,6 @@ inline std::vector<int> gather_elements_on(const int world_size,
     return all_el_rank;
 }
 
-
 template<int N, class T, class LB, class GetPosFunc, class BoxIntersectFunc>
 std::vector<T> get_ghost_data(
         LB* lb,
@@ -202,7 +197,7 @@ std::vector<T> get_ghost_data(
 
     int num_found;
     std::array<double, 3> pos_in_double;
-    double radius = 2.0*rc;
+    double radius = CUTOFF_RADIUS_FACTOR * rc;
     std::vector<int> PEs(wsize);
     for(size_t i = 0; i < nb_elements; ++i) {
         auto& element = data.at(i);
