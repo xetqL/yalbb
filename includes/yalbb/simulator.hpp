@@ -107,7 +107,7 @@ void simulate(
     apply_resize_strategy(&flocal, N*mesh_data->els.size());
     apply_resize_strategy(&head,     nb_cell_estimation);
 
-    Time it_time = 0.0, cum_time = 0.0;
+    Time lb_time = 0.0, it_time = 0.0, cum_time = 0.0, batch_time = 0.0;
 
     /* Vector holding data for output */
     std::vector<Time> interactions(niters),
@@ -121,11 +121,12 @@ void simulate(
     std::vector<double> lb_costs;
 
     for (int frame = 0; frame < nframes; ++frame) {
-        if(!rank) std::cout << "Computing frame "<< frame << " ";
-        Time batch_time = 0.0;
+        if(!rank) std::cout << "Computing frame " << frame << " ";
+        batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
-            Time lb_time = 0.0;
+            lb_time = 0.0;
+            it_time = 0.0;
             bool lb_decision = lb_policy->should_load_balance();
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
@@ -141,6 +142,7 @@ void simulate(
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 
             PAR_START_TIMER(it_compute_time, comm);
+
             auto remote_el     = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
             const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
@@ -151,6 +153,7 @@ void simulate(
 
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
             END_TIMER(it_compute_time);
+
             it_compute_time += lb_time;
             // Measure load imbalance
             MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);

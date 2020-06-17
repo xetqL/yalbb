@@ -200,11 +200,12 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc) 
 
 template <int N, class GetPosFunc, class First, class... Rest>
 void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, First& first, Rest&... rest) {
+    Real pos;
     for(int i = 0; i < N; ++i) {
         for (auto &el : first) {
-            const auto& pos    = *getPosFunc(&el);
-            new_bbox.at(2*i)   = std::min(new_bbox.at(2*i),   pos.at(i));
-            new_bbox.at(2*i+1) = std::max(new_bbox.at(2*i+1), pos.at(i));
+            pos                = (getPosFunc(&el))->at(i);
+            new_bbox.at(2*i)   = std::min(new_bbox.at(2*i),   pos);
+            new_bbox.at(2*i+1) = std::max(new_bbox.at(2*i+1), pos);
         }
     }
     update_bbox_for_container<N>(new_bbox, getPosFunc, rest...);

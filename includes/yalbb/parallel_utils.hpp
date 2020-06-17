@@ -78,70 +78,41 @@ typename std::vector<T>::const_iterator migrate_data(
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
     size_t data_id = 0;
-    int PE, num_known = 0, num_found;
-    std::vector<int> import_from_procs;
-    {
-        while (data_id < nb_elements) {
-            pointAssignFunc(LB, &data.at(data_id), &PE);
-            if (PE != caller_rank) {
-                //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
-                //swap iterator values in constant time
-                std::iter_swap(data.begin() + data_id, data.end() - 1);
-                //get the value and push it in the "to migrate" vector
-                data_to_migrate.at(PE).push_back(*(data.end() - 1));
-                //pop the head of the list in constant time
-                data.pop_back();
-                nb_elements--;
-                num_known++;
-            } else data_id++; //if the element must stay with me then check the next one
-        }
-        std::vector<int> sends_to_proc(wsize);
-        std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
-        import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
+    int PE, num_known = 0, nb_export, nb_import;
+
+    while (data_id < nb_elements) {
+        pointAssignFunc(LB, &data.at(data_id), &PE);
+        if (PE != caller_rank) {
+            //if the current element has to be moved, then swap with the last and pop it out (dont need to move the pointer also)
+            //swap iterator values in constant time
+            std::iter_swap(data.begin() + data_id, data.end() - 1);
+            //get the value and push it in the "to migrate" vector
+            data_to_migrate.at(PE).push_back(*(data.end() - 1));
+            //pop the head of the list in constant time
+            data.pop_back();
+            nb_elements--;
+            num_known++;
+        } else data_id++; //if the element must stay with me then check the next one
     }
 
-    data.reserve(nb_elements + num_found);
+    //export
+    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+    std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(export_counts), [](const auto& el){return el.size();});
+    for(PE = 1; PE < wsize; ++PE) export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+    nb_export = std::accumulate(export_counts.cbegin(), export_counts.cend(), 0);
+    std::vector<T> export_buf; export_buf.reserve(nb_export);
+    for(const auto& migration_buf : data_to_migrate)
+        export_buf.insert(export_buf.end(), migration_buf.cbegin(), migration_buf.cend());
 
-    /* Let's Migrate ma boi ! */
+    // import
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
+    for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    data.reserve(nb_elements + nb_import);
 
-    int nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
+    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
+                 (data.data()+nb_elements), import_counts.data(), import_displs.data(), datatype, LB_COMM);
 
-    int cpt = 0;
-
-    std::vector<MPI_Request> reqs(nb_reqs);
-    for (size_t PE = 0; PE < wsize; PE++) {
-        int send_size = data_to_migrate.at(PE).size();
-        if (send_size) {
-            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 300, LB_COMM,
-                      &reqs[cpt]);
-            cpt++;
-        }
-    }
-
-    std::vector<T> buffer;
-
-    int recv_count = import_from_procs.size();
-    MPI_Status status;
-    int size;
-    while(recv_count) {
-        // Probe for next incoming message
-        MPI_Probe(MPI_ANY_SOURCE, 300, LB_COMM, &status);
-        // Get message size
-        MPI_Get_count(&status, datatype, &size);
-        // Resize buffer if needed
-        if(buffer.capacity() < size) buffer.reserve(size);
-        // Receive data
-        MPI_Recv(buffer.data(), size, datatype, status.MPI_SOURCE, 300, LB_COMM, MPI_STATUS_IGNORE);
-        // Move to my data
-        std::move(buffer.begin(), buffer.begin()+size, std::back_inserter(data));
-        // One less message to recover
-        recv_count--;
-    }
-    const int nb_data = data.size();
-    //std::sort(data.begin(), data.end());
-    for(int i = 0; i < nb_data; ++i) data[i].lid = i;
-    MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
-    return std::next(data.begin(), nb_data - prev_size);
+    return std::next(data.begin(), nb_elements + nb_import);
 }
 
 template<class T>
@@ -222,7 +193,7 @@ std::vector<T> get_ghost_data(
 
     // build importation lists
     int nb_import;
-    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs;
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
     for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
     std::vector<T>   import_buf;
     import_buf.reserve(nb_import);
