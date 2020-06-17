@@ -187,74 +187,50 @@ std::vector<T> get_ghost_data(
     MPI_Comm_size(LB_COMM, &wsize);
     MPI_Comm_rank(LB_COMM, &caller_rank);
 
-    std::vector<T> buffer;
-    std::vector<T> remote_data_gathered;
-
     if (wsize == 1) return {};
-
-    std::vector<std::vector<T > > data_to_migrate(wsize);
-    std::for_each(data_to_migrate.begin(), data_to_migrate.end(), [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
-
     int num_found;
+
     std::array<double, 3> pos_in_double;
+    std::vector<std::vector<T*> > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+            [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
     double radius = CUTOFF_RADIUS_FACTOR * rc;
     std::vector<int> PEs(wsize);
-    for(size_t i = 0; i < nb_elements; ++i) {
-        auto& element = data.at(i);
-        put_in_3d_double_array<N>(pos_in_double, *getPosPtrFunc(&element));
-        boxIntersect(lb, pos_in_double.at(0) - radius,
-                         pos_in_double.at(1) - radius,
-                         pos_in_double.at(2) - radius,
-                         pos_in_double.at(0) + radius,
-                         pos_in_double.at(1) + radius,
-                         pos_in_double.at(2) + radius,
-                         &PEs.front(), &num_found);
-        for(int j = 0; j < num_found; ++j) {
-            if(PEs[j] != caller_rank) {
-                data_to_migrate.at(PEs[j]).push_back(element);
-            }
+    for (size_t i = 0; i < nb_elements; ++i) {
+        T* ptr_el = &data.at(i);
+        put_in_3d_double_array<N>(pos_in_double, *getPosPtrFunc(ptr_el));
+        boxIntersect(lb,
+                     pos_in_double.at(0) - radius, pos_in_double.at(1) - radius, pos_in_double.at(2) - radius,
+                     pos_in_double.at(0) + radius, pos_in_double.at(1) + radius, pos_in_double.at(2) + radius,
+                     &PEs.front(), &num_found);
+        for (int j = 0; j < num_found; ++j) {
+            if(PEs[j] != caller_rank)
+                data_to_migrate.at(PEs[j]).push_back(ptr_el);
         }
     }
 
-    std::vector<int> sends_to_proc(wsize);
-    std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(sends_to_proc), [](const auto& el){return el.size();});
-    auto import_from_procs = get_invert_list(sends_to_proc, &num_found, LB_COMM);
-    auto nb_reqs = std::count_if(data_to_migrate.cbegin(), data_to_migrate.cend(), [](const auto& buf){return !buf.empty();});
-    auto cpt = 0;
-
-    // Send the data to neighbors
-    std::vector<MPI_Request> reqs(nb_reqs);
-    for (size_t PE = 0; PE < wsize; PE++) {
-        int send_size = data_to_migrate.at(PE).size();
-        if (send_size && PE != caller_rank) {
-            MPI_Isend(&data_to_migrate.at(PE).front(), send_size, datatype, PE, 400, LB_COMM, &reqs[cpt]);
-            cpt++;
-        }
+    // build exportation lists
+    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+    std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(export_counts), [](const auto& el){return el.size();});
+    const int nb_export = std::accumulate(export_counts.cbegin(), export_counts.cend(), 0);
+    for (int PE = 1; PE < wsize; ++PE) export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+    std::vector<T>   export_buf;
+    export_buf.reserve(nb_export);
+    for(const auto& migration_buf : data_to_migrate) {
+        std::transform(migration_buf.cbegin(), migration_buf.cend(), std::back_inserter(export_buf), [](T* ptr_el){return *ptr_el;});
     }
 
-    // Import the data from neighbors
-    remote_data_gathered.reserve(num_found);
-    int recv_count = import_from_procs.size();
-    MPI_Status status;
-    int size;
-    while(recv_count) {
-        // Probe for next incoming message
-        MPI_Probe(MPI_ANY_SOURCE, 400, LB_COMM, &status);
-        // Get message size
-        MPI_Get_count(&status, datatype, &size);
-        // Resize buffer if needed
-        if(buffer.capacity() < size) buffer.reserve(size);
-        // Receive data
-        MPI_Recv(buffer.data(), size, datatype, status.MPI_SOURCE, 400, LB_COMM, MPI_STATUS_IGNORE);
-        // Move to my data
-        std::move(buffer.begin(), buffer.begin()+size, std::back_inserter(remote_data_gathered));
-        // One less message to recover
-        recv_count--;
-    }
+    // build importation lists
+    int nb_import;
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs;
+    for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    std::vector<T>   import_buf;
+    import_buf.reserve(nb_import);
 
-    MPI_Waitall(reqs.size(), &reqs.front(), MPI_STATUSES_IGNORE);
+    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
+                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
 
-    return remote_data_gathered;
+    return import_buf;
 
 }
 #endif //NBMPI_PARALLEL_UTILS_HPP

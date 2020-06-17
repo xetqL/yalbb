@@ -65,7 +65,7 @@ void simulate(
     const auto niters  = nframes * npframe;
 
     std::vector<T> recv_buf;
-    std::ofstream fparticle, fimbalance, fcumimbalance, ftime, fcumtime, fefficiency, flbit, flbcost;
+    std::ofstream fparticle, fimbalance, fcumimbalance, ftime, fcumtime, fefficiency, flbit, flbcost, finteractions;
     std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
     std::string frame_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/frames";
 
@@ -78,6 +78,7 @@ void simulate(
         fefficiency.open(monitoring_files_folder+"/efficiency.txt");
         flbit.open(monitoring_files_folder+"/lb_it.txt");
         flbcost.open(monitoring_files_folder+"/lb_cost.txt");
+        finteractions.open(monitoring_files_folder+"/interactions.txt");
     }
 
     if (params->record) {
@@ -109,21 +110,22 @@ void simulate(
     Time it_time = 0.0, cum_time = 0.0;
 
     /* Vector holding data for output */
-    std::vector<Time> cumulative_time(niters),
+    std::vector<Time> interactions(niters),
+                      cumulative_time(niters),
                       cumulative_imbalance(niters),
                       time_per_it(niters),
                       imbalance_per_it(niters),
                       efficiency_per_it(niters);
+
     std::vector<int>    lb_status_per_it(niters);
     std::vector<double> lb_costs;
 
     for (int frame = 0; frame < nframes; ++frame) {
-        if(!rank) std::cout << "Computing frame "<< frame;
+        if(!rank) std::cout << "Computing frame "<< frame << " ";
         Time batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
-            const auto iter = i + frame * npframe;
-            it_time = 0.0;
+            Time lb_time = 0.0;
             bool lb_decision = lb_policy->should_load_balance();
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
@@ -132,29 +134,29 @@ void simulate(
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
                 probe->push_load_balancing_time(lb_time_spent);
                 probe->reset_cumulative_imbalance_time();
-                it_time += lb_time_spent;
+                lb_time += lb_time_spent;
             }
-
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
+            migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 
-            auto remote_el = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
-            auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
+            PAR_START_TIMER(it_compute_time, comm);
+            auto remote_el     = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
+            auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
             const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
+
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
-            PAR_START_TIMER(it_compute_time, comm);
-            nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
+            int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
             END_TIMER(it_compute_time);
-
-            migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
-
+            it_compute_time += lb_time;
             // Measure load imbalance
             MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
             MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
             MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+            MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
 
             probe->update_cumulative_imbalance_time();
             probe->update_lb_parallel_efficiencies();
@@ -164,14 +166,15 @@ void simulate(
             batch_time += it_time;
 
             if(!rank) {
-                cumulative_imbalance[iter]  = probe->get_cumulative_imbalance_time();
-                imbalance_per_it[iter]      = probe->compute_load_imbalance();
-                time_per_it[iter]           = it_time;
-                cumulative_time[iter]       = cum_time;
-                efficiency_per_it[iter]     = probe->get_current_parallel_efficiency();
-                lb_status_per_it[iter]      = (int) lb_decision;
-                if(lb_decision) flbcost << probe->compute_avg_lb_time()   << std::endl;
+                fcumimbalance << probe->get_cumulative_imbalance_time() << " ";
+                fimbalance    << probe->compute_load_imbalance() << " ";
+                ftime         << it_time << " ";
+                fcumtime      << cum_time << " ";
+                fefficiency   << probe->get_current_parallel_efficiency() << " ";
+                if(lb_decision) flbcost << probe->compute_avg_lb_time() << " ";
+                finteractions << nb_interactions << " ";
             }
+            flbit             << ((int) lb_decision) << " ";
             probe->next_iteration();
         }
         if(!rank) std::cout << batch_time << std::endl;
@@ -195,13 +198,6 @@ void simulate(
     }
 
     if(!rank) {
-        fcumimbalance   << cumulative_imbalance << std::endl;
-        fimbalance      << imbalance_per_it     << std::endl;
-        ftime           << time_per_it          << std::endl;
-        fcumtime        << cumulative_time      << std::endl;
-        fefficiency     << efficiency_per_it    << std::endl;
-        flbit           << lb_status_per_it     << std::endl;
-
         fimbalance.close();
         ftime.close();
         fefficiency.close();
