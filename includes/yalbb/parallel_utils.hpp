@@ -175,8 +175,7 @@ std::vector<T> get_ghost_data(
                      pos_in_double.at(0) + radius, pos_in_double.at(1) + radius, pos_in_double.at(2) + radius,
                      &PEs.front(), &num_found);
         for (int j = 0; j < num_found; ++j) {
-            if(PEs[j] != caller_rank)
-                data_to_migrate.at(PEs[j]).push_back(ptr_el);
+            if(PEs[j] != caller_rank) data_to_migrate.at(PEs[j]).push_back(ptr_el);
         }
     }
 
@@ -197,10 +196,69 @@ std::vector<T> get_ghost_data(
     for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
     std::vector<T>   import_buf;
     import_buf.reserve(nb_import);
-
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
+    return import_buf;
 
+}
+
+template<int N, class T, class LB, class BoxIntersectFunc>
+std::vector<T> retrieve_ghosts(
+        LB* lb,
+        std::vector<T>& data,
+        const BoundingBox<N>& bbox,
+        BoxIntersectFunc boxIntersect,
+        Real rc,
+        MPI_Datatype datatype,
+        MPI_Comm LB_COMM) {
+
+    const auto nb_elements = data.size();
+    int wsize, caller_rank;
+    MPI_Comm_size(LB_COMM, &wsize);
+    MPI_Comm_rank(LB_COMM, &caller_rank);
+
+    if (wsize == 1) return {};
+    int num_found;
+
+    std::array<double, 3> pos_in_double;
+    std::vector<std::vector<T*> > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+    double radius = CUTOFF_RADIUS_FACTOR * rc;
+    std::vector<int> PEs(wsize);
+
+    if constexpr(N == 3)
+        boxIntersect(lb, bbox.at(0) - radius, bbox.at(2) - radius, bbox.at(4) - radius, bbox.at(1) + radius, bbox.at(3) + radius, bbox.at(5) + radius, &PEs.front(), &num_found);
+    else
+        boxIntersect(lb, bbox.at(0) - radius, bbox.at(2) - radius, 0.0, bbox.at(1) + radius, bbox.at(3) + radius, 0.0, &PEs.front(), &num_found);
+
+    // build exportation lists
+    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+    auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
+    const int nb_export = nb_elements * nb_external_procs;
+
+    std::sort(PEs.begin(), PEs.end());
+    std::vector<T>   export_buf;
+    export_buf.reserve(nb_export);
+
+    for (int j = 0; j < num_found; ++j) {
+        const auto PE = PEs[j];
+        if(PE != caller_rank) {
+            export_counts.at(PE) = nb_elements;
+            export_buf.insert(export_buf.end(), data.begin(), data.end());
+        }
+    }
+
+    for (int PE = 1; PE < wsize; ++PE) export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+
+    // build importation lists
+    int nb_import;
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
+    for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    std::vector<T>   import_buf;
+    import_buf.reserve(nb_import);
+    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
+                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
     return import_buf;
 
 }

@@ -131,6 +131,7 @@ void simulate(
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
                 doLoadBalancingFunc(LB, mesh_data);
+
                 PAR_END_TIMER(lb_time_spent, comm);
                 MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent,  1, MPI_TIME, MPI_MAX, comm);
                 probe->push_load_balancing_time(lb_time_spent);
@@ -142,13 +143,15 @@ void simulate(
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 
             PAR_START_TIMER(it_compute_time, comm);
-
-            auto remote_el     = get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
+            auto bbox_prev     = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+            auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox_prev, boxIntersectFunc, params->rc, datatype, comm);//get_ghost_data<N>(LB, mesh_data->els, getPosPtrFunc, boxIntersectFunc, params->rc, datatype, comm);
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
+
             const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
+
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
