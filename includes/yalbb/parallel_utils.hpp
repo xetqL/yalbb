@@ -108,10 +108,10 @@ typename std::vector<T>::const_iterator migrate_data(
     std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
     for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
     data.reserve(nb_elements + nb_import);
-
+    std::vector<T> import_buf(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
-                 (data.data()+nb_elements), import_counts.data(), import_displs.data(), datatype, LB_COMM);
-
+                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
+    std::move(import_buf.begin(), import_buf.end(), std::back_inserter(data));
     return std::next(data.begin(), nb_elements + nb_import);
 }
 
