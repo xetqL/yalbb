@@ -143,9 +143,9 @@ void simulate(
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
 
             PAR_START_TIMER(it_compute_time, comm);
-            auto bbox_prev     = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
-            auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox_prev, boxIntersectFunc, params->rc, datatype, comm);
-            auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
+            auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
+            auto remote_el = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc, datatype, comm);
+            //auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
 
             const auto nlocal  = mesh_data->els.size(), nremote = remote_el.size();
 
