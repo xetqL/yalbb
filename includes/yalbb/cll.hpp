@@ -115,6 +115,7 @@ Integer CLL_compute_forces2d(std::vector<Real>* acc,
             for (ic1[1] = ic[1] - 1; ic1[1] <= (ic[1] + 1); ic1[1]++) {
                 /* this is for bounce back, to avoid heap-buffer over/under flow */
                 if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1])) continue;
+
                 c1 = (ic1[0]) + (lc[0] * ic1[1]);
                 j = head->at(c1);
                 while(j != EMPTY) {

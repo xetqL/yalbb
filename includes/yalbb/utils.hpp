@@ -325,15 +325,22 @@ namespace functional {
         return accum;
     }
 
-    template<typename StlFrom,
-            typename To = typename StlFrom::value_type,
-            typename ReduceFunc>
-    To reduce(StlFrom const &all, ReduceFunc const &reduce_func, To const &init_value) {
-        using std::begin;
-        using std::end;
+    template<class InputIt, class OutputIt, class To, class BinaryFunc>
+    void scan_left(InputIt beg, InputIt end, OutputIt out, To init_value, BinaryFunc f) {
+        *out = init_value;
+        while(beg != end) {
+            *(out+1) = f(*out, *beg);
+            beg++;
+            out++;
+        }
+    }
+
+    template<class InputIt, class To, class BinaryFunc>
+    To reduce(InputIt beg, InputIt end, To init_value, BinaryFunc f) {
         To accum = init_value;
-        for (typename StlFrom::const_iterator it = begin(all); it != end(all); ++it) {
-            accum = reduce_func(accum, *it);
+        while(beg != end){
+            accum = f(accum, *beg);
+            beg++;
         }
         return accum;
     }

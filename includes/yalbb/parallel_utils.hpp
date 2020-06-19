@@ -237,7 +237,6 @@ std::vector<T> retrieve_ghosts(
     auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
     const int nb_export = nb_elements * nb_external_procs;
 
-    std::sort(PEs.begin(), PEs.end());
     std::vector<T>   export_buf;
     export_buf.reserve(nb_export);
 
@@ -249,16 +248,17 @@ std::vector<T> retrieve_ghosts(
         }
     }
 
-    for (int PE = 1; PE < wsize; ++PE) export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+    for (int PE = 1; PE < wsize; ++PE)
+        export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
 
     // build importation lists
     int nb_import;
     std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
     for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
-    std::vector<T>   import_buf;
-    import_buf.reserve(nb_import);
+    std::vector<T> import_buf(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
+
     return import_buf;
 
 }
