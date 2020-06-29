@@ -214,6 +214,7 @@ template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t require
     auto current_capacity = vec->capacity();
 
     if(current_size < required_size) {
+        std::cout << 2 * required_size << std::endl;
         vec->reserve(2 * required_size);   // the capacity is twice the req size
     } else if(current_capacity >= 4.0 * required_size) {
         vec->resize(current_capacity / 2); // resize to 2*req size
@@ -260,7 +261,7 @@ inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>&
 template<int N>
 Integer get_total_cell_number(const BoundingBox<N>& bbox, Real rc){
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
-    return std::accumulate(lc.begin(), lc.end(), 1, [](auto prev, auto v){return prev * v;});
+    return std::accumulate(lc.begin(), lc.end(), (Integer) 1, [](auto prev, auto v){return prev * v;});
 }
 
 template<int N>
