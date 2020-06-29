@@ -66,8 +66,8 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc g
         while(dim < N) {
             if(element.position.at(dim) < 0.0)
                 reflect(0.0, &pos->at(dim), &vel->at(dim));
-            if(simsize-pos->at(dim) <= 0.000001f)
-                reflect(simsize-0.000001f, &pos->at(dim), &vel->at(dim));
+            if(simsize-pos->at(dim) <= 0.00000001f)
+                reflect(simsize-0.00000001f, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }

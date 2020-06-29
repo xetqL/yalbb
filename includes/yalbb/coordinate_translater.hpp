@@ -79,17 +79,13 @@ public:
     template<int N> static std::array<Integer, N>
     translate_position_into_xyz(const std::array<Real, N>& position, Real rc){
         std::array<Integer, N> ret;
-        std::transform(position.cbegin(), position.cend(), std::begin(ret), [rc](Real v){ return (Integer) ( v / rc ); });
-        return ret;
+        std::transform(position.cbegin(), position.cend(), std::begin(ret), [rc](Real v){ return (Integer) ( (double) v / (double) rc ); });        return ret;
     }
     template<int N> static std::array<Integer, N>
     translate_position_into_local_xyz(const std::array<Real, N>& position, const BoundingBox<N>& bbox, Real rc){
         std::array<Integer, N> ret;
         for(int i = 0; i<N; ++i) {
-            if(bbox[2*i+1]-position[i] > std::numeric_limits<Real>::epsilon())
-                ret[i] = (position[i]-bbox[2*i]) / rc;
-            else
-                ret[i] = ((bbox[2*i+1]-bbox[2*i]) - rc/1000.0 ) / rc;
+            ret[i] = std::floor(((double) position[i] - (double) bbox[2*i]) / (double) rc);
         }
         return ret;
     }

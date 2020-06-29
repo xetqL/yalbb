@@ -12,9 +12,11 @@ void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "= id: " << params.id << std::endl;
     stream << "= Simulation size: " << params.simsize << std::endl;
     stream << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
+    stream << "= Timestep: "<< params.dt << std::endl;
     stream << "= Initial conditions: " << std::endl;
     stream << "= SIG:" << params.sig_lj << std::endl;
     stream << "= EPS:  " << params.eps_lj << std::endl;
+    stream << "= Cut-off: "<< (params.rc) << std::endl;
     stream << "= Borders: collisions " << std::endl;
     stream << "= Gravity:  " << params.G << std::endl;
     stream << "= Temperature: " << params.T0 << std::endl;
@@ -37,7 +39,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_value('F', "nframes", params.nframes, 100, "number of frames", "INT").require();
     parser.add_opt_value('g', "gravitation", params.G, 1.0f, "Gravitational strength", "FLOAT");
     parser.add_opt_value('i', "id", params.id, 0, "Simulation id", "INT").require();
-    parser.add_opt_value('l', "lattice", params.rc, 2.5f*1e-2f, "Lattice size", "FLOAT");
+    parser.add_opt_value('l', "lattice", params.rc, 2.5f, "Lattice size", "FLOAT");
     parser.add_opt_value('n', "nparticles", params.npart, 500, "Number of particles", "INT").require();
     parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
     parser.add_opt_value('s', "siglj", params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
@@ -57,5 +59,6 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     }
 
     params.verbosity = verbose.get_count();
+    params.rc *= params.sig_lj;
     return params;
 }

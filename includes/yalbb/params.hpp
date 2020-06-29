@@ -29,7 +29,7 @@ struct sim_param_t {
     float G;       /* Gravitational strength (1) */
     float T0;      /* Initial temperature (1)    */
     float simsize; /* Borders of the simulation  */
-    float rc;
+    float rc;      /* factor multiplying sigma for cutoff */
     bool  record;  /* record the simulation in a binary file */
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;

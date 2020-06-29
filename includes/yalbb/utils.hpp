@@ -18,9 +18,7 @@
 #include <random>
 #include <cstring>
 
-#ifdef DEBUG
 #define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<<__LINE__<< " = " << (x) << std::endl;
-#endif
 
 inline std::string get_date_as_string();
 bool file_exists(const std::string fileName);
@@ -190,7 +188,7 @@ template<int N>
 bool is_within(const BoundingBox<N>& bbox, std::array<Real, N>& xyz){
     bool within = true;
     for(int i = 0; i < N; i++){
-        within = within && (bbox[2*i] <= xyz[i]) && (xyz[i] <= bbox[2*i+1]);
+        within = within && (bbox[2*i] <= xyz[i]) && (xyz[i] < bbox[2*i+1]);
     }
     return within;
 }
@@ -252,10 +250,10 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
 template<int N>
 inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {
     std::array<Integer, N> lc;
-    lc [0] = std::round(get_size<0, N>(bbox) / rc);
-    lc [1] = std::round(get_size<1, N>(bbox) / rc);
+    lc [0] = std::ceil(get_size<0, N>(bbox) / rc);
+    lc [1] = std::ceil(get_size<1, N>(bbox) / rc);
     if constexpr(N==3)
-        lc [2] = std::round(get_size<2, N>(bbox) / rc);
+        lc [2] = std::ceil(get_size<2, N>(bbox) / rc);
     return lc;
 }
 
@@ -266,7 +264,7 @@ Integer get_total_cell_number(const BoundingBox<N>& bbox, Real rc){
 }
 
 template<int N>
-inline Integer position_to_local_cell_index(std::array<Real, N> const &position, Real rc, const BoundingBox<N>& bbox, const Integer c, const Integer r){
+Integer position_to_local_cell_index(std::array<Real, N> const &position, Real rc, const BoundingBox<N>& bbox, const Integer c, const Integer r){
     if constexpr(N==3) {
         return ((position.at(0) - bbox[0]) / rc) + c * ((Integer) ((position.at(1) - bbox[2]) / rc)) + c * r * ((Integer) std::floor((position.at(2) - bbox[4]) / rc));
     } else {
