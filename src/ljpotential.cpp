@@ -16,7 +16,7 @@ Real compute_LJ_scalar(Real r2, Real eps, Real sig, Real rc2) {
         Real lj2 = 24.0 * eps * std::pow(sig,6.0);
         Real r2i = 1.0 / r2;
         Real r6i = r2i*r2i*r2i;
-        return r6i * (lj1 * r6i - lj2);
+        return r6i * (lj1 * r6i - lj2) * r2i;
     }
     return 0;
 }
