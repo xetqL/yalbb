@@ -7,11 +7,11 @@
 
 #include "utils.hpp"
 
-Real compute_LJ_scalar(Real r2, Real eps, Real sig2, Real rc2);
+Real compute_LJ_scalar(Real r2, Real eps, Real sig, Real rc2);
 
 template<int N, class T, class GetPosPtrFunc>
-std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real eps, Real sig2, Real rc, GetPosPtrFunc getPosPtr) {
-    Real delta = 0.0;
+std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real eps, Real sig, Real rc, GetPosPtrFunc getPosPtr) {
+    auto delta = 0.0;
 
     std::array<Real, N> delta_dim;
     std::array<Real, N> force;
@@ -22,12 +22,11 @@ std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real ep
     for (int dim = 0; dim < N; ++dim) delta_dim[dim] = rec_pos->at(dim) - sou_pos->at(dim);
     for (int dim = 0; dim < N; ++dim) delta += (delta_dim[dim] * delta_dim[dim]);
 
-    const Real min_r2 = (rc*rc) / 10000.0;
+    const auto min_r2 = (sig * sig) * 0.99;
 
     delta = std::max(delta, min_r2);
 
-    Real C_LJ = -compute_LJ_scalar(delta, eps, sig2, rc*rc);
-    C_LJ = std::max(C_LJ, (Real) -15000.0);
+    Real C_LJ = compute_LJ_scalar(delta, eps, sig, rc*rc);
 
     for (int dim = 0; dim < N; ++dim) {
         force[dim] = (C_LJ * delta_dim[dim]);
