@@ -6,6 +6,7 @@
 #define NBMPI_PROBE_HPP
 
 #include "utils.hpp"
+#include "parallel_utils.hpp"
 
 class Probe {
     int current_iteration = 0;
@@ -33,6 +34,14 @@ public:
     Time get_max_it() const;
     Time get_min_it() const;
     Time get_sum_it() const;
+
+    void sync_it_time_across_processors(Time *t, MPI_Comm comm) {
+        // Measure load imbalance
+        MPI_Allreduce(t, this->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
+        MPI_Allreduce(t, this->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
+        MPI_Allreduce(t, this->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+        *t = *this->max_it_time();
+    }
 
     Time  get_cumulative_imbalance_time() const;
     Time compute_load_imbalance() { return (get_max_it()/get_avg_it() - 1.0); }

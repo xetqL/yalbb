@@ -114,7 +114,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                 const auto next_frame = frame + 1;
                 if (node && ((node->decision == DontLB) || (node->decision == DoLB && !foundYes.at(frame)))) {
                     /* compute node cost */
-                    Time comp_time = 0.0;
+                    Time batch_time = 0.0;
                     Time starting_time = currentNode->cost();
                     auto mesh_data = rollback_data.at(frame);
                     auto LB = node->lb;
@@ -128,54 +128,51 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
 
                     for (int i = 0; i < node->batch_size; ++i) {
                         Time it_time = 0.0;
+                        Time lb_time = 0.0;
                         bool lb_decision = node->get_decision() == DoLB && i == 0;
 
                         if (lb_decision) {
                             PAR_START_TIMER(lb_time_spent, comm);
                             doLoadBalancingFunc(LB, &mesh_data);
                             PAR_END_TIMER(lb_time_spent, comm);
-                            MPI_Allreduce(MPI_IN_PLACE, &lb_time_spent, 1, MPI_TIME, MPI_MAX, comm);
+                            MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
                             probe->push_load_balancing_time(lb_time_spent);
                             probe->reset_cumulative_imbalance_time();
-                            comp_time += lb_time_spent;
                         }
 
                         probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-                        auto remote_el = get_ghost_data<N>(LB, mesh_data.els, getPosPtrFunc, boxIntersectFunc,
-                                                           params->rc, datatype, comm);
-
-                        auto bbox = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els, remote_el);
-                        const auto nlocal = mesh_data.els.size(), nremote = remote_el.size();
-                        apply_resize_strategy(&lscl, nlocal + nremote);
-                        apply_resize_strategy(&flocal, N * nlocal);
-                        CLL_init<N, T>({{mesh_data.els.data(), nlocal},
-                                        {remote_el.data(),      nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-
-                        PAR_START_TIMER(it_compute_time, comm);
-                        nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head,
-                                              &lscl, bbox, getForceFunc, rc, dt, simsize);
-                        PAR_END_TIMER(it_compute_time, comm);
-
                         migrate_data(LB, mesh_data.els, pointAssignFunc, datatype, comm);
 
-                        // Measure load imbalance
-                        MPI_Allreduce(&it_compute_time, probe->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
-                        MPI_Allreduce(&it_compute_time, probe->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
-                        MPI_Allreduce(&it_compute_time, probe->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
+                        auto bbox      = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els);
+                        auto remote_el = retrieve_ghosts<N>(LB, mesh_data.els, bbox, boxIntersectFunc, params->rc, datatype, comm);
+                        const auto nlocal  = mesh_data.els.size(), nremote = remote_el.size();
+                        apply_resize_strategy(&lscl,   nlocal + nremote);
+                        apply_resize_strategy(&flocal, N*nlocal);
+                        CLL_init<N, T>({{mesh_data.els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
+                        PAR_START_TIMER(it_compute_time, comm);
+                        int nb_interactions = nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
+                        END_TIMER(it_compute_time);
+
+                        it_compute_time += lb_time;
+
+                        // Measure load imbalance
+                        probe->sync_it_time_across_processors(&it_compute_time, comm);
                         probe->update_cumulative_imbalance_time();
                         probe->update_lb_parallel_efficiencies();
+
+                        MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
 
                         cum_li_hist[i] = probe->get_cumulative_imbalance_time();
                         dec_hist[i]    = lb_decision;
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
 
-                        comp_time += *probe->max_it_time();
+                        batch_time += it_compute_time;
                         probe->next_iteration();
                     }
 
-                    node->set_cost(comp_time);
+                    node->set_cost(batch_time);
 
                     pQueue.insert(node);
                     if (node->end_it < nb_iterations)

@@ -34,7 +34,7 @@ struct sim_param_t {
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
     int   id = 0;
-    int nb_best_path;
+    int nb_best_path = 1;
     std::string uuid;
     int verbosity;
 };

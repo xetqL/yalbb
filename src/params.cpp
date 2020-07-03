@@ -18,6 +18,7 @@ void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "= EPS:  " << params.eps_lj << std::endl;
     stream << "= Cut-off: "<< (params.rc) << std::endl;
     stream << "= Borders: collisions " << std::endl;
+    stream << "= A* bpath " << params.nb_best_path << std::endl;
     stream << "= Gravity:  " << params.G << std::endl;
     stream << "= Temperature: " << params.T0 << std::endl;
     stream << "==============================================" << std::endl;
@@ -32,7 +33,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_version('V', "version", "MiniLB v1.0:\nMiniLB is a fast parallel (MPI) n-body mini code for load balancing brenchmarking.");
     parser.add_opt_help('h', "help"); // use -h or --help
 
-    parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT");
+    parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT").require();
     parser.add_opt_value('d', "distribution", params.particle_init_conf, 1, "Initial particle distribution 1: Uniform, 2:Half, 3:Wall, 4: Cluster", "INT");
     parser.add_opt_value('e', "epslj", params.eps_lj, 1.0f, "Epsilon (lennard-jones)", "FLOAT");
     parser.add_opt_value('f', "npframe", params.npframe, 100, "steps per frame", "INT").require();

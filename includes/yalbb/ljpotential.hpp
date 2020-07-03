@@ -7,7 +7,9 @@
 
 #include "utils.hpp"
 
-Real compute_LJ_scalar(Real r2, Real eps, Real sig, Real rc2);
+//Real compute_LJ_scalar(Real r2, Real eps, Real sig, Real rc2);
+
+Real compute_LJ_force(Real r2, Real eps, Real sig);
 
 template<int N, class T, class GetPosPtrFunc>
 std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real eps, Real sig, Real rc, GetPosPtrFunc getPosPtr) {
@@ -26,7 +28,7 @@ std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real ep
 
     delta = std::max(delta, min_r2);
 
-    Real C_LJ = compute_LJ_scalar(delta, eps, sig, rc*rc);
+    Real C_LJ = compute_LJ_force(delta, eps, sig);
 
     for (int dim = 0; dim < N; ++dim) {
         force[dim] = (C_LJ * delta_dim[dim]);

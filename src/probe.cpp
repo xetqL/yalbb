@@ -2,8 +2,9 @@
 // Created by xetql on 4/29/20.
 //
 
-#include "probe.hpp"
+
 #include <numeric>
+#include "probe.hpp"
 
 Probe::Probe(int nproc) : nproc(nproc) {}
 
