@@ -28,7 +28,7 @@ std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real ep
 
     delta = std::max(delta, min_r2);
 
-    Real C_LJ = compute_LJ_force(delta, eps, sig);
+    Real C_LJ = -compute_LJ_force(delta, eps, sig);
 
     for (int dim = 0; dim < N; ++dim) {
         force[dim] = (C_LJ * delta_dim[dim]);

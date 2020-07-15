@@ -407,14 +407,7 @@ namespace statistic {
                 sphere_radius(sphere_radius), spherex(spherex), spherey(spherey), spherez(spherez) {}
 
         std::array<RealType, N> operator()(std::mt19937 &gen) {
-            /*
-            r1 = (np.random.uniform(0, 1 , n)*(b**3-a**3)+a**3)**(1/3);
-            phi1 = np.arccos(-1 + 2*np.random.uniform(0, 1, n));
-            th1 = 2*pi*np.random.uniform(0, 1, n);
-            x = r1*np.sin(phi1)*np.sin(th1) + X;
-            y = r1*np.sin(phi1)*np.cos(th1) + Y;
-            z = r1*np.cos(phi1) + Z;
-            */
+
             RealType a = sphere_radius, b = 0.0;
             std::uniform_real_distribution<RealType> udist(0.0, 1.0);
 
