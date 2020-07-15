@@ -129,6 +129,8 @@ void simulate(
             it_time = 0.0;
             bool lb_decision = lb_policy->should_load_balance();
 
+            MPI_Bcast(&lb_decision, 1, MPI_INT, 0, comm);
+
             if (lb_decision) {
                 PAR_START_TIMER(lb_time_spent, comm);
                 doLoadBalancingFunc(LB, mesh_data);
@@ -156,7 +158,9 @@ void simulate(
             it_compute_time += lb_time;
 
             //------ end ------ //
+
             probe->sync_it_time_across_processors(&it_compute_time, comm);
+
             probe->update_cumulative_imbalance_time();
             probe->update_lb_parallel_efficiencies();
 

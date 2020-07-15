@@ -10,6 +10,7 @@
 #include <queue>
 #include "utils.hpp"
 #include "probe.hpp"
+
 template<class P>
 class LBPolicy {
 public:
@@ -22,13 +23,16 @@ public:
     template<class... Args> PolicyRunner(Args... args) : p(std::make_unique<Policy>(args...)) {}
     bool should_load_balance() { return p->apply(); };
 };
+
 template<class Policy>
 class PolicyExecutor : public LBPolicy<Policy>{
     Probe* probe;
     Policy p;
 public:
     PolicyExecutor(Probe* probe, Policy p) : probe(probe), p(p) {}
-    bool should_load_balance() { return p(*probe); };
+    bool should_load_balance() {
+        return p(*probe);
+    };
 };
 template<class Policy>
 class CustomPolicy {
