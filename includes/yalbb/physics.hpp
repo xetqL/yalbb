@@ -89,7 +89,9 @@ Complexity nbody_compute_step(
         const Real simwidth,
         const Real Gforce) {                     // simulation parameters
 
-    std::fill(flocal.begin(), flocal.end(), (Real) Gforce);
+    std::fill(flocal.begin(), flocal.end(), (Real) 0.0);
+    const auto size = flocal.size();
+    for(int i = 0; i < size; i += N) flocal.at(i) = Gforce;
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 
