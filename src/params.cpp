@@ -61,5 +61,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
 
     params.verbosity = verbose.get_count();
     params.rc *= params.sig_lj;
+    params.G *= 9.81f;
+
     return params;
 }

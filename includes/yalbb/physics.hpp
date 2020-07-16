@@ -86,9 +86,10 @@ Complexity nbody_compute_step(
         GetForceFunc getForceFunc,                 // function to compute force between entities
         const Real cutoff,
         const Real dt,
-        const Real simwidth) {                     // simulation parameters
+        const Real simwidth,
+        const Real Gforce) {                     // simulation parameters
 
-    std::fill(flocal.begin(), flocal.end(), (Real) 0.0);
+    std::fill(flocal.begin(), flocal.end(), (Real) Gforce);
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 

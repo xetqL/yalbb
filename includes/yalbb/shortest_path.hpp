@@ -152,7 +152,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         CLL_init<N, T>({{mesh_data.els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
                         PAR_START_TIMER(it_compute_time, comm);
-                        int nb_interactions = nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize);
+                        int nb_interactions = nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  rc, dt, simsize, params->G);
                         END_TIMER(it_compute_time);
 
                         it_compute_time += lb_time;
