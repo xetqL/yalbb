@@ -6,21 +6,21 @@
 
 void print_params(std::ostream& stream, const sim_param_t& params){
     stream << "==============================================" << std::endl;
-    stream << "= Parameters: " << std::endl;
-    stream << "= Particles: " << params.npart << std::endl;
-    stream << "= Seed: " << params.seed << std::endl;
-    stream << "= id: " << params.id << std::endl;
-    stream << "= Simulation size: " << params.simsize << std::endl;
-    stream << "= Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
-    stream << "= Timestep: "<< params.dt << std::endl;
-    stream << "= Initial conditions: " << std::endl;
-    stream << "= SIG:" << params.sig_lj << std::endl;
-    stream << "= EPS:  " << params.eps_lj << std::endl;
-    stream << "= Cut-off: "<< (params.rc) << std::endl;
-    stream << "= Borders: collisions " << std::endl;
-    stream << "= A* bpath " << params.nb_best_path << std::endl;
-    stream << "= Gravity:  " << params.G << std::endl;
-    stream << "= Temperature: " << params.T0 << std::endl;
+    stream << "Parameters: " << std::endl;
+    stream << "Particles: " << params.npart << std::endl;
+    stream << "Seed: " << params.seed << std::endl;
+    stream << "id: " << params.id << std::endl;
+    stream << "Simulation size: " << params.simsize << std::endl;
+    stream << "Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
+    stream << "Timestep: "<< params.dt << std::endl;
+    stream << "Initial conditions: " << std::endl;
+    stream << "SIG:" << params.sig_lj << std::endl;
+    stream << "EPS:  " << params.eps_lj << std::endl;
+    stream << "Cut-off: "<< params.rc << std::endl;
+    stream << "Bounce: " << params.bounce << std::endl;
+    stream << "A* bpath " << params.nb_best_path << std::endl;
+    stream << "Gravity:  " << params.G << std::endl;
+    stream << "Temperature: " << params.T0 << std::endl;
     stream << "==============================================" << std::endl;
 }
 void print_params(const sim_param_t& params) {
@@ -34,6 +34,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_help('h', "help"); // use -h or --help
 
     parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT").require();
+    parser.add_opt_value('b', "bounce", params.bounce, 1.0f, "Bouncing factor (1=full bounce, 0=no bounce)", "FLOAT");
     parser.add_opt_value('d', "distribution", params.particle_init_conf, 1, "Initial particle distribution 1: Uniform, 2:Half, 3:Wall, 4: Cluster", "INT");
     parser.add_opt_value('e', "epslj", params.eps_lj, 1.0f, "Epsilon (lennard-jones)", "FLOAT");
     parser.add_opt_value('f', "npframe", params.npframe, 100, "steps per frame", "INT").require();
@@ -42,7 +43,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_value('i', "id", params.id, 0, "Simulation id", "INT").require();
     parser.add_opt_value('l', "lattice", params.rc, 2.5f, "Lattice size", "FLOAT");
     parser.add_opt_value('n', "nparticles", params.npart, 500, "Number of particles", "INT").require();
-    parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
+     parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
     parser.add_opt_value('s', "siglj", params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
     parser.add_opt_value('S', "seed", params.seed, rand(), "Random seed", "INT").require();
     parser.add_opt_value('t', "dt", params.dt, 1e-5f, "Time step", "float");

@@ -30,14 +30,17 @@ struct sim_param_t {
     float T0;      /* Initial temperature (1)    */
     float simsize; /* Borders of the simulation  */
     float rc;      /* factor multiplying sigma for cutoff */
+    float bounce;  /* shock absorption factor (0=no bounce, 1=full bounce) */
     bool  record;  /* record the simulation in a binary file */
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
     int   id = 0;
-    int nb_best_path = 1;
+    int   nb_best_path = 1;
+
     std::string uuid;
     int verbosity;
 };
+
 void print_params(std::ostream& stream, const sim_param_t& params);
 void print_params(const sim_param_t& params);
 std::optional<sim_param_t> get_params(int argc, char** argv);

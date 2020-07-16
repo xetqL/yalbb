@@ -55,19 +55,19 @@ void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elem
  * @param v
  * @param a
  */
-void reflect(Real wall, Real* x, Real* v);
+void reflect(Real wall, Real bf, Real* x, Real* v);
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
-void apply_reflect(std::vector<T> &elements, const Real simsize, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
+void apply_reflect(std::vector<T> &elements, const Real simsize, const Real bf, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
     for(auto &element: elements) {
         size_t dim = 0;
         std::array<Real, N>* pos  = getPosPtr(&element);
         std::array<Real, N>* vel  = getVelPtr(&element);
         while(dim < N) {
             if(element.position.at(dim) < 0.0)
-                reflect(0.0, &pos->at(dim), &vel->at(dim));
+                reflect(0.0, bf, &pos->at(dim), &vel->at(dim));
             if(simsize-pos->at(dim) <= 0.00000001f)
-                reflect(simsize-0.00000001f, &pos->at(dim), &vel->at(dim));
+                reflect(simsize-0.00000001f, bf, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }
@@ -84,18 +84,21 @@ Complexity nbody_compute_step(
         std::vector<Integer> *lscl,                // the particle linked list
         BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
         GetForceFunc getForceFunc,                 // function to compute force between entities
-        const Real cutoff,
+        const Real cutoff,                         // simulation parameters
         const Real dt,
         const Real simwidth,
-        const Real Gforce) {                     // simulation parameters
+        const Real Gforce,
+        const Real bf) {
 
     std::fill(flocal.begin(), flocal.end(), (Real) 0.0);
+
     const auto size = flocal.size();
+
     for(int i = 0; i < size; i += N) flocal.at(i) = Gforce;
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 
-    apply_reflect<N, T>(elements, simwidth, getPosPtrFunc, getVelPtrFunc);
+    apply_reflect<N, T>(elements, simwidth, bf, getPosPtrFunc, getVelPtrFunc);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&flocal, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
