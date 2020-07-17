@@ -94,7 +94,7 @@ Complexity nbody_compute_step(
 
     const auto size = flocal.size();
 
-    for(int i = 0; i < size; i += N) flocal.at(i) = Gforce;
+    for(int i = N-1; i < size; i += N) flocal.at(i) = Gforce;
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 
