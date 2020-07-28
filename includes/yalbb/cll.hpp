@@ -93,6 +93,45 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
     return cmplx;
 }
 
+template<class T, class GetPositionFunc, class BinaryOp>
+Integer CLL_foreach_interaction(const T *elements, Integer n_elements,
+                    const T *remote_elements,
+                    GetPositionFunc getPosFunc,
+                    const BoundingBox<3>& bbox, Real rc,
+                    const std::vector<Integer> *head, const std::vector<Integer> *lscl,
+                    BinaryOp binary_op) {
+    auto lc = get_cell_number_by_dimension<3>(bbox, rc);
+    Integer c1, ic1[3], j;
+    std::array<Integer, 3> ic;
+    const T *source, *receiver;
+    Integer cmplx = n_elements;
+    for (size_t i = 0; i < n_elements; ++i) {
+        const auto& pos = *getPosFunc(const_cast<T*>(&elements[i]));
+        receiver = &elements[i];
+
+        for(int d = 0; d < 3; ++d) ic[d] = (pos[d]-bbox[2*d]) / rc;
+
+        for (ic1[0] = ic[0] - 1; ic1[0] <= (ic[0]+1); ic1[0]++) {
+            for (ic1[1] = ic[1] - 1; ic1[1] <= (ic[1] + 1); ic1[1]++) {
+                for (ic1[2] = ic[2] - 1; ic1[2] <= (ic[2] + 1); ic1[2]++) {
+                    /* this is for bounce back, to avoid heap-buffer over/under flow */
+                    if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
+                    c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
+                    j = head->at(c1);
+                    while(j != EMPTY) {
+                        if(i != j) {
+                            source = j < n_elements ? &elements[j] : &remote_elements[j - n_elements];
+                            binary_op(receiver, source);
+                        }
+                        j = lscl->at(j);
+                    }
+                }
+            }
+        }
+    }
+    return cmplx;
+}
+
 template<class T, class GetPositionFunc, class ComputeForceFunc>
 Integer CLL_compute_forces2d(std::vector<Real>* acc,
                              const T *elements, Integer n_elements,
