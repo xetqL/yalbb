@@ -28,7 +28,6 @@ void print_params(const sim_param_t& params) {
 }
 std::optional<sim_param_t> get_params(int argc, char** argv){
     sim_param_t params;
-
     zz::cfg::ArgParser parser;
     parser.add_opt_version('V', "version", "MiniLB v1.0:\nMiniLB is a fast parallel (MPI) n-body mini code for load balancing brenchmarking.");
     parser.add_opt_help('h', "help"); // use -h or --help

@@ -18,18 +18,23 @@ inline void CLL_update(Integer acc,
                        std::vector<Integer> *lscl) {
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
     Integer c;
-    for(const auto& span : elements) {
-        auto el_ptr = span.first;
-        auto n_els  = span.second;
-        for (size_t i = 0; i < n_els; ++i) {
-            auto& pos = *getPositionFunc(&el_ptr[i]);
-            if(is_within<N>(bbox, pos)) {
-                c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
-                lscl->at(i + acc) = head->at(c);
-                head->at(c) = i + acc;
+    try {
+        for (const auto &span : elements) {
+            auto el_ptr = span.first;
+            auto n_els = span.second;
+            for (size_t i = 0; i < n_els; ++i) {
+                auto &pos = *getPositionFunc(&el_ptr[i]);
+                if (is_within<N>(bbox, pos)) {
+                    c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
+                    lscl->at(i + acc) = head->at(c);
+                    head->at(c) = i + acc;
+                }
             }
+            acc += n_els;
         }
-        acc += n_els;
+    } catch (const std::out_of_range& oor) {
+        std::cout << "Out of Range error in: " << __FILE__ << ":" << __FUNCTION__ << oor.what() << std::endl;
+        abort();
     }
 }
 template<int N, class T, class GetPositionFunc>
@@ -172,7 +177,6 @@ Integer CLL_compute_forces2d(std::vector<Real>* acc,
                 }
             }
         }
-        //std::cout << receiver << " " << acc->at(2 * receiver.lid + 0) << " " << acc->at(2 * receiver.lid + 1) << std::endl;
     }
     return cmplx;
 }
@@ -188,7 +192,7 @@ Integer CLL_compute_forces(std::vector<Real>* acc,
     //std::memset(acc->data(), 0.0f, sizeof(Real) * acc->size());
     if constexpr(N==3) {
         return CLL_compute_forces3d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);
-    }else {
+    } else {
         return CLL_compute_forces2d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);
     }
 }
