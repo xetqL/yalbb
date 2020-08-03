@@ -40,6 +40,8 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_value('F', "nframes", params.nframes, 100, "number of frames", "INT").require();
     parser.add_opt_value('g', "gravitation", params.G, 1.0f, "Gravitational strength", "FLOAT");
     parser.add_opt_value('i', "id", params.id, 0, "Simulation id", "INT").require();
+    parser.add_opt_value('I', "import", params.fname, std::string("particles.in"), "import particles from this file", "STRING");
+
     parser.add_opt_value('l', "lattice", params.rc, 2.5f, "Lattice size", "FLOAT");
     parser.add_opt_value('n', "nparticles", params.npart, 500, "Number of particles", "INT").require();
      parser.add_opt_flag('r', "record", "Record the simulation", &params.record);

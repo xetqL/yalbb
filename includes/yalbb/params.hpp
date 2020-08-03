@@ -19,6 +19,7 @@
  * by the [[get_params]] function (described later).
  *@c*/
 struct sim_param_t {
+
     std::string fname;   /* File name (run.out)        */
     int   npart;   /* Number of particles (500)  */
     int   nframes; /* Number of frames (200)     */
