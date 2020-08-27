@@ -33,6 +33,7 @@ struct sim_param_t {
     float rc;      /* factor multiplying sigma for cutoff */
     float bounce;  /* shock absorption factor (0=no bounce, 1=full bounce) */
     bool  record;  /* record the simulation in a binary file */
+    bool  import = false;
     int   seed;    /* seed used in the RNG */
     int   particle_init_conf = 1;
     int   id = 0;

@@ -420,6 +420,7 @@ namespace statistic {
                     r1 * std::sin(ph1) * std::cos(th1),
                     r1 * std::cos(ph1)
             );
+
             if (N > 2) return {(std::get<0>(p)) + spherex, std::get<1>(p) + spherey, std::get<2>(p) + spherez};
             else return {std::get<0>(p) + spherex, std::get<1>(p) + spherey};
         }
