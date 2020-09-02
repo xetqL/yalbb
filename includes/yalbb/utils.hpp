@@ -18,7 +18,9 @@
 #include <random>
 #include <cstring>
 
-#define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<<__LINE__<< " = " << (x) << std::endl;
+#ifdef DEBUG
+#define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<< __LINE__ << "("<< __PRETTY_FUNCTION__<< ") = " << (x) << std::endl;
+#endif
 
 inline std::string get_date_as_string();
 bool file_exists(const std::string fileName);
@@ -154,6 +156,7 @@ template <typename T, size_t N> std::ostream& operator<<(std::ostream& os, const
         if (i != v.size() - 1)
             os << ",";
     }
+
     return os;
 }
 template <typename T> std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)

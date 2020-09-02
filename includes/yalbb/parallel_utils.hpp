@@ -58,6 +58,29 @@ struct Borders {
 // This function is a synchronization point.
 std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
 
+template<class T>
+void do_migration(int nb_elements, std::vector<T>& data, std::vector<std::vector<T>>& data_to_migrate, MPI_Datatype datatype, MPI_Comm comm) {
+    int wsize, PE, nb_import;	
+    MPI_Comm_size(comm, & wsize);	
+    //export
+    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+    std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(export_counts), [](const auto& el){return el.size();});
+    for(PE = 1; PE < wsize; ++PE) export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+    auto nb_export = std::accumulate(export_counts.cbegin(), export_counts.cend(), 0);
+    std::vector<T> export_buf; export_buf.reserve(nb_export);
+    for(const auto& migration_buf : data_to_migrate)
+        export_buf.insert(export_buf.end(), migration_buf.cbegin(), migration_buf.cend());
+    // import
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, comm), import_displs(wsize, 0);
+    for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    data.reserve(nb_elements + nb_import);
+    std::vector<T> import_buf(nb_import);
+    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
+                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, comm);
+    std::move(import_buf.begin(), import_buf.end(), std::back_inserter(data));
+    return std::next(data.begin(), nb_elements + nb_import);
+}
+
 template<class T, class LoadBalancer, class PointAssignFunc>
 typename std::vector<T>::const_iterator migrate_data(
         LoadBalancer* LB,
@@ -94,7 +117,8 @@ typename std::vector<T>::const_iterator migrate_data(
             num_known++;
         } else data_id++; //if the element must stay with me then check the next one
     }
-
+    return do_migration<T>(nb_elements, data, data_to_migrate, datatype, LB_COMM);
+/*
     //export
     std::vector<int> export_counts(wsize), export_displs(wsize, 0);
     std::transform(data_to_migrate.cbegin(), data_to_migrate.cend(), std::begin(export_counts), [](const auto& el){return el.size();});
@@ -113,6 +137,7 @@ typename std::vector<T>::const_iterator migrate_data(
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
     std::move(import_buf.begin(), import_buf.end(), std::back_inserter(data));
     return std::next(data.begin(), nb_elements + nb_import);
+    */
 }
 
 template<class T>
