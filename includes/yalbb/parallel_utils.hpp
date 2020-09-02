@@ -59,7 +59,7 @@ struct Borders {
 std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
 
 template<class T>
-void do_migration(int nb_elements, std::vector<T>& data, std::vector<std::vector<T>>& data_to_migrate, MPI_Datatype datatype, MPI_Comm comm) {
+typename std::vector<T>::const_iterator do_migration(int nb_elements, std::vector<T>& data, std::vector<std::vector<T>>& data_to_migrate, MPI_Datatype datatype, MPI_Comm comm) {
     int wsize, PE, nb_import;	
     MPI_Comm_size(comm, & wsize);	
     //export
