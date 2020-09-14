@@ -409,6 +409,9 @@ namespace statistic {
         UniformSphericalDistribution(RealType sphere_radius, RealType spherex, RealType spherey, RealType spherez) :
                 sphere_radius(sphere_radius), spherex(spherex), spherey(spherey), spherez(spherez) {}
 
+        UniformSphericalDistribution(RealType sphere_radius, std::array<RealType, N> center) :
+                sphere_radius(sphere_radius), spherex(center.at(0)), spherey(center.at(1)), spherez(N==3 ? center.at(2) : 0) {}
+
         std::array<RealType, N> operator()(std::mt19937 &gen) {
 
             RealType a = sphere_radius, b = 0.0;
@@ -418,13 +421,43 @@ namespace statistic {
             RealType ph1 = std::acos(-1.0 + 2.0 * udist(gen));
             RealType th1 = 2.0 * M_PI * udist(gen);
 
-            auto p = std::make_tuple<RealType, RealType, RealType>(
+            auto p = std::make_tuple<RealType, RealType, RealType> (
                     r1 * std::sin(ph1) * std::sin(th1),
                     r1 * std::sin(ph1) * std::cos(th1),
                     r1 * std::cos(ph1)
             );
 
-            if (N > 2) return {(std::get<0>(p)) + spherex, std::get<1>(p) + spherey, std::get<2>(p) + spherez};
+            if constexpr (N == 3) return {(std::get<0>(p)) + spherex, std::get<1>(p) + spherey, std::get<2>(p) + spherez};
+            else return {std::get<0>(p) + spherex, std::get<1>(p) + spherey};
+        }
+    };
+
+    template<int N, class RealType>
+    class UniformOnSphereEdgeDistribution {
+        const RealType sphere_radius, spherex, spherey, spherez;
+    public:
+        UniformOnSphereEdgeDistribution(RealType sphere_radius, RealType spherex, RealType spherey, RealType spherez) :
+                sphere_radius(sphere_radius), spherex(spherex), spherey(spherey), spherez(spherez) {}
+
+        UniformOnSphereEdgeDistribution(RealType sphere_radius, std::array<RealType, N> center) :
+                sphere_radius(sphere_radius), spherex(center.at(0)), spherey(center.at(1)), spherez(N==3 ? center.at(2) : 0) {}
+
+        std::array<RealType, N> operator()(std::mt19937 &gen) {
+
+            RealType a = sphere_radius, b = 0.0;
+            std::uniform_real_distribution<RealType> udist(0.0, 1.0);
+
+            RealType r1 = sphere_radius;
+            RealType ph1 = std::acos(-1.0 + 2.0 * udist(gen));
+            RealType th1 = 2.0 * M_PI * udist(gen);
+
+            auto p = std::make_tuple<RealType, RealType, RealType> (
+                    r1 * std::sin(ph1) * std::sin(th1),
+                    r1 * std::sin(ph1) * std::cos(th1),
+                    r1 * std::cos(ph1)
+            );
+
+            if constexpr (N == 3) return {(std::get<0>(p)) + spherex, std::get<1>(p) + spherey, std::get<2>(p) + spherez};
             else return {std::get<0>(p) + spherex, std::get<1>(p) + spherey};
         }
     };

@@ -43,7 +43,7 @@ var = MPI_Wtime() - var;
 
 #define PAR_START_TIMER(var, comm)\
 MPI_Barrier(comm);\
-double var = MPI_Wtime();\
+double var = MPI_Wtime();
 
 #define PAR_END_TIMER(var, comm)\
 MPI_Barrier(comm);\
