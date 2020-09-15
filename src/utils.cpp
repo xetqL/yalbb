@@ -2,7 +2,13 @@
 // Created by xetql on 4/29/20.
 //
 #include "utils.hpp"
-
+Real str_to_real(const std::string& str){
+    if constexpr (std::is_same<Real, double>::value){
+        return std::stod(str);
+    } else {
+        return std::stof(str);
+    }
+}
 inline std::string get_date_as_string() {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);

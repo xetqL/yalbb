@@ -537,13 +537,7 @@ namespace statistic {
 
 namespace io {
 
-Real str_to_real(const std::string& str) {
-    if constexpr (std::is_same<Real, double>::value){
-        return std::stod(str);
-    } else {
-        return std::stof(str);
-    }
-}
+Real str_to_real(const std::string& str);
 
 template<int N>
 std::array<Real, N> load_one(std::ifstream& instream){
