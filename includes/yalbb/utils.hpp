@@ -535,5 +535,28 @@ namespace statistic {
 
 } // end of namespace statistic
 
+namespace io {
+
+Real str_to_real(const std::string& str) {
+    if constexpr (std::is_same<Real, double>::value){
+        return std::stod(str);
+    } else {
+        return std::stof(str);
+    }
+}
+
+template<int N>
+std::array<Real, N> load_one(std::ifstream& instream){
+	std::array<Real, N> pos;
+    std::string line, token;
+    std::getline(instream, line);
+    std::istringstream ss(line);
+    for(int i=0; std::getline(ss, token, ',') && i < N; ++i) {
+        pos.at(i) = str_to_real(token);
+    }
+	return pos;
+}
+
+}
 
 #endif //NBMPI_UTILS_HPP
