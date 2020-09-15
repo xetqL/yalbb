@@ -2,7 +2,7 @@
 // Created by xetql on 4/29/20.
 //
 #include "utils.hpp"
-Real str_to_real(const std::string& str){
+Real io::str_to_real(const std::string& str){
     if constexpr (std::is_same<Real, double>::value){
         return std::stod(str);
     } else {
