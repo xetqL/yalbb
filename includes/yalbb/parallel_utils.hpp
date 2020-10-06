@@ -48,67 +48,26 @@ double var = MPI_Wtime();
 #define PAR_END_TIMER(var, comm)\
 MPI_Barrier(comm);\
 var = MPI_Wtime() - var;
-    template<class T>
-        constexpr MPI_Datatype get_mpi_type(){
-                    if constexpr (std::is_same<T, float>::value)                    return MPI_FLOAT;
-                            if constexpr (std::is_same<T, double>::value)                   return MPI_DOUBLE;
-                                    if constexpr (std::is_same<T, int>::value)                      return MPI_INT;
-                                            if constexpr (std::is_same<T, unsigned int>::value)             return
-                                                MPI_UNSIGNED;
-                                                        if constexpr (std::is_same<T, long>::value)
-                                                            return MPI_LONG;
-                                                                    if constexpr (std::is_same<T, long int>::value)
-                                                                        return MPI_LONG_INT;
-                                                                                if constexpr (std::is_same<T, long
-                                                                                    double>::value)              return
-                                                                                    MPI_LONG_DOUBLE;
-                                                                                            if constexpr
-                                                                                                (std::is_same<T, long
-                                                                                                long>::value)
-                                                                                                return MPI_LONG_LONG;
-                                                                                                        if constexpr
-                                                                                                            (std::is_same<T,
-                                                                                                            long long
-                                                                                                            int>::value)
-                                                                                                            return
-                                                                                                            MPI_LONG_LONG_INT;
-                                                                                                                    if
-                                                                                                                        constexpr
-                                                                                                                        (std::is_same<T,
-                                                                                                                        unsigned
-                                                                                                                        long>::value)
-                                                                                                                        return
-                                                                                                                        MPI_UNSIGNED_LONG;
-                                                                                                                                if
-                                                                                                                                    constexpr
-                                                                                                                                    (std::is_same<T,
-                                                                                                                                    unsigned
-                                                                                                                                    long
-                                                                                                                                    long>::value)
-                                                                                                                                    return
-                                                                                                                                    MPI_UNSIGNED_LONG_LONG;
-                                                                                                                                            if
-                                                                                                                                                constexpr
-                                                                                                                                                (std::is_same<T,
-                                                                                                                                                short>::value)
-                                                                                                                                                return
-                                                                                                                                                MPI_SHORT;
-                                                                                                                                                        if
-                                                                                                                                                            constexpr
-                                                                                                                                                            (std::is_same<T,
-                                                                                                                                                            short
-                                                                                                                                                            int>::value)
-                                                                                                                                                            return
-                                                                                                                                                            MPI_SHORT_INT;
-                                                                                                                                                                    if
-                                                                                                                                                                        constexpr
-                                                                                                                                                                        (std::is_same<T,
-                                                                                                                                                                        char>::value)
-                                                                                                                                                                        return
-                                                                                                                                                                        MPI_CHAR;
-                                                                                                                                                                                return
-                                                                                                                                                                                MPI_DATATYPE_NULL;
-                                                                                                                                                                                    }
+    
+template<class T>
+constexpr MPI_Datatype get_mpi_type() {
+    if constexpr (std::is_same<T, float>::value) return MPI_FLOAT;
+    if constexpr (std::is_same<T, double>::value) return MPI_DOUBLE;
+    if constexpr (std::is_same<T, int>::value) return MPI_INT;
+    if constexpr (std::is_same<T, unsigned int>::value) return MPI_UNSIGNED;
+    if constexpr (std::is_same<T, long>::value) return MPI_LONG;
+    if constexpr (std::is_same<T, long int>::value) return MPI_LONG_INT;
+    if constexpr (std::is_same<T, long double>::value) return MPI_LONG_DOUBLE;
+    if constexpr (std::is_same<T, long long>::value) return MPI_LONG_LONG;
+    if constexpr (std::is_same<T, long long int>::value) return MPI_LONG_LONG_INT;
+    if constexpr (std::is_same<T, unsigned long>::value) return MPI_UNSIGNED_LONG;
+    if constexpr (std::is_same<T, unsigned long long>::value) return MPI_UNSIGNED_LONG_LONG;
+    if constexpr (std::is_same<T, short>::value) return MPI_SHORT;
+    if constexpr (std::is_same<T, short int>::value) return MPI_SHORT_INT;
+    if constexpr (std::is_same<T, char>::value) return MPI_CHAR;
+    return MPI_DATATYPE_NULL;
+}
+
 struct Borders {
     std::vector<std::vector<Rank>> neighbors;
     std::vector<Index> bordering_cells;
