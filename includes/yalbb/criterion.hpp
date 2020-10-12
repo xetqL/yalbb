@@ -53,5 +53,13 @@ namespace lb {
         }
     };
     using  WhenAtLeastOneProcIsOutsideToleranceRange = Marquez;
-    using  Criterion = std::variant<Static, Periodic, VanillaMenon, ImprovedMenon, Procassini, Marquez>;
+
+    struct Reproduce {
+        const std::vector<int> scenario;
+        bool operator()(Probe& probe) const {
+            return (bool) scenario.at(probe.get_current_iteration());
+        }
+    };
+
+    using  Criterion = std::variant<Reproduce, Static, Periodic, VanillaMenon, ImprovedMenon, Procassini, Marquez>;
 }
