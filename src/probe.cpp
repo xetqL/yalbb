@@ -16,10 +16,19 @@ void Probe::update_cumulative_imbalance_time() {
      * we know that the algorithm is not capable to do better. Hence, we can treat C as a baseline.*/
     if(this->balanced) lb_imbalance_baseline = (max_it - (sum_it/nproc)); // use the remaining imbalance as baseline
     cumulative_imbalance_time += std::max(0.0, ((max_it - (sum_it/nproc)) - lb_imbalance_baseline));
+    vanilla_cumulative_imbalance_time += (max_it - (sum_it/nproc));
 }
 
-void  Probe::reset_cumulative_imbalance_time() { cumulative_imbalance_time = 0.0; }
-Time  Probe::compute_avg_lb_time() { return lb_times.size() == 0 ? 0.0 : std::accumulate(lb_times.cbegin(), lb_times.cend(), 0.0) / lb_times.size(); }
+void  Probe::reset_cumulative_imbalance_time() {
+    cumulative_imbalance_time = 0.0;
+    vanilla_cumulative_imbalance_time = 0.0;
+}
+Time  Probe::compute_avg_lb_time() {
+    if(lb_times.empty()) return 0.0;
+    const auto N = lb_times.size();
+    const auto window_size = std::min((decltype(N)) 5, N);
+    return std::accumulate(lb_times.cbegin(), std::next(lb_times.cbegin(), window_size), 0.0) / N; }
+
 Time* Probe::max_it_time() { return &max_it; }
 Time* Probe::min_it_time() { return &min_it; }
 
@@ -61,6 +70,10 @@ Time Probe::get_batch_time() {
 Time Probe::get_cumulative_imbalance_time() const {
     return cumulative_imbalance_time;
 }
+Time Probe::get_vanilla_cumulative_imbalance_time() const {
+    return vanilla_cumulative_imbalance_time;
+}
+
 
 Time* Probe::sum_it_time() { return &sum_it; }
 void  Probe::push_load_balancing_time(Time lb_time){ lb_times.push_back(lb_time); }
