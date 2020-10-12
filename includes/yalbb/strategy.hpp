@@ -8,6 +8,7 @@
 
 #include <random>
 #include <queue>
+#include <variant>
 #include "utils.hpp"
 #include "probe.hpp"
 
@@ -16,12 +17,14 @@ class LBPolicy {
 public:
     virtual bool should_load_balance() = 0;
 };
-template<class Policy>
-class PolicyRunner : public LBPolicy<Policy> {
-    std::unique_ptr<Policy> p;
-public:
-    template<class... Args> PolicyRunner(Args... args) : p(std::make_unique<Policy>(args...)) {}
-    bool should_load_balance() { return p->apply(); };
+template<class Variant>
+class PolicyRunner : public LBPolicy<Variant> {
+    Variant p;
+    Probe* probe;
+    PolicyRunner(Probe* probe, Variant p) : probe(probe), p(p) {}
+    bool should_load_balance() {
+        return std::visit([probePtr=probe](auto v){return v(*probePtr); }, p);
+    };
 };
 
 template<class Policy>
@@ -34,6 +37,9 @@ public:
         return p(*probe);
     };
 };
+
+
+
 template<class Policy>
 class CustomPolicy {
     Probe* dataHolder;

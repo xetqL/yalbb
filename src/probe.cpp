@@ -74,7 +74,6 @@ Time Probe::get_vanilla_cumulative_imbalance_time() const {
     return vanilla_cumulative_imbalance_time;
 }
 
-
 Time* Probe::sum_it_time() { return &sum_it; }
 void  Probe::push_load_balancing_time(Time lb_time){ lb_times.push_back(lb_time); }
 void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){ lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
