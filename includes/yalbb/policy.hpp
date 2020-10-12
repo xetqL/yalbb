@@ -2,8 +2,8 @@
 // Created by xetql on 02.07.18.
 //
 
-#ifndef NBMPI_STRATEGY_HPP
-#define NBMPI_STRATEGY_HPP
+#ifndef NBMPI_POLICY_HPP
+#define NBMPI_POLICY_HPP
 
 
 #include <random>
@@ -11,6 +11,7 @@
 #include <variant>
 #include "utils.hpp"
 #include "probe.hpp"
+#include "criterion.hpp"
 
 template<class P>
 class LBPolicy {
@@ -18,14 +19,13 @@ public:
     virtual bool should_load_balance() = 0;
 };
 
-template<class Variant>
-class PolicyRunner : public LBPolicy<Variant> {
-    Variant p;
+class PolicyRunner {
+    lb::Criterion criterion;
     Probe* probe;
 public:
-    PolicyRunner(Probe* probe, Variant p) : probe(probe), p(p) {}
+    PolicyRunner(Probe* probe, lb::Criterion criterion) : probe(probe), criterion(std::move(criterion)) {}
     bool should_load_balance() {
-        return std::visit([probePtr=probe](auto v){return v(*probePtr); }, p);
+        return std::visit([probePtr=probe](const auto& v){return v(*probePtr); }, criterion);
     };
 };
 
@@ -52,4 +52,4 @@ public:
         return p(*dataHolder);
     }
 };
-#endif //NBMPI_STRATEGY_HPP
+#endif //NBMPI_POLICY_HPP

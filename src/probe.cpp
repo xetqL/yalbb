@@ -23,7 +23,7 @@ void  Probe::reset_cumulative_imbalance_time() {
     cumulative_imbalance_time = 0.0;
     vanilla_cumulative_imbalance_time = 0.0;
 }
-Time  Probe::compute_avg_lb_time() {
+Time  Probe::compute_avg_lb_time() const {
     if(lb_times.empty()) return 0.0;
     const auto N = lb_times.size();
     const auto window_size = std::min((decltype(N)) 5, N);
@@ -36,7 +36,7 @@ void Probe::set_balanced(bool lb_status){
     Probe::balanced = lb_status;
 }
 
-Real Probe::get_efficiency() {
+Real Probe::get_efficiency() const{
     return get_avg_it() / get_max_it();
 }
 
@@ -47,7 +47,7 @@ bool Probe::is_balanced() const {
 int Probe::get_current_iteration() const {
     return current_iteration;
 }
-Time Probe::get_avg_it() {
+Time Probe::get_avg_it() const {
     return sum_it/nproc;
 }
 
@@ -63,7 +63,7 @@ Time Probe::get_sum_it() const {
     return sum_it;
 }
 
-Time Probe::get_batch_time() {
+Time Probe::get_batch_time() const{
     return batch_time;
 }
 
@@ -80,7 +80,7 @@ void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency
 void  Probe::update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it()); }
 
 Real Probe::compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}
-Real Probe::get_current_parallel_efficiency(){ return lb_parallel_efficiencies.back();}
+Real Probe::get_current_parallel_efficiency() const { return lb_parallel_efficiencies.back();}
 void Probe::next_iteration() {current_iteration++;}
 void Probe::start_batch(Index batch) { current_batch = batch; }
 void Probe::end_batch(Time time) { batch_time = time; }

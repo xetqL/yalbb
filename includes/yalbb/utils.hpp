@@ -17,6 +17,7 @@
 #include <fstream>
 #include <random>
 #include <cstring>
+#include <variant>
 
 #ifdef DEBUG
 #define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<< __LINE__ << "("<< __PRETTY_FUNCTION__<< ") = " << (x) << std::endl;
@@ -25,6 +26,12 @@
 inline std::string get_date_as_string();
 bool file_exists(const std::string fileName);
 std::vector<std::string> split(const std::string &s, char delimiter);
+
+template <typename T, typename... Args> struct concatenator;
+template <typename... Args0, typename... Args1>
+struct concatenator<std::variant<Args0...>, Args1...> {
+    using type = std::variant<Args0..., Args1...>;
+};
 
 template<class T>
 struct MESH_DATA {

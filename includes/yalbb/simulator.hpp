@@ -15,7 +15,7 @@
 #include <filesystem>
 
 #include "probe.hpp"
-#include "strategy.hpp"
+#include "policy.hpp"
 #include "output_formatter.hpp"
 #include "utils.hpp"
 #include "parallel_utils.hpp"

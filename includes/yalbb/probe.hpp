@@ -23,22 +23,22 @@ public:
 
     Time get_cumulative_imbalance_time() const;
     Time get_vanilla_cumulative_imbalance_time() const;
-    Time get_batch_time();
-    Time get_avg_it();
+    Time get_batch_time() const;
+    Time get_avg_it() const;
     Time get_max_it() const;
     Time get_min_it() const;
     Time get_sum_it() const;
     int  get_current_iteration() const;
-    Real get_current_parallel_efficiency();
-    Real get_efficiency();
-    bool is_balanced() const ;
+    Real get_current_parallel_efficiency() const;
+    Real get_efficiency() const;
+    bool is_balanced() const;
     bool is_batch_started();
     void set_balanced(bool lb_status);
 
     void  update_cumulative_imbalance_time();
     void  reset_cumulative_imbalance_time();
-    Time  compute_avg_lb_time();
-    Time  compute_load_imbalance() { return (get_max_it()/get_avg_it() - 1.0); }
+    Time  compute_avg_lb_time() const;
+    Time  compute_load_imbalance() const { return (get_max_it()/get_avg_it() - 1.0); }
     Real  compute_avg_lb_parallel_efficiency();
     Time* max_it_time() ;
     Time* min_it_time() ;
