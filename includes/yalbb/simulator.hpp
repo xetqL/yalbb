@@ -35,7 +35,7 @@ template<int N, class T, class D, class LoadBalancer, class Wrapper>
 void simulate(
         LoadBalancer* LB,
         MESH_DATA<T> *mesh_data,
-        LBPolicy<D> *lb_policy,
+        D criterion,
         Wrapper fWrapper,
         sim_param_t *params,
         Probe* probe,
@@ -54,6 +54,8 @@ void simulate(
 
     doLoadBalancingFunc(LB, mesh_data);
     probe->set_balanced(true);
+
+    PolicyRunner lb_policy(probe, criterion);
 
     int nproc, rank;
 
@@ -127,7 +129,7 @@ void simulate(
         for (int i = 0; i < npframe; ++i) {
             lb_time = 0.0;
             it_time = 0.0;
-            bool lb_decision = lb_policy->should_load_balance();
+            bool lb_decision = lb_policy.should_load_balance();
 
             MPI_Bcast(&lb_decision, 1, MPI_INT, 0, comm);
 
