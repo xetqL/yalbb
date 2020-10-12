@@ -17,10 +17,12 @@ class LBPolicy {
 public:
     virtual bool should_load_balance() = 0;
 };
+
 template<class Variant>
 class PolicyRunner : public LBPolicy<Variant> {
     Variant p;
     Probe* probe;
+public:
     PolicyRunner(Probe* probe, Variant p) : probe(probe), p(p) {}
     bool should_load_balance() {
         return std::visit([probePtr=probe](auto v){return v(*probePtr); }, p);
