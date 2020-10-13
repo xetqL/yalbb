@@ -68,8 +68,9 @@ void simulate(
 
     std::vector<T> recv_buf;
     std::ofstream fparticle, fimbalance, fcumimbalance, ftime, fcumtime, fefficiency, flbit, flbcost, finteractions;
-    std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
-    std::string frame_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/frames";
+    std::string folder_prefix = "logs/"+std::to_string(params->seed)+"/"+std::to_string(params->id)+"/"+simulation_name;
+    std::string monitoring_files_folder = folder_prefix+"/monitoring";
+    std::string frame_files_folder = folder_prefix+"/frames";
 
     if(!rank) {
         std::filesystem::create_directories(monitoring_files_folder);
