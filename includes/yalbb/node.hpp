@@ -24,7 +24,6 @@ private:
 public:
     int start_it, end_it, batch_size;
     Rank rank;
-    Index id;
 
     std::shared_ptr< NodeType > parent;
     std::vector<Time> li_slowdown_hist, van_li_slowdown_hist, time_hist, time_per_it, efficiency_hist;
@@ -47,19 +46,18 @@ public:
         dec_hist.resize(s);
     }
 
-    Node (Index id, int startit, int batch_size, Decision decision, Probe stats, std::shared_ptr<NodeType> p) :
-        id(id),
+    Node (int startit, int batch_size, Decision decision, std::shared_ptr<NodeType> p) :
         start_it(startit), end_it(startit+batch_size), batch_size(batch_size),
-        parent(p), decision(decision), stats(std::move(stats)),
+        parent(p), decision(decision),
         lb_copy_f(p->lb_copy_f), lb_delete_f(p->lb_delete_f),
         lb(lb_copy_f(parent->lb)),
         concrete_cost(parent->concrete_cost) {
+        this->stats = parent->stats;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         init_hist(batch_size);
     };
 
     Node(LBStruct* zz, int start_it, int batch_size, Decision decision, LBStructCopyF copy_f, LBStructDeleteF delete_f) :
-            id(0),
             start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), parent(nullptr),
             decision(decision),
             lb_copy_f(copy_f),
@@ -77,13 +75,14 @@ public:
     std::array<std::shared_ptr<Node<LBStruct, LBStructCopyF, LBStructDeleteF>>, 2> get_children() {
         if(this->end_it == 0){
             return {
-                    std::make_shared<Node>(0, end_it, batch_size, Decision::DontLB, stats, this->shared_from_this()),
+                    // root node
+                    std::make_shared<Node>(0,      batch_size, Decision::DontLB,     this->shared_from_this()),
                     nullptr
             };
         }else
             return {
-                    std::make_shared<Node>(0, end_it, batch_size, Decision::DoLB,   stats, this->shared_from_this()),
-                    std::make_shared<Node>(0, end_it, batch_size, Decision::DontLB, stats, this->shared_from_this())
+                    std::make_shared<Node>(end_it, batch_size, Decision::DoLB,   this->shared_from_this()),
+                    std::make_shared<Node>(end_it, batch_size, Decision::DontLB, this->shared_from_this())
             };
     }
     std::vector<Decision> get_sequence() {

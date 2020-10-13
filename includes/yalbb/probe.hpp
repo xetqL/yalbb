@@ -8,7 +8,7 @@
 #include "utils.hpp"
 #include "parallel_utils.hpp"
 
-class Probe {
+struct Probe {
     int current_iteration = 0;
     Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0, vanilla_cumulative_imbalance_time, lb_imbalance_baseline = 0, batch_time = 0;
     std::vector<Time> lb_times;
@@ -17,10 +17,9 @@ class Probe {
     bool balanced = true;
     bool batch_started = false;
     int i = 0, nproc, current_batch = 0;
-public:
+
     unsigned int batch_id = 0;
     Probe(int nproc);
-
     Time get_cumulative_imbalance_time() const;
     Time get_vanilla_cumulative_imbalance_time() const;
     Time get_batch_time() const;
