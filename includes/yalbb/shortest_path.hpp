@@ -118,10 +118,14 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                     Time starting_time = currentNode->cost();
                     auto mesh_data = rollback_data.at(frame);
                     auto LB = node->lb;
+
                     auto &cum_li_hist = node->li_slowdown_hist;
-                    auto &time_hist = node->time_hist;
-                    auto &dec_hist = node->dec_hist;
-                    auto probe = &node->stats;
+                    auto &vanilla_cum_li_hist = node->van_li_slowdown_hist;
+                    auto &time_hist   = node->time_hist;
+                    auto &dec_hist    = node->dec_hist;
+                    auto &eff_hist    = node->efficiency_hist;
+
+                    auto probe        = &node->stats;
 
                     // Move data according to my parent's state
                     migrate_data(LB, mesh_data.els, pointAssignFunc, datatype, comm);
@@ -165,10 +169,12 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
 
                         cum_li_hist[i] = probe->get_cumulative_imbalance_time();
+                        vanilla_cum_li_hist[i] = probe->get_vanilla_cumulative_imbalance_time();
                         dec_hist[i]    = lb_decision;
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
+                        eff_hist[i]    = probe->get_efficiency();
+                        batch_time    += it_compute_time;
 
-                        batch_time += it_compute_time;
                         probe->next_iteration();
                     }
 
@@ -184,56 +190,68 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     }
     std::vector<int> scenario;
 
-        LBSolutionPath solution_path;
-        LBLiHist cumulative_load_imbalance;
-        LBDecHist decisions;
-        std::vector<Time> time_hist;
-        int sol_id = 0;
-        std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
+    LBSolutionPath solution_path;
+    LBLiHist cumulative_load_imbalance;
+    LBLiHist van_cumulative_load_imbalance;
+    LBDecHist decisions;
+    std::vector<Time> time_hist;
+    std::vector<Time>  eff_hist;
+    int sol_id = 0;
+    std::string monitoring_files_folder = "logs/"+std::to_string(params->seed)+"/"+simulation_name+"/monitoring";
 
-        std::filesystem::create_directories(monitoring_files_folder);
+    std::filesystem::create_directories(monitoring_files_folder);
 
-        std::ofstream fimbalance, fcumtime, ftime, fefficiency, flbit, flbcost;
+    std::ofstream fimbalance, fvanimbalance, fcumtime, ftime, fefficiency, flbit, flbcost;
 
-        for (auto solution : solutions) {
-            Time total_time = solution->cost();
-            auto it_li = cumulative_load_imbalance.begin();
-            auto it_dec = decisions.begin();
-            auto it_time = time_hist.begin();
-            if (!rank) {
-                fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
-                fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
-                ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
-                fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
-                flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
-                flbcost.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_cost.txt");
-            }
-            /* Reconstruct data from A* search */
-            while (solution->start_it >= 0) { //reconstruct path
-                solution_path.push_back(solution);
-                it_li = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(),
-                                                         solution->li_slowdown_hist.end());
-                it_dec = decisions.insert(it_dec, solution->dec_hist.begin(), solution->dec_hist.end());
-                it_time = time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
-                solution = solution->parent;
-            }
-            std::reverse(solution_path.begin(), solution_path.end());
-            if(sol_id == 0) scenario = decisions;
-            if (!rank) {
-                /* write */
-                fimbalance << cumulative_load_imbalance << std::endl;
-                ftime << time_hist << std::endl;
-                flbcost << solution->stats.compute_avg_lb_time() << std::endl;
-                flbit << decisions << std::endl;
-                /* close files */
-                fimbalance.close();
-                ftime.close();
-                fefficiency.close();
-                flbit.close();
-                flbcost.close();
-            }
-            sol_id++;
+    for (auto solution : solutions) {
+        Time total_time = solution->cost();
+        auto it_li = cumulative_load_imbalance.begin();
+        auto it_van_li  = van_cumulative_load_imbalance.begin();
+        auto it_dec = decisions.begin();
+        auto it_time = time_hist.begin();
+        auto it_eff  = eff_hist.begin();
+        if (!rank) {
+            fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
+            fvanimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_van_cum_imbalance.txt");
+            fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
+            ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
+            fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
+            flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
+            flbcost.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_cost.txt");
         }
+        /* Reconstruct data from A* search */
+        while (solution->start_it >= 0) { //reconstruct path
+            solution_path.push_back(solution);
+            it_li   = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(),
+                                                              solution->li_slowdown_hist.end());
+            it_van_li   = van_cumulative_load_imbalance.insert(it_li, solution->van_li_slowdown_hist.begin(),
+                                                                      solution->van_li_slowdown_hist.end());
+            it_dec  = decisions.insert(it_dec,  solution->dec_hist.begin(),  solution->dec_hist.end());
+            it_time = time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
+            it_eff  =  eff_hist.insert(it_eff,  solution->efficiency_hist.begin(),  solution->efficiency_hist.end());
+            solution = solution->parent;
+        }
+        std::reverse(solution_path.begin(), solution_path.end());
+        if(sol_id == 0) scenario = decisions;
+        if (!rank) {
+            /* write */
+            fimbalance << cumulative_load_imbalance << std::endl;
+            fvanimbalance << van_cumulative_load_imbalance << std::endl;
+            fcumtime << time_hist << std::endl;
+            flbcost << solution->stats.compute_avg_lb_time() << std::endl;
+            flbit << decisions << std::endl;
+            fefficiency << eff_hist << std::endl;
+
+            /* close files */
+            fimbalance.close();
+            fcumtime.close();
+            fefficiency.close();
+            flbit.close();
+            flbcost.close();
+            fvanimbalance.close();
+        }
+        sol_id++;
+    }
 
 
     return {solutions[0]->stats, scenario};

@@ -25,11 +25,10 @@ public:
     int start_it, end_it, batch_size;
     Rank rank;
     Index id;
+
     std::shared_ptr< NodeType > parent;
-    std::vector<Time> li_slowdown_hist;
-    std::vector<int> dec_hist;
-    std::vector<Time> time_hist;
-    std::vector<Time> time_per_it;
+    std::vector<Time> li_slowdown_hist, van_li_slowdown_hist, time_hist, time_per_it, efficiency_hist;
+    std::vector<int>  dec_hist;
 
     Decision decision;             // Y / N boolean
     Probe stats{0};
@@ -39,35 +38,35 @@ public:
     LBStructDeleteF lb_delete_f;
     LBStruct* lb;
 
+    void init_hist(size_t s) {
+        li_slowdown_hist.resize(s);
+        van_li_slowdown_hist.resize(s);
+        time_hist.resize(s);
+        time_per_it.resize(s);
+        efficiency_hist.resize(s);
+        dec_hist.resize(s);
+    }
+
     Node (Index id, int startit, int batch_size, Decision decision, Probe stats, std::shared_ptr<NodeType> p) :
         id(id),
-        start_it(startit), end_it(startit+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), time_per_it(batch_size),
-        parent(p), decision(decision), stats(stats),
+        start_it(startit), end_it(startit+batch_size), batch_size(batch_size),
+        parent(p), decision(decision), stats(std::move(stats)),
         lb_copy_f(p->lb_copy_f), lb_delete_f(p->lb_delete_f),
         lb(lb_copy_f(parent->lb)),
-        concrete_cost(parent->concrete_cost){
+        concrete_cost(parent->concrete_cost) {
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        init_hist(batch_size);
     };
-
-    /*Node(LBStruct* zz, int batch_size) :
-            id(0),
-            start_it(0), end_it(batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), parent(nullptr),
-            decision(Decision::DoLB),
-            lb(Zoltan_Copy(zz)), stats(0) {
-        int size;
-        MPI_Comm_size(MPI_COMM_WORLD, &size);
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        stats = Probe(size);
-    }*/
 
     Node(LBStruct* zz, int start_it, int batch_size, Decision decision, LBStructCopyF copy_f, LBStructDeleteF delete_f) :
             id(0),
-            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), li_slowdown_hist(batch_size), dec_hist(batch_size), time_hist(batch_size), time_per_it(batch_size), parent(nullptr),
+            start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), parent(nullptr),
             decision(decision),
             lb_copy_f(copy_f),
             lb_delete_f(delete_f),
             lb(lb_copy_f(zz)) {
         int size;
+        init_hist(batch_size);
         MPI_Comm_size(MPI_COMM_WORLD, &size);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         stats = Probe(size);
