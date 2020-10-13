@@ -224,7 +224,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
             solution_path.push_back(solution);
             it_li   = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(),
                                                               solution->li_slowdown_hist.end());
-            it_van_li   = van_cumulative_load_imbalance.insert(it_li, solution->van_li_slowdown_hist.begin(),
+            it_van_li   = van_cumulative_load_imbalance.insert(it_van_li, solution->van_li_slowdown_hist.begin(),
                                                                       solution->van_li_slowdown_hist.end());
             it_dec  = decisions.insert(it_dec,  solution->dec_hist.begin(),  solution->dec_hist.end());
             it_time = time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
