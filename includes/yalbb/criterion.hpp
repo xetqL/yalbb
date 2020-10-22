@@ -8,58 +8,94 @@
 #include "probe.hpp"
 
 namespace lb {
-    struct Static{
-        bool operator()(Probe& probe) const{
-            return false;
-        }
-    };
-    struct Periodic {
-        const unsigned N;
-        bool operator()(Probe& probe) const{
-            return ((probe.get_current_iteration() + 1) % N) == 0;
-        }
-    };
-    struct VanillaMenon {
-        bool operator()(Probe& probe) const{
-            return (probe.get_vanilla_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
-        }
-    };
-    using  WhenCumulativeImbalanceIsGtLbCost = VanillaMenon;
-    struct ImprovedMenon {
-        bool operator()(Probe& probe) const {
-            return (probe.get_cumulative_imbalance_time() >= probe.compute_avg_lb_time());
-        }
-    };
-    using  WhenCumulativeImbalanceAboveBaselineIsGtLbCost = ImprovedMenon;
-    struct Procassini {
-        const Real speedup_factor;
-        bool operator()(Probe& probe) const{
-            Real epsilon_c = probe.get_efficiency();
-            Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
-            Real S         = epsilon_c / epsilon_lb;
-            Real tau_prime = probe.get_batch_time() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
-            Real tau       = probe.get_batch_time();
-            return (tau_prime < speedup_factor*tau);
-        }
-    };
-    using  WhenTimeDecreasedBy = Procassini;
-    struct Marquez {
-        const Real threshold;
-        bool operator()(Probe& probe) const {
-            Real tolerance      = probe.get_avg_it() * threshold;
-            Real tolerance_plus = probe.get_avg_it() + tolerance;
-            Real tolerance_minus= probe.get_avg_it() - tolerance;
-            return (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
-        }
-    };
-    using  WhenAtLeastOneProcIsOutsideToleranceRange = Marquez;
+struct Static{
+    bool operator()(Probe& probe) const{
+        return false;
+    }
+};
+struct Periodic {
+    const unsigned N;
+    bool operator()(Probe& probe) const{
+        return ((probe.get_current_iteration() + 1) % N) == 0;
+    }
+};
+struct VanillaMenon {
+    mutable double cumulative_imbalance = 0.0;
+    bool operator()(Probe& probe) const {
+        const auto N = probe.iteration_times_since_lb.size();
+        cumulative_imbalance += (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
+        const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+        if(decision) cumulative_imbalance = 0.0;
+        return decision;
+    }
+};
+using  WhenCumulativeImbalanceIsGtLbCost = VanillaMenon;
 
-    struct Reproduce {
-        const std::vector<int> scenario;
-        bool operator()(Probe& probe) const {
-            return (bool) scenario.at(probe.get_current_iteration());
-        }
-    };
+struct ImprovedMenon {
+    mutable double baseline = 0.0;
+    mutable double cumulative_imbalance = 0.0;
+    bool operator()(Probe& probe) const {
+        if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
+        cumulative_imbalance += std::max(0.0, (probe.get_max_it() - (probe.get_sum_it()/probe.nproc)) - baseline);
+        const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+        if(decision) cumulative_imbalance = 0.0;
+        return decision;
+    }
+};
+using  WhenCumulativeImbalanceAboveBaselineIsGtLbCost = ImprovedMenon;
 
-    using  Criterion = std::variant<Reproduce, Static, Periodic, VanillaMenon, ImprovedMenon, Procassini, Marquez>;
+struct ZhaiMenon {
+    mutable double cumulative_imbalance = 0.0;
+    mutable std::vector<Time> iteration_times_since_lb {};
+    bool operator()(Probe& probe) const {
+        if(probe.get_current_iteration() > 0) iteration_times_since_lb.push_back(probe.get_max_it());
+        const auto N = probe.iteration_times_since_lb.size();
+        cumulative_imbalance += math::median(iteration_times_since_lb.end() - std::min(N, 3ul), iteration_times_since_lb.end()) - math::mean(iteration_times_since_lb.begin(), iteration_times_since_lb.end());
+        const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+        if(decision) {
+            cumulative_imbalance = 0.0;
+            iteration_times_since_lb.clear();
+        }
+        return decision;
+    }
+};
+
+struct Procassini {
+    const Real speedup_factor;
+    bool operator()(Probe& probe) const{
+        Real epsilon_c = probe.get_efficiency();
+        Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
+        Real S         = epsilon_c / epsilon_lb;
+        Real tau_prime = probe.get_batch_time() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
+        Real tau       = probe.get_batch_time();
+        return (tau_prime < speedup_factor*tau);
+    }
+};
+using  WhenTimeDecreasesBy = Procassini;
+struct Marquez {        const Real threshold;
+    bool operator()(Probe& probe) const {
+        Real tolerance      = probe.get_avg_it() * threshold;
+        Real tolerance_plus = probe.get_avg_it() + tolerance;
+        Real tolerance_minus= probe.get_avg_it() - tolerance;
+        return (probe.get_min_it() < tolerance_minus || tolerance_plus < probe.get_max_it());
+    }
+};
+using  WhenAtLeastOneProcIsOutsideToleranceRange = Marquez;
+
+struct Reproduce {
+    const std::vector<int> scenario;
+    bool operator()(Probe& probe) const {
+        return (bool) scenario.at(probe.get_current_iteration());
+    }
+};
+
+using  Criterion = std::variant<
+        Static,
+        Reproduce,
+        Periodic,
+        VanillaMenon,
+        ImprovedMenon,
+        ZhaiMenon,
+        Procassini,
+        Marquez>;
 }

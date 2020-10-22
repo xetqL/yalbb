@@ -6,7 +6,13 @@
 #include <numeric>
 #include "probe.hpp"
 
-Probe::Probe(int nproc) : nproc(nproc) {}
+Probe::Probe(int nproc) : nproc(nproc) {
+
+    iteration_times_since_lb.reserve(100000);
+    lb_times.reserve( 20000);
+    lb_parallel_efficiencies.reserve( 20000);
+
+}
 
 void Probe::update_cumulative_imbalance_time() {
     /**The cumulative load imbalance since a load balancing.
@@ -22,7 +28,9 @@ void Probe::update_cumulative_imbalance_time() {
 void  Probe::reset_cumulative_imbalance_time() {
     cumulative_imbalance_time = 0.0;
     vanilla_cumulative_imbalance_time = 0.0;
+    iteration_times_since_lb.clear();
 }
+
 Time  Probe::compute_avg_lb_time() const {
     if(lb_times.empty()) return 0.0;
     const auto N = lb_times.size();
@@ -75,7 +83,11 @@ Time Probe::get_vanilla_cumulative_imbalance_time() const {
 }
 
 Time* Probe::sum_it_time() { return &sum_it; }
-void  Probe::push_load_balancing_time(Time lb_time){ lb_times.push_back(lb_time); }
+
+void  Probe::push_load_balancing_time(Time lb_time){
+    lb_times.push_back(lb_time);
+}
+
 void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){ lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
 void  Probe::update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it()); }
 

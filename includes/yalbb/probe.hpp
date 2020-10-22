@@ -11,12 +11,14 @@
 struct Probe {
     int current_iteration = 0;
     Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0, vanilla_cumulative_imbalance_time, lb_imbalance_baseline = 0, batch_time = 0;
-    std::vector<Time> lb_times;
+
+    std::vector<Time> lb_times, iteration_times_since_lb;
     std::vector<Real> lb_parallel_efficiencies;
 
     bool balanced = true;
     bool batch_started = false;
-    int i = 0, nproc, current_batch = 0;
+
+    int i = 0, nproc;
 
     unsigned int batch_id = 0;
     Probe(int nproc);
@@ -42,16 +44,19 @@ struct Probe {
     Time* max_it_time() ;
     Time* min_it_time() ;
     Time* sum_it_time();
+    /** SYNCHRONIZE DATA AT EACH ITERATION **/
     void  sync_it_time_across_processors(Time *t, MPI_Comm comm) {
-        // Measure load imbalance
+        // Synchronize
         MPI_Allreduce(t, this->max_it_time(), 1, MPI_TIME, MPI_MAX, comm);
         MPI_Allreduce(t, this->min_it_time(), 1, MPI_TIME, MPI_MIN, comm);
         MPI_Allreduce(t, this->sum_it_time(), 1, MPI_TIME, MPI_SUM, comm);
-        *t = *this->max_it_time();
+        // Set
+        *t = get_max_it();
+        iteration_times_since_lb.push_back(get_max_it());
     }
-
     void  push_load_balancing_time(Time lb_time);
     void  push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency);
+
     void  update_lb_parallel_efficiencies();
     void  next_iteration();
     void  start_batch(Index batch);

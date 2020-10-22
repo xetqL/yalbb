@@ -292,6 +292,26 @@ position_to_cell(std::array<Real, N> const &position, const Real lsub, const Int
     return idx;
 }
 
+namespace math{
+
+template<class InputIt>
+typename InputIt::value_type median(InputIt beg, InputIt end) {
+    using T = typename InputIt::value_type;
+    if(beg == end) return (T) 0.0;
+    const auto N = std::distance(beg, end);
+    std::vector<T> values(beg, end);
+    std::nth_element(values.begin(), values.begin() + N / 2, values.end());
+    return values.at(N/2);
+}
+
+template<class InputIt>
+typename InputIt::value_type mean(InputIt beg, InputIt end) {
+    using T = typename InputIt::value_type;
+    return std::accumulate(beg, end, (T) 0.0) / std::distance(beg, end);
+}
+
+}
+
 namespace functional {
     template<typename R>
     inline R slice(R const &v, size_t slice_start, size_t slice_size) {
