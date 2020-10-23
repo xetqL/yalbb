@@ -307,7 +307,8 @@ typename InputIt::value_type median(InputIt beg, InputIt end) {
 template<class InputIt>
 typename InputIt::value_type mean(InputIt beg, InputIt end) {
     using T = typename InputIt::value_type;
-    return std::accumulate(beg, end, (T) 0.0) / std::distance(beg, end);
+    const auto N = std::distance(beg, end);
+    return N > 0 ? std::accumulate(beg, end, (T) 0.0) / N : 0.0;
 }
 
 }

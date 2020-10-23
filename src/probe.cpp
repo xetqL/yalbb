@@ -87,7 +87,6 @@ Time* Probe::sum_it_time() { return &sum_it; }
 void  Probe::push_load_balancing_time(Time lb_time){
     lb_times.push_back(lb_time);
 }
-
 void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){ lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
 void  Probe::update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it()); }
 
