@@ -66,6 +66,7 @@ namespace lb {
                 prev_lb = probe.get_current_iteration();
                 diff.clear();
                 iteration_times_since_lb.clear();
+                average_times_since_lb.clear();
             }
 
             return decision;
