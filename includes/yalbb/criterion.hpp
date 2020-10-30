@@ -50,8 +50,6 @@ namespace lb {
 
             const auto N = iteration_times_since_lb.size();
 
-            const auto decision = (prev_lb + tau) <= probe.get_current_iteration();
-
             // Compute tau
             diff.resize(N);
             std::adjacent_difference(iteration_times_since_lb.cbegin(), iteration_times_since_lb.cend(), diff.begin());
@@ -62,11 +60,13 @@ namespace lb {
             const Time C = probe.compute_avg_lb_time();
             tau = m > 0 ? static_cast<unsigned>( std::sqrt(2*C / m) ) : -1;
 
+            const auto decision = (prev_lb + tau) <= probe.get_current_iteration();
+
             if(decision) {
                 prev_lb = probe.get_current_iteration();
                 diff.clear();
                 iteration_times_since_lb.clear();
-                average_times_since_lb.clear();
+                  average_times_since_lb.clear();
             }
 
             return decision;
