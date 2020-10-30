@@ -42,6 +42,18 @@ struct ImprovedMenon {
         return decision;
     }
 };
+struct ImprovedMenonNoMax {
+        mutable double baseline = 0.0;
+        mutable double cumulative_imbalance = 0.0;
+        bool operator()(Probe& probe) const {
+            if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
+            cumulative_imbalance += (probe.get_max_it() - (probe.get_sum_it()/probe.nproc)) - baseline;
+            const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+            if(decision) cumulative_imbalance = 0.0;
+            return decision;
+        }
+    };
+
 using  WhenCumulativeImbalanceAboveBaselineIsGtLbCost = ImprovedMenon;
 
 struct ZhaiMenon {
