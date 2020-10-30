@@ -56,7 +56,7 @@ namespace lb {
             diff.resize(N);
             std::adjacent_difference(iteration_times_since_lb.cbegin(), iteration_times_since_lb.cend(), diff.begin());
             const Time dmax = std::accumulate(diff.cbegin(), diff.cend(), 0.0) / N;
-            std::adjacent_difference(iteration_times_since_lb.cbegin(), iteration_times_since_lb.cend(), diff.begin());
+            std::adjacent_difference(average_times_since_lb.cbegin(), average_times_since_lb.cend(), diff.begin());
             const Time davg = std::accumulate(diff.cbegin(), diff.cend(), 0.0) / N;
             const Time m = dmax - davg;
             const Time C = probe.compute_avg_lb_time();
