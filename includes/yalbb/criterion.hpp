@@ -107,6 +107,7 @@ using  Criterion = std::variant<
         Periodic,
         VanillaMenon,
         ImprovedMenon,
+        ImprovedMenonNoMax,
         ZhaiMenon,
         Procassini,
         Marquez>;
