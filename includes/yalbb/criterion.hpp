@@ -31,9 +31,9 @@ namespace lb {
             return decision;
         }
     };
-/**
- * Compute \tau after each load balancing based on average C and average workload increase rate
- */
+    /**
+     * Compute \tau after each load balancing based on average C and average workload increase rate
+     */
     struct OfflineMenon {
         mutable int prev_lb  = 0;
         mutable unsigned tau = -1;

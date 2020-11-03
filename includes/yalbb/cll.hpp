@@ -7,8 +7,28 @@
 
 #include "utils.hpp"
 #include "coordinate_translater.hpp"
+#include "morton-nd/mortonND_BMI2.h"
 
 constexpr Integer EMPTY = -1;
+
+template<int N>
+void group_by_bin_3d(std::vector<Integer> *head,
+                  std::vector<Integer> *lscl,
+                  const BoundingBox<N>& bbox,
+                  Real rc) {
+    using MortonND_3D = mortonnd::MortonNDBmi<3, size_t>;
+
+    size_t prev = 0ul;
+    const size_t n_cells = head->size();
+    const auto lc = get_cell_number_by_dimension<3>(bbox, rc);
+    for(size_t c = 0; c < n_cells; ++c) //from morton index to x,y,z
+    {
+       auto[x, y, z] = MortonND_3D::Decode(c);
+       auto prev_c = (x) + (lc[0] * y) + (lc[0] * lc[1] * z);
+
+    }
+}
+
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
@@ -59,7 +79,7 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
                              ComputeForceFunc computeForceFunc) {
     auto lc = get_cell_number_by_dimension<3>(bbox, rc);
     Integer c1, ic1[3], j;
-    std::array<Integer, 3> ic;
+    std::array<Integer, 3> ic{};
     const T *source, *receiver;
     Integer cmplx = n_elements;
     for (size_t i = 0; i < n_elements; ++i) {
@@ -72,7 +92,7 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
             for (ic1[1] = ic[1] - 1; ic1[1] <= (ic[1] + 1); ic1[1]++) {
                 for (ic1[2] = ic[2] - 1; ic1[2] <= (ic[2] + 1); ic1[2]++) {
                     /* this is for bounce back, to avoid heap-buffer over/under flow */
-                    if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
+                    if ((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1]) || (ic1[2] < 0 || ic1[2] >= lc[2])) continue;
                     c1 = (ic1[0]) + (lc[0] * ic1[1]) + (lc[0] * lc[1] * ic1[2]);
                     j = head->at(c1);
                     while(j != EMPTY) {

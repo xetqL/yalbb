@@ -1,3 +1,6 @@
 [submodule "zupply"]
 	path = zupply
 	url = https://github.com/zhreshold/zupply.git
+[submodule "morton-nd"]
+	path = morton-nd
+	url = https://github.com/kevinhartman/morton-nd.git

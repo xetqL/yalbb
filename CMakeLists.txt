@@ -12,7 +12,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL Sanitize)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
     message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_DEBUG} -march=native -mtune=native")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -24,7 +24,7 @@ set(INCLUDE_DIRECTORY ${CMAKE_SOURCE_DIR}/includes)
 find_package (Threads)
 file(GLOB SRC_FILES src/*.cpp)
 file(GLOB_RECURSE INCLUDE_FILES includes/yalbb/*.hpp)
-
+add_subdirectory(morton-nd)
 add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/probe_processor.cpp includes/yalbb/probe_processor.hpp)
 
 target_include_directories(yalbb PRIVATE ${MPI_C_INCLUDE_PATH})
@@ -35,7 +35,8 @@ target_include_directories(yalbb PUBLIC
 
 target_link_libraries(yalbb PRIVATE
         ${MPI_C_LIBRARIES}
-        ${CMAKE_THREAD_LIBS_INIT})
+        ${CMAKE_THREAD_LIBS_INIT}
+        morton-nd::MortonND)
 
 install(TARGETS yalbb
         LIBRARY

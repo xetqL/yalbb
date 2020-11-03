@@ -45,7 +45,7 @@ public:
         int cell = xyz[0];
         cell += c*xyz[1];
         if constexpr(N==3){
-            cell += c*r*xyz[2];
+            cell += c * r * xyz[2];
         }
         return cell;
     }
