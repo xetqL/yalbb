@@ -110,7 +110,7 @@ Complexity nbody_compute_step(
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 
-    apply_reflect<N, T>(elements, simwidth, bf, getPosPtrFunc, getVelPtrFunc);
+    apply_reflect<N, T>(elements, boundary, getPosPtrFunc, getVelPtrFunc);
 
     Complexity cmplx = CLL_compute_forces<N, T>(&flocal, elements, remote_el, getPosPtrFunc, bbox, cutoff, head, lscl, getForceFunc);
 
