@@ -7,65 +7,65 @@
 #include <vector>
 #include "utils.hpp"
 
-namespace vec{
-    template<int N>
-    std::array<Real, N> operator-(const std::array<Real, N> &lhs, const std::array<Real, N>& rhs){
+namespace vec {
+    template<size_t N>
+    std::array<Real, N> operator - (const std::array<Real, N> &lhs, const std::array<Real, N>& rhs){
         std::array<Real, N> res {};
-        for(auto i = 0; i < N; ++i) res[i] = lhs[i] - rhs[i];
+        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] - rhs[i];
         return res;
     }
 
-    template<int N>
-    std::array<Real, N> operator*(const std::array<Real, N> &lhs, Real s){
+    template<size_t N>
+    std::array<Real, N> operator * (const std::array<Real, N> &lhs, Real s){
         std::array<Real, N> res {};
-        for(auto i = 0; i < N; ++i) res[i] = lhs[i] * s;
+        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] * s;
         return res;
     }
-    template<int N>
+    template<size_t N>
     std::array<Real, N> operator*(Real s, const std::array<Real, N> &rhs){
         return rhs*s;
     }
-    template<int N>
+    template<size_t N>
     std::array<Real, N> operator+(const std::array<Real, N> &lhs, const std::array<Real, N>& rhs){
         std::array<Real, N> res {};
-        for(auto i = 0; i < N; ++i) res[i] = lhs[i] + rhs[i];
+        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] + rhs[i];
         return res;
     }
-    template<int N>
+    template<size_t N>
     std::array<Real, N> operator/(const std::array<Real, N> &lhs, Real s) {
         return lhs*(1.0/s);
     }
-    template<int N>
+    template<size_t N>
     std::array<Real, N> operator/(Real s, const std::array<Real, N> &rhs) {
         return rhs*(1.0/s);
     }
 
-    template<int N>
+    template<size_t N>
     std::array<Real, N> operator-(const std::array<Real, N> &lhs){
         std::array<Real, N> res {};
-        for(auto i = 0; i < N; ++i) res[i] = -lhs[i];
+        for(size_t i = 0; i < N; ++i) res[i] = -lhs[i];
         return res;
     }
 
-    template<int N>
+    template<size_t N>
     Real norm2(const std::array<Real, N> &lhs){
         Real norm = 0.0;
-        for(auto i = 0; i < N; ++i) norm += lhs[i]*lhs[i];
+        for(size_t i = 0; i < N; ++i) norm += lhs[i]*lhs[i];
         return norm;
     }
-    template<int N>
+    template<size_t N>
     Real norm(const std::array<Real, N> &lhs){
         return std::sqrt(norm2(lhs));
     }
 
-    template<int N>
+    template<size_t N>
     std::array<Real, N> normalize(const std::array<Real, N> &lhs){
         std::array<Real, N> res {};
         const auto vnorm = norm<N>(lhs);
-        for(auto i = 0; i < N; ++i) res[i] = lhs / vnorm;
+        for(size_t i = 0; i < N; ++i) res[i] = lhs / vnorm;
         return res;
     }
-    template<int N>
+    template<size_t N>
     Real dot(const std::array<Real, N>& lhs, const std::array<Real, N>& rhs){
         return std::inner_product(std::begin(lhs), std::end(lhs), std::begin(rhs), (Real) 0.0);
     }
