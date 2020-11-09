@@ -38,7 +38,7 @@ namespace lb {
         mutable int prev_lb  = 0;
         mutable unsigned tau = -1;
         mutable std::vector<Time> iteration_times_since_lb {};
-        mutable std::vector<Time> average_times_since_lb {};
+        mutable std::vector<Time> average_times_since_lb   {};
         mutable std::vector<Time> diff {};
 
         bool operator()(Probe& probe) const {
@@ -49,22 +49,25 @@ namespace lb {
             }
 
             const auto N = iteration_times_since_lb.size();
-
-            // Compute tau
+            // Compute tau based on history
             diff.resize(N);
+            // compute average dmax/dt
             std::adjacent_difference(iteration_times_since_lb.cbegin(), iteration_times_since_lb.cend(), diff.begin());
             const Time dmax = std::accumulate(diff.cbegin(), diff.cend(), 0.0) / N;
+            // compute average davg/dt
             std::adjacent_difference(average_times_since_lb.cbegin(), average_times_since_lb.cend(), diff.begin());
             const Time davg = std::accumulate(diff.cbegin(), diff.cend(), 0.0) / N;
+            // compute difference between max and avg
             const Time m = dmax - davg;
+            // compute average load balancing cost
             const Time C = probe.compute_avg_lb_time();
             tau = m > 0 ? static_cast<unsigned>( std::sqrt(2*C / m) ) : -1;
-
+            // check if we are after or before the load balancing iteration
             const auto decision = (prev_lb + tau) <= probe.get_current_iteration();
-
+            // reset data
             if(decision) {
                 prev_lb = probe.get_current_iteration();
-                diff.clear();
+                                    diff.clear();
                 iteration_times_since_lb.clear();
                   average_times_since_lb.clear();
             }
@@ -72,8 +75,8 @@ namespace lb {
             return decision;
         }
     };
-    using  WhenCumulativeImbalanceIsGtLbCost = VanillaMenon;
 
+    using  WhenCumulativeImbalanceIsGtLbCost = VanillaMenon;
     struct ImprovedMenon {
         mutable double baseline = 0.0;
         mutable double cumulative_imbalance = 0.0;
@@ -85,6 +88,7 @@ namespace lb {
             return decision;
         }
     };
+
     struct ImprovedMenonNoMax {
         mutable double baseline = 0.0;
         mutable double cumulative_imbalance = 0.0;

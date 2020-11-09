@@ -21,6 +21,7 @@
 #include "parallel_utils.hpp"
 #include "physics.hpp"
 #include "params.hpp"
+#include "boundary.hpp"
 
 using ApplicationTime = Time;
 using CumulativeLoadImbalanceHistory = std::vector<Time>;
@@ -40,6 +41,7 @@ void simulate(
         sim_param_t *params,
         Probe* probe,
         MPI_Datatype datatype,
+        Boundary<N> boundary,
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string simulation_name = "") {
     auto rc = params->rc;

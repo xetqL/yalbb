@@ -8,6 +8,7 @@
 #include <limits>
 #include "parallel_utils.hpp"
 #include "cll.hpp"
+#include "boundary.hpp"
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, std::vector<T>& elements
@@ -39,7 +40,7 @@ template<int N, class T, class GetVelPtrFunc>
 void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elements, GetVelPtrFunc getVelPtr) {
     int i = 0;
     constexpr Real two = 2.0;
-    for(auto &el : elements){
+    for(auto &el : elements) {
         std::array<Real, N>* vel = getVelPtr(&el); //getVelFunc(el);
         for(size_t dim = 0; dim < N; ++dim) {
             vel->at(dim) += acc.at(N*i+dim) * dt / two;
@@ -73,6 +74,16 @@ void apply_reflect(std::vector<T> &elements, const Real simsize, const Real bf, 
     }
 }
 
+template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
+void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
+    for(auto &element: elements) {
+        size_t dim = 0;
+        std::array<Real, N>* pos  = getPosPtr(&element);
+        std::array<Real, N>* vel  = getVelPtr(&element);
+        std::visit([&](const auto& boundary){ boundary.collide(pos, vel); }, boundary);
+    }
+}
+
 template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
 Complexity nbody_compute_step(
         std::vector<Real>& flocal,
@@ -84,6 +95,7 @@ Complexity nbody_compute_step(
         std::vector<Integer> *lscl,                // the particle linked list
         BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
         GetForceFunc getForceFunc,                 // function to compute force between entities
+        const Boundary<N>& boundary,
         const Real cutoff,                         // simulation parameters
         const Real dt,
         const Real simwidth,
