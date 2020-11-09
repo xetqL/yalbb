@@ -37,11 +37,11 @@ void simulate(
         LoadBalancer* LB,
         MESH_DATA<T> *mesh_data,
         D criterion,
+        Boundary<N> boundary,
         Wrapper fWrapper,
         sim_param_t *params,
         Probe* probe,
         MPI_Datatype datatype,
-        Boundary<N> boundary,
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string simulation_name = "") {
     auto rc = params->rc;

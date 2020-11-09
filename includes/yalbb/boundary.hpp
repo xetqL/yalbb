@@ -7,9 +7,9 @@
 
 template<int N>
 struct SphericalBoundary {
-    std::array<Real, N> center;
-    Real radius;
-    void collide(std::array<Real, N>* pos, std::array<Real, N>* vel){
+    const std::array<Real, N> center;
+    const Real radius;
+    void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
         using namespace vec;
         const auto& p = *pos;
         const auto& v = *vel;
@@ -29,16 +29,15 @@ struct SphericalBoundary {
 
 template<int N>
 struct CubicalBoundary {
-    std::array<Real, 2*N> box;
-    Real bf;
-
-    std::array<Real, N>   box_size;
+    const std::array<Real, 2*N> box;
+    const Real bf;
+    const std::array<Real, N>   box_size;
 
     explicit CubicalBoundary(std::array<Real, 2*N> box, Real bf) : box(box), bf(bf) {
         for(int i = 0; i < N; ++i) box_size[i] = box[2*i+1] - box[2*i];
     }
 
-    void collide(std::array<Real, N>* pos, std::array<Real, N>* vel){
+    void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
         for(auto dim=0; dim < N; ++dim){
             if(pos->at(dim) < box.at(2*dim))
                 reflect(0.0, bf, &pos->at(dim), &vel->at(dim));
