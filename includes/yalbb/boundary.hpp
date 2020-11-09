@@ -15,12 +15,12 @@ struct SphericalBoundary {
         const auto& v = *vel;
         // check if point is outside sphere
         const auto CP = p - center;
-        const auto v_normalized = normalize(v);
+        const auto v_normalized = normalize<N>(v);
         if(norm(CP) > radius) {
-            const auto ds = solve_quadratic(norm2(v), 2.0 * dot(p, v_normalized), norm2(p) - (radius*radius + norm(center)));
+            const auto ds = solve_quadratic(norm2(v), 2.0 * dot<N>(p, v_normalized), norm2<N>(p) - (radius*radius + norm<N>(center)));
             const auto d = *std::min_element(ds.cbegin(), ds.cend());
             const auto psphere = p + v_normalized * d;
-            const auto n_normalized = normalize(center - psphere);
+            const auto n_normalized = normalize<N>(center - psphere);
             *pos = p * n_normalized;
             *vel = v * n_normalized;
         }
