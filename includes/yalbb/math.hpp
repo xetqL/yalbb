@@ -62,7 +62,7 @@ namespace vec {
     std::array<Real, N> normalize(const std::array<Real, N> &lhs){
         std::array<Real, N> res {};
         const auto vnorm = norm<N>(lhs);
-        for(size_t i = 0; i < N; ++i) res[i] = lhs / vnorm;
+        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] / vnorm;
         return res;
     }
     template<size_t N>
