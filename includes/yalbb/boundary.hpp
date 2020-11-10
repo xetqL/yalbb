@@ -5,6 +5,15 @@
 #pragma once
 #include "math.hpp"
 
+void reflect(Real wall, Real bf, Real* x, Real* v) {
+    constexpr  Real two  = 2.0;
+    const auto shock_abs = 1.0 - bf;
+    const auto new_pos   = two * wall - (*x);
+    const auto wall_dist = wall - new_pos;
+    *x = new_pos + shock_abs * wall_dist;
+    *v = (-(*v)) * bf;
+}
+
 template<size_t N>
 struct SphericalBoundary {
     const std::array<Real, N> center {};
@@ -19,11 +28,11 @@ struct SphericalBoundary {
             const auto v_norm = normalize<N>(v);
             const auto ds = opt::solve_quadratic(1, 2.0 * dot<N>(CP, v_norm), norm2<N>(CP) - (r2));
             if(!ds.empty()) {
-                const auto d = ds.at(opt::argmin(ds.begin(), ds.end(), std::abs));
+                const auto d = ds.at(opt::argmin(ds.begin(), ds.end(), [](const auto& x){ return std::abs(x); }));
                 const auto intersect_pt = p + v_norm * d;
                 const auto n_norm = normalize<N>(center - intersect_pt);
                 *pos = p - 2.0 * (dot<N>((p - intersect_pt), n_norm)) * n_norm;
-                *vel = vel * ((normalize<N>((*pos)-intersect_pt) / normalize<N>(vel)) );
+                *vel = v * ((normalize<N>((*pos)-intersect_pt) / normalize<N>(v)) );
             }
         }
     }

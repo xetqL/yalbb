@@ -49,31 +49,6 @@ void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elem
     }
 }
 
-/**
- * Reflection at the boundary
- * @param wall
- * @param x
- * @param v
- * @param a
- */
-void reflect(Real wall, Real bf, Real* x, Real* v);
-
-template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
-void apply_reflect(std::vector<T> &elements, const Real simsize, const Real bf, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
-    for(auto &element: elements) {
-        size_t dim = 0;
-        std::array<Real, N>* pos  = getPosPtr(&element);
-        std::array<Real, N>* vel  = getVelPtr(&element);
-        while(dim < N) {
-            if(element.position.at(dim) < 0.0)
-                reflect(0.0, bf, &pos->at(dim), &vel->at(dim));
-            if(simsize-pos->at(dim) <= 0.00000001f)
-                reflect(simsize-0.00000001f, bf, &pos->at(dim), &vel->at(dim));
-            dim++;
-        }
-    }
-}
-
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
     for(auto &element: elements) {
