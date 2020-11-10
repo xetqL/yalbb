@@ -5,24 +5,26 @@
 #pragma once
 #include "math.hpp"
 
-template<int N>
+template<size_t N>
 struct SphericalBoundary {
-    const std::array<Real, N> center;
-    const Real radius;
+    const std::array<Real, N> center {};
+    const Real radius {};
+    const Real r2 = radius*radius;
     void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
         using namespace vec;
         const auto& p = *pos;
         const auto& v = *vel;
-        // check if point is outside sphere
         const auto CP = p - center;
-        const auto v_normalized = normalize<N>(v);
-        if(norm(CP) > radius) {
-            const auto ds = solve_quadratic(norm2<N>(v), 2.0 * dot<N>(p, v_normalized), norm2<N>(p) - (radius*radius + norm<N>(center)));
-            const auto d = *std::min_element(ds.cbegin(), ds.cend());
-            const auto psphere = p + v_normalized * d;
-            const auto n_normalized = normalize<N>(center - psphere);
-            *pos = p * n_normalized;
-            *vel = v * n_normalized;
+        if(norm2<N>(CP) > r2) {
+            const auto v_norm = normalize<N>(v);
+            const auto ds = opt::solve_quadratic(1, 2.0 * dot<N>(CP, v_norm), norm2<N>(CP) - (r2));
+            if(!ds.empty()) {
+                const auto d = ds.at(opt::argmin(ds.begin(), ds.end(), std::abs));
+                const auto intersect_pt = p + v_norm * d;
+                const auto n_norm = normalize<N>(center - intersect_pt);
+                *pos = p - 2.0 * (dot<N>((p - intersect_pt), n_norm)) * n_norm;
+                *vel = vel * ((normalize<N>((*pos)-intersect_pt) / normalize<N>(vel)) );
+            }
         }
     }
 };
@@ -40,9 +42,9 @@ struct CubicalBoundary {
     void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
         for(auto dim=0; dim < N; ++dim){
             if(pos->at(dim) < box.at(2*dim))
-                reflect(0.0, bf, &pos->at(dim), &vel->at(dim));
+                reflect(box.at(2*dim), bf, &pos->at(dim),   &vel->at(dim));
             if(pos->at(dim) > box.at(2*dim+1))
-                reflect(box_size.at(dim), bf, &pos->at(dim), &vel->at(dim));
+                reflect(box.at(2*dim+1), bf, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }

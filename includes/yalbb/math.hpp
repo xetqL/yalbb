@@ -67,22 +67,32 @@ namespace vec {
     }
     template<size_t N>
     Real dot(const std::array<Real, N>& lhs, const std::array<Real, N>& rhs){
-        return std::inner_product(std::begin(lhs), std::end(lhs), std::begin(rhs), (Real) 0.0);
+        return std::inner_product(std::cbegin(lhs), std::cend(lhs), std::begin(rhs), (Real) 0.0);
     }
 
 }
-
-/* solve quadratic equation of the form ax^2 + bx + c = 0*/
-std::vector<Real> solve_quadratic(Real a, Real b, Real c){
-    Real delta = (b * b) - (4.0*a*c);
-    if (delta < 0) { return {}; }
-    std::vector<Real> solutions{};
-    solutions.reserve(2);
-    Real sqrt_delta = std::sqrt(delta);
-    solutions.push_back( (-b + sqrt_delta) / (2.0 * a) );
-    if (delta > 0.0) {
-        solutions.push_back( (-b - sqrt_delta) / (2.0 * a) );
+namespace opt {
+    template<class InputIt>
+    auto argmin(InputIt beg, InputIt end) {
+        return std::distance(beg, std::min_element(beg, end));
     }
-    return solutions;
+
+    template<class InputIt, class UnaryOp>
+    auto argmin(InputIt beg, InputIt end, UnaryOp op) {
+        std::vector<typename InputIt::value_type> v(beg, end);
+        std::transform(v.begin(), v.end(), v.begin(), op);
+        auto result = std::min_element(v.begin(), v.end());
+        return std::distance(v.begin(), result);
+    }
+
+    /* solve quadratic equation of the form ax^2 + bx + c = 0*/
+    std::vector<Real> solve_quadratic(Real a, Real b, Real c){
+        const Real delta = (b * b) - (4.0*a*c);
+        if (delta < 0) { return {}; }
+        const Real two_a = 2.0 * a;
+        const Real sqrt_delta = std::sqrt(delta);
+        return {(-b + sqrt_delta) / (two_a), (-b - sqrt_delta) / (two_a)};
+    }
 }
+
 
