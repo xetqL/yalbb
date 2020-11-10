@@ -33,7 +33,7 @@ struct SphericalBoundary {
                 const auto intersect_pt = p + v_norm * d;
                 const auto n_norm = normalize<N>(center - intersect_pt);
                 *pos = p - 2.0 * (dot<N>((p - intersect_pt), n_norm)) * n_norm;
-                *vel = apply(v, ( apply(normalize<N>((*pos)-intersect_pt), v_norm, std::divides{}), std::multiplies{} );
+                *vel = apply(v, apply(normalize<N>((*pos)-intersect_pt), v_norm, std::divides{}), std::multiplies{} );
             }
         }
     }
