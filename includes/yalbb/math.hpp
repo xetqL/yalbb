@@ -35,9 +35,12 @@ namespace vec {
     std::array<Real, N> operator/(const std::array<Real, N> &lhs, Real s) {
         return lhs*(1.0/s);
     }
+
     template<size_t N>
     std::array<Real, N> operator/(Real s, const std::array<Real, N> &rhs) {
-        return rhs*(1.0/s);
+        std::array<Real, N> res {};
+        for(size_t i = 0; i < N; ++i) res[i] = s / rhs[i];
+        return res;
     }
 
     template<size_t N>
@@ -68,6 +71,13 @@ namespace vec {
     template<size_t N>
     Real dot(const std::array<Real, N>& lhs, const std::array<Real, N>& rhs){
         return std::inner_product(std::cbegin(lhs), std::cend(lhs), std::begin(rhs), (Real) 0.0);
+    }
+
+    template<size_t N, class BinaryOp>
+    std::array<Real, N> apply(const std::array<Real, N> &lhs, const std::array<Real, N> &rhs, BinaryOp op) {
+        std::array<Real, N> res {};
+        for(size_t i = 0; i < N; ++i) res[i] = op(lhs[i], rhs[i]);
+        return res;
     }
 
 }

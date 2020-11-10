@@ -24,15 +24,16 @@ struct SphericalBoundary {
         const auto& p = *pos;
         const auto& v = *vel;
         const auto CP = p - center;
-        if(norm2<N>(CP) > r2) {
+        const auto norm2_CP = norm2<N>(CP);
+        if(norm2_CP > r2) {
             const auto v_norm = normalize<N>(v);
-            const auto ds = opt::solve_quadratic(1, 2.0 * dot<N>(CP, v_norm), norm2<N>(CP) - (r2));
+            const auto ds = opt::solve_quadratic(1, 2.0 * dot<N>(CP, v_norm), norm2_CP - (r2));
             if(!ds.empty()) {
-                const auto d = ds.at(opt::argmin(ds.begin(), ds.end(), [](const auto& x){ return std::abs(x); }));
+                const auto d = ds.at(opt::argmin(ds.cbegin(), ds.cend(), [](const auto& x){ return std::abs(x); }));
                 const auto intersect_pt = p + v_norm * d;
                 const auto n_norm = normalize<N>(center - intersect_pt);
                 *pos = p - 2.0 * (dot<N>((p - intersect_pt), n_norm)) * n_norm;
-                *vel = v * ((normalize<N>((*pos)-intersect_pt) / normalize<N>(v)) );
+                *vel = v * ( apply(normalize<N>((*pos)-intersect_pt), v_norm, std::divides{}) );
             }
         }
     }
