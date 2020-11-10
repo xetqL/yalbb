@@ -41,9 +41,9 @@ struct SphericalBoundary {
 
 template<int N>
 struct CubicalBoundary {
-    const std::array<Real, 2*N> box;
-    const Real bf;
-    const std::array<Real, N>   box_size;
+    const std::array<Real, 2*N> box {};
+    const Real bf {};
+    std::array<Real, N>   box_size {};
 
     explicit CubicalBoundary(std::array<Real, 2*N> box, Real bf) : box(box), bf(bf) {
         for(int i = 0; i < N; ++i) box_size[i] = box[2*i+1] - box[2*i];
