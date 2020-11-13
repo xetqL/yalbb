@@ -14,27 +14,35 @@ void reflect(Real wall, Real bf, Real* x, Real* v) {
     *v = (-(*v)) * bf;
 }
 
-template<size_t N>
-struct SphericalBoundary {
+template<size_t N> struct SphericalBoundary {
     const std::array<Real, N> center {};
     const Real radius {};
     const Real r2 = radius*radius;
+
+    void _vectorized_collide(Real* x, Real* y, Real* z, Real* vx, Real* vy, Real* vz) const {
+        std::array<Real, 3> pos =  {*x,  *y,  *z};
+        std::array<Real, 3> vel = {*vx, *vy, *vz};
+        collide(&pos, &vel);
+        *x  = pos[0]; *y  = pos[1]; *z  = pos[2];
+        *vx = vel[0]; *vy = vel[1]; *vz = vel[2];
+    }
+
     void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
-        using namespace vec;
+        using namespace vec::generic;
+
         const auto& p = *pos;
         const auto& v = *vel;
         const auto CP = p - center;
-        const auto norm2_CP = norm2<N>(CP);
-        if(norm2_CP > r2) {
-            const auto v_norm = normalize<N>(v);
-            const auto ds = opt::solve_quadratic(1, 2.0 * dot<N>(CP, v_norm), norm2_CP - (r2));
-            if(!ds.empty()) {
-                const auto d = ds.at(opt::argmin(ds.cbegin(), ds.cend(), [](const auto& x){ return std::abs(x); }));
-                const auto intersect_pt = p + v_norm * d;
-                const auto n_norm = normalize<N>(center - intersect_pt);
-                *pos = p - 2.0 * (dot<N>((p - intersect_pt), n_norm)) * n_norm;
-                *vel = apply(v, apply(normalize<N>((*pos)-intersect_pt), v_norm, std::divides{}), std::multiplies{} );
-            }
+        const auto norm2_CP = norm2(CP);
+
+        if (norm2_CP > r2) {
+            const auto v_norm = normalize(v);
+            const auto ds = opt::solve_quadratic(static_cast<Real>(1.0), static_cast<Real>(2.0) * dot(CP, v_norm), norm2_CP - (r2));
+            const auto d  = ds.at(opt::argmin(ds.cbegin(), ds.cend(), [](const auto& x){ return std::abs(x); }));
+            const auto intersect_pt = p + (v_norm * d);
+            const auto n_norm = normalize(center - intersect_pt);
+            *pos = p - (static_cast<Real>(2.0) * (dot((p - intersect_pt), n_norm)) * n_norm);
+            *vel = v - (static_cast<Real>(2.0) * (dot(v, n_norm)) * n_norm);
         }
     }
 };
@@ -50,11 +58,9 @@ struct CubicalBoundary {
     }
 
     void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
-        for(auto dim=0; dim < N; ++dim){
-            if(pos->at(dim) < box.at(2*dim))
-                reflect(box.at(2*dim), bf, &pos->at(dim),   &vel->at(dim));
-            if(pos->at(dim) > box.at(2*dim+1))
-                reflect(box.at(2*dim+1), bf, &pos->at(dim), &vel->at(dim));
+        for(auto dim=0; dim < N; ++dim) {
+            if(pos->at(dim) < box.at(2*dim))   reflect(box.at(2*dim),   bf, &pos->at(dim), &vel->at(dim));
+            if(pos->at(dim) > box.at(2*dim+1)) reflect(box.at(2*dim+1), bf, &pos->at(dim), &vel->at(dim));
             dim++;
         }
     }

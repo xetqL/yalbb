@@ -7,101 +7,95 @@
 #include <vector>
 #include "utils.hpp"
 
-namespace vec {
-    template<size_t N>
-    std::array<Real, N> operator - (const std::array<Real, N> &lhs, const std::array<Real, N>& rhs){
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] - rhs[i];
-        return res;
+namespace vec::generic{
+    namespace
+    {
+        template<class InputIt, class OutputIt, class BinaryOp>
+        OutputIt apply(InputIt beg1, InputIt end1, InputIt beg2, OutputIt out, BinaryOp op) {
+            const auto beg_out = out;
+            for(;beg1 != end1; beg1++, beg2++){
+                (*out) = op( (*beg1), (*beg2) );
+                out++;
+            }
+            return beg_out;
+        }
+        template<class InputIt, class OutputIt, class Scalar, class BinaryOp>
+        OutputIt apply(InputIt beg1, InputIt end1, Scalar v, OutputIt out, BinaryOp op) {
+            const auto beg_out = out;
+            for(;beg1 != end1; beg1++){
+                *(out++) = op( (*beg1), v );
+            }
+            return beg_out;
+        }
+        template<class InputIt, class OutputIt, class UnaryOp>
+        OutputIt apply(InputIt beg1, InputIt end1, OutputIt out, UnaryOp op) {
+        const auto beg_out = out;
+        for(;beg1 != end1; beg1++){
+            (*out)++ = op( (*beg1) );
+        }
+        return beg_out;
+    }
+    }
+    template<class T> T operator - (const T& lhs, const T& rhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), std::begin(rhs), std::begin(ret), std::minus{});
+        return ret;
+    }
+    template<class T> T operator + (const T& lhs, const T& rhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), std::begin(rhs), std::begin(ret), std::plus{});
+        return ret;
+    }
+    template<class T> T operator * (const T& lhs, const T& rhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), std::begin(rhs), std::begin(ret), std::multiplies{});
+        return ret;
+    }
+    template<class T> T operator * (const typename T::value_type lhs, const T& rhs){
+            return rhs * lhs;
+    }
+    template<class T> T operator * (const T& lhs, const typename T::value_type rhs){
+    T ret = lhs;
+    apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::multiplies{});
+    return ret;
+}
+    template<class T> T operator / (const T& lhs, const typename T::value_type rhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::divides{});
+        return ret;
     }
 
-    template<size_t N>
-    std::array<Real, N> operator * (const std::array<Real, N> &lhs, Real s){
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] * s;
-        return res;
+    template<class T> auto norm2(const T& lhs) {
+        const auto X = lhs*lhs;
+        return std::accumulate(std::begin(X), std::end(X), (typename T::value_type) 0.0);
     }
-    template<size_t N>
-    std::array<Real, N> operator*(Real s, const std::array<Real, N> &rhs){
-        return rhs*s;
-    }
-    template<size_t N>
-    std::array<Real, N> operator+(const std::array<Real, N> &lhs, const std::array<Real, N>& rhs){
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] + rhs[i];
-        return res;
-    }
-    template<size_t N>
-    std::array<Real, N> operator/(const std::array<Real, N> &lhs, Real s) {
-        return lhs*(1.0/s);
-    }
-
-    template<size_t N>
-    std::array<Real, N> operator/(Real s, const std::array<Real, N> &rhs) {
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = s / rhs[i];
-        return res;
-    }
-
-    template<size_t N>
-    std::array<Real, N> operator-(const std::array<Real, N> &lhs){
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = -lhs[i];
-        return res;
-    }
-
-    template<size_t N>
-    Real norm2(const std::array<Real, N> &lhs){
-        Real norm = 0.0;
-        for(size_t i = 0; i < N; ++i) norm += lhs[i]*lhs[i];
-        return norm;
-    }
-    template<size_t N>
-    Real norm(const std::array<Real, N> &lhs){
+    template<class T> auto norm(const T& lhs)  {
         return std::sqrt(norm2(lhs));
     }
-
-    template<size_t N>
-    std::array<Real, N> normalize(const std::array<Real, N> &lhs){
-        std::array<Real, N> res {};
-        const auto vnorm = norm<N>(lhs);
-        for(size_t i = 0; i < N; ++i) res[i] = lhs[i] / vnorm;
-        return res;
+    template<class T> auto normalize(const T& lhs) {
+        return lhs * (static_cast<typename T::value_type>(1.0) / norm(lhs));
     }
-    template<size_t N>
-    Real dot(const std::array<Real, N>& lhs, const std::array<Real, N>& rhs){
-        return std::inner_product(std::cbegin(lhs), std::cend(lhs), std::begin(rhs), (Real) 0.0);
+    template<class T> auto dot(const T& lhs, const T& rhs) {
+        return std::inner_product(std::cbegin(lhs), std::cend(lhs), std::begin(rhs), (typename T::value_type) 0.0);
     }
-
-    template<size_t N, class BinaryOp>
-    std::array<Real, N> apply(const std::array<Real, N> &lhs, const std::array<Real, N> &rhs, BinaryOp op) {
-        std::array<Real, N> res {};
-        for(size_t i = 0; i < N; ++i) res[i] = op(lhs[i], rhs[i]);
-        return res;
-    }
-
 }
+
 namespace opt {
-    template<class InputIt>
-    auto argmin(InputIt beg, InputIt end) {
+    template<class InputIt> auto argmin(InputIt beg, InputIt end) noexcept {
         return std::distance(beg, std::min_element(beg, end));
     }
-
-    template<class InputIt, class UnaryOp>
-    auto argmin(InputIt beg, InputIt end, UnaryOp op) {
+    template<class InputIt, class UnaryOp> auto argmin(InputIt beg, InputIt end, UnaryOp op) noexcept {
         std::vector<typename InputIt::value_type> v(beg, end);
         std::transform(v.begin(), v.end(), v.begin(), op);
         auto result = std::min_element(v.begin(), v.end());
         return std::distance(v.begin(), result);
     }
-
-    /* solve quadratic equation of the form ax^2 + bx + c = 0*/
-    std::vector<Real> solve_quadratic(Real a, Real b, Real c){
-        const Real delta = (b * b) - (4.0*a*c);
-        if (delta < 0) { return {}; }
-        const Real two_a = 2.0 * a;
-        const Real sqrt_delta = std::sqrt(delta);
-        return {(-b + sqrt_delta) / (two_a), (-b - sqrt_delta) / (two_a)};
+    inline std::vector<Real> solve_quadratic(Real a, Real b, Real c) noexcept {
+        const Real delta = (b * b) - (static_cast<Real>(4.0)*a*c);
+        const Real two_a = static_cast<Real>(2.0) * a;
+        return delta >= 0 ?
+            std::vector<Real>({(-b + std::sqrt(delta)) / (two_a), (-b - std::sqrt(delta)) / (two_a)}) :
+            std::vector<Real>();
     }
 }
 

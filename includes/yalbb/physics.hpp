@@ -19,6 +19,7 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
     for(auto &el : elements){
         std::array<Real, N>* pos = getPosPtr(&el);//(getPosFunc(el));
         std::array<Real, N>* vel = getVelPtr(&el);//(getVelFunc(el));
+        const auto v = *vel;
         for(size_t dim = 0; dim < N; ++dim) {
             vel->at(dim) += acc.at(N*i+dim) * dt / two;
             /**
@@ -31,6 +32,7 @@ void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, 
             }
             pos->at(dim) += vel->at(dim) * dt;
         }
+
         i++;
     }
 }
