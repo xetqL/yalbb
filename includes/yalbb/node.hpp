@@ -98,7 +98,7 @@ public:
     }
     void set_cost(Time ncost) {
         this->node_cost = ncost;
-        this->concrete_cost += ncost;
+        this->cumulative_cost += ncost;
     }
     Time get_node_cost() const { return node_cost; }
     Time cost() const { return cumulative_cost; }

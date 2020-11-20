@@ -110,7 +110,7 @@ namespace simulation {
         }
 
         template<unsigned N, class E, class GetDataFunc>
-        void report_particle(const std::vector<E>& recv_buf, const std::vector<int>& ranks, GetDataFunc f, unsigned id){
+        void report_particle(std::vector<E>& recv_buf, const std::vector<int>& ranks, GetDataFunc f, unsigned id){
             if(is_managing && is_logging_particles && monitoring) {
                 std::stringstream str;
                 for(int i = 0; i < recv_buf.size(); i++){
