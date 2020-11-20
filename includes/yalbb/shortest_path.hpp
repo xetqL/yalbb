@@ -73,7 +73,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         for(auto it = std::begin(average_time); it != std::end(average_time); it++){
             *it = std::accumulate(it, std::end(average_time), 0.0);
         }
-        lb_delete_f(&LB);
+        lb_delete_f(LB);
         Node::optimistic_remaining_time = average_time;
     }
 

@@ -114,7 +114,7 @@ namespace simulation {
             if(is_managing && is_logging_particles && monitoring) {
                 std::stringstream str;
                 for(int i = 0; i < recv_buf.size(); i++){
-                    str << *f(recv_buf.at(i)) <<","<< (ranks.at(i)) <<std::endl;
+                    str << *f(&recv_buf.at(i)) <<","<< (ranks.at(i)) <<std::endl;
                 }
                 fparticle.open(frame_files_folder+"/particle.csv."+ std::to_string(id));
                 fparticle << frame_header<N>() << ",rank" << std::endl;
