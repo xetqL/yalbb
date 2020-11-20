@@ -24,6 +24,7 @@ private:
 public:
     int start_it, end_it, batch_size;
     Rank rank;
+    static inline std::vector<Time> optimistic_remaining_time {};
 
     std::shared_ptr< NodeType > parent;
     std::vector<Time> li_slowdown_hist, van_li_slowdown_hist, time_hist, time_per_it, efficiency_hist;
@@ -31,7 +32,7 @@ public:
 
     Decision decision;             // Y / N boolean
     Probe stats{0};
-    Time concrete_cost = 0.0;      // estimated cost to the solution
+    Time cumulative_cost = 0.0;      // estimated cost to the solution
 
     LBStructCopyF lb_copy_f;
     LBStructDeleteF lb_delete_f;
@@ -51,7 +52,7 @@ public:
         parent(p), decision(decision),
         lb_copy_f(p->lb_copy_f), lb_delete_f(p->lb_delete_f),
         lb(lb_copy_f(parent->lb)),
-        concrete_cost(parent->concrete_cost) {
+        cumulative_cost(parent->cumulative_cost) {
         this->stats = parent->stats;
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         init_hist(batch_size);
@@ -100,7 +101,8 @@ public:
         this->concrete_cost += ncost;
     }
     Time get_node_cost() const { return node_cost; }
-    Time cost() const { return concrete_cost; }
+    Time cost() const { return cumulative_cost; }
+    Time predicted_cost() const { return cumulative_cost + optimistic_remaining_time.at(start_it / batch_size); }
     Decision get_decision() const { return decision; }
     int get_target() { return decision == Decision::DoLB; }
 };
@@ -110,7 +112,7 @@ class Compare
 public:
     template<class S,class C, class D>
     bool operator() (std::shared_ptr<Node<S, C, D>> a, std::shared_ptr<Node<S, C, D>> b) const {
-        return a->cost() < b->cost();
+        return a->predicted_cost() < b->predicted_cost();
     }
 };
 
@@ -126,7 +128,6 @@ std::ostream &operator <<(std::ostream& output, const std::shared_ptr<Node<S, C,
     output << value->get_sequence() << " )";
     return output;
 }
-
 
 template<class Container, class S,class C, class D>
 void prune_similar_nodes(const std::shared_ptr<Node<S, C, D>>& n, Container& c){

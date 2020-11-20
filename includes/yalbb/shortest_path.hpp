@@ -22,6 +22,8 @@
 #include "physics.hpp"
 #include "params.hpp"
 #include "node.hpp"
+#include "io.hpp"
+#include "simulator.hpp"
 
 
 template<int N, class T, class LoadBalancer, class LBCopyF, class LBDeleteF, class Wrapper>
@@ -57,12 +59,27 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
     auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
     auto getForceFunc       = fWrapper.getForceFunc();
+    std::vector<Time> average_time;
+
+    {
+        MPI_Comm NEW_COMM;
+        MPI_Comm_dup(comm, &NEW_COMM);
+        auto data = *_mesh_data;
+        LoadBalancer* LB = lb_copy_f(LB);
+        auto new_params = *params;
+        new_params.monitor = false;
+        Probe probe(nproc);
+        average_time = simulate<N>(LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, NEW_COMM);
+        for(auto it = std::begin(average_time); it != std::end(average_time); it++){
+            *it = std::accumulate(it, std::end(average_time), 0.0);
+        }
+        lb_delete_f(&LB);
+        Node::optimistic_remaining_time = average_time;
+    }
 
     doLoadBalancingFunc(LB, _mesh_data);
-    //probe->set_balanced(true);
 
     auto nb_solution_wanted = 1;
-
     const int nframes = params->nframes;
     const int npframe = params->npframe;
     const int nb_iterations = nframes * npframe;
@@ -79,7 +96,9 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     container.reserve((unsigned long) std::pow(2, 20));
     using PriorityQueue = std::multiset<std::shared_ptr<Node>, Compare>;
     PriorityQueue pQueue;
+
     pQueue.insert(std::make_shared<Node>(LB, -npframe, npframe, DoLB, lb_copy_f, lb_delete_f));
+
     std::vector<std::shared_ptr<Node>> solutions;
     std::vector<bool> foundYes(nframes + 1, false);
     std::vector<MESH_DATA<T>> rollback_data(nframes + 1);
@@ -198,30 +217,17 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     std::vector<Time> time_hist;
     std::vector<Time>  eff_hist;
     int sol_id = 0;
+
     std::string folder_prefix = "logs/"+std::to_string(params->seed)+"/"+std::to_string(params->id)+"/"+simulation_name;
-    std::string monitoring_files_folder = folder_prefix+"/monitoring";
-    std::string frame_files_folder = folder_prefix+"/frames";
-
-    std::filesystem::create_directories(monitoring_files_folder);
-
-    std::ofstream fimbalance, fvanimbalance, fcumtime, ftime, fefficiency, flbit, flbcost;
 
     for (auto solution : solutions) {
         Time total_time = solution->cost();
+        simulation::MonitoringSession report_session{!rank, false, folder_prefix, std::to_string(sol_id)+"_"};
         auto it_li = cumulative_load_imbalance.begin();
         auto it_van_li  = van_cumulative_load_imbalance.begin();
         auto it_dec = decisions.begin();
         auto it_time = time_hist.begin();
         auto it_eff  = eff_hist.begin();
-        if (!rank) {
-            fimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_imbalance.txt");
-            fvanimbalance.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_van_cum_imbalance.txt");
-            fcumtime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_cum_time.txt");
-            ftime.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_time.txt");
-            fefficiency.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_efficiency.txt");
-            flbit.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_it.txt");
-            flbcost.open(monitoring_files_folder + "/" + std::to_string(sol_id) + "_lb_cost.txt");
-        }
         /* Reconstruct data from A* search */
         while (solution->start_it >= 0) { //reconstruct path
             solution_path.push_back(solution);
@@ -236,27 +242,14 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         }
         std::reverse(solution_path.begin(), solution_path.end());
         if(sol_id == 0) scenario = decisions;
-        if (!rank) {
-            /* write */
-            fimbalance << cumulative_load_imbalance << std::endl;
-            fvanimbalance << van_cumulative_load_imbalance << std::endl;
-            fcumtime << time_hist << std::endl;
-            flbcost << solution->stats.compute_avg_lb_time() << std::endl;
-            flbit << decisions << std::endl;
-            fefficiency << eff_hist << std::endl;
 
-            /* close files */
-            fimbalance.close();
-            fcumtime.close();
-            fefficiency.close();
-            flbit.close();
-            flbcost.close();
-            fvanimbalance.close();
-        }
+        report_session.report(simulation::CumulativeImbalance,           cumulative_load_imbalance);
+        report_session.report(simulation::CumulativeTime,                time_hist);
+        report_session.report(simulation::Efficiency,                    eff_hist);
+        report_session.report(simulation::LoadBalancingIteration,        decisions);
+
         sol_id++;
     }
-
-
     return {solutions[0]->stats, scenario};
 }
 #endif //NBMPI_SHORTEST_PATH_HPP
