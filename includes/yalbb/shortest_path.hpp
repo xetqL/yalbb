@@ -65,15 +65,15 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         MPI_Comm NEW_COMM;
         MPI_Comm_dup(comm, &NEW_COMM);
         auto data = *_mesh_data;
-        LoadBalancer* LB = lb_copy_f(LB);
+        LoadBalancer* new_LB = lb_copy_f(LB);
         auto new_params = *params;
         new_params.monitor = false;
         Probe probe(nproc);
-        average_time = simulate<N>(LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, NEW_COMM);
+        average_time = simulate<N>(new_LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, NEW_COMM);
         for(auto it = std::begin(average_time); it != std::end(average_time); it++){
             *it = std::accumulate(it, std::end(average_time), 0.0);
         }
-        lb_delete_f(LB);
+        lb_delete_f(new_LB);
         Node::optimistic_remaining_time = average_time;
     }
 
