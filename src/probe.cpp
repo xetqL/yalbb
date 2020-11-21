@@ -6,13 +6,7 @@
 #include <numeric>
 #include "probe.hpp"
 
-Probe::Probe(int nproc) : nproc(nproc) {
-
-    iteration_times_since_lb.reserve(100000);
-    lb_times.reserve( 20000);
-    lb_parallel_efficiencies.reserve( 20000);
-
-}
+Probe::Probe(int nproc) : nproc(nproc) {}
 
 void Probe::update_cumulative_imbalance_time() {
     /**The cumulative load imbalance since a load balancing.
@@ -96,8 +90,3 @@ void Probe::next_iteration() {current_iteration++;}
 void Probe::start_batch(Index batch) { current_batch = batch; }
 void Probe::end_batch(Time time) { batch_time = time; }
 bool Probe::is_batch_started() { return batch_started; }
-std::string Probe::lb_cost_to_string(){
-    std::stringstream str;
-    str << lb_times;
-    return str.str();
-}

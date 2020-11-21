@@ -61,7 +61,6 @@ struct Probe {
     void  next_iteration();
     void  start_batch(Index batch);
     void  end_batch(Time time);
-    std::string lb_cost_to_string();
 };
 
 
