@@ -131,7 +131,7 @@ std::vector<Time> simulate(
             PAR_START_TIMER(it_compute_time, comm);
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, boundary, rc, dt, simsize, params->G, params->bounce);
             END_TIMER(it_compute_time);
-            const auto TIME = it_compute_time;
+            auto TIME = it_compute_time;
             MPI_Allreduce(MPI_IN_PLACE, &TIME, 1, get_mpi_type<decltype(TIME)>(), MPI_SUM, comm);
             it_compute_time += lb_time;
 
