@@ -51,14 +51,14 @@ std::vector<Time> simulate(
         const std::string simulation_name = "") {
     auto rc = params->rc;
     auto dt = params->dt;
-    auto simsize = params->simsize;
+
     auto boxIntersectFunc   = fWrapper.getBoxIntersectionFunc();
     auto doLoadBalancingFunc= fWrapper.getLoadBalancingFunc();
     auto pointAssignFunc    = fWrapper.getPointAssignationFunc();
     auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
     auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
     auto getForceFunc       = fWrapper.getForceFunc();
-
+    auto unaryForceFunc     = fWrapper.getUnaryForceFunc();
 
     doLoadBalancingFunc(LB, mesh_data);
     probe->set_balanced(true);
@@ -77,23 +77,22 @@ std::vector<Time> simulate(
     std::vector<Time> average_it_time(niters);
 
     std::vector<T> recv_buf;
-    std::string folder_prefix = "logs/"+std::to_string(params->seed)+"/"+std::to_string(params->id)+"/"+simulation_name;
+    std::string folder_prefix = fmt("%s/%s", "logs", simulation_name);
 
     simulation::MonitoringSession report_session {!rank, params->record, folder_prefix, "", params->monitor};
-
+    print_params(report_session, *params);
     if (params->record) {
         recv_buf.reserve(params->npart);
         auto ranks = gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
         report_session.report_particle<N>(recv_buf, ranks, getPosPtrFunc, 0);
     }
 
-    auto nb_cell_estimation = std::pow(simsize / rc, 3.0)  / nproc;
     std::vector<Index> lscl, head;
     std::vector<Real> flocal;
 
     apply_resize_strategy(&lscl,     mesh_data->els.size());
     apply_resize_strategy(&flocal, N*mesh_data->els.size());
-    apply_resize_strategy(&head,     nb_cell_estimation);
+    //apply_resize_strategy(&head,     nb_cell_estimation);
 
     Time lb_time = 0.0, it_time, cum_time = 0.0, batch_time;
 
@@ -129,7 +128,7 @@ std::vector<Time> simulate(
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
-            int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc, boundary, rc, dt, simsize, params->G, params->bounce);
+            int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
             auto TIME = it_compute_time;
             MPI_Allreduce(MPI_IN_PLACE, &TIME, 1, get_mpi_type<decltype(TIME)>(), MPI_SUM, comm);

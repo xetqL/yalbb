@@ -7,9 +7,12 @@
 #include <utility>
 #include <filesystem>
 #include <vector>
+#include <ostream>
 
 namespace simulation {
-
+    namespace {
+        std::ostream null{nullptr};
+    }
     enum ReportData {
         Imbalance,
         CumulativeImbalance,
@@ -31,8 +34,9 @@ namespace simulation {
     }
 
     // manage report files
-    class MonitoringSession {
+class MonitoringSession {
         std::ofstream fparticle, fimbalance, fcumimbalance, fvanimbalance, ftime, fcumtime, fefficiency, flbit, flbcost, finteractions;
+        std::ofstream fstdout;
         const bool is_managing   = false,
                    is_logging_particles = false,
                    monitoring = true;
@@ -43,6 +47,7 @@ namespace simulation {
             if(is_managing && monitoring) {
                 const std::string monitoring_files_folder = folder_prefix+"/monitoring";
                 std::filesystem::create_directories(monitoring_files_folder);
+                fstdout.open(monitoring_files_folder+"/"+"stdout.txt");
                 fcumimbalance.open(monitoring_files_folder + "/" + file_prefix + "cum_imbalance.txt");
                 fimbalance.open(monitoring_files_folder + "/" + file_prefix + "imbalance.txt");
                 fvanimbalance.open(monitoring_files_folder + "/" + file_prefix + "van_cum_imbalance.txt");
@@ -63,6 +68,7 @@ namespace simulation {
         /* close report files */
         ~MonitoringSession() {
             if(is_managing && monitoring) {
+                fstdout.close();
                 fcumimbalance.close();
                 fimbalance.close();
                 fvanimbalance.close();
@@ -72,6 +78,7 @@ namespace simulation {
                 flbit.close();
                 flbcost.close();
                 finteractions.close();
+
             }
         }
 
@@ -81,30 +88,39 @@ namespace simulation {
             if(is_managing && monitoring) switch(type){
                 case Imbalance:
                     fimbalance << report_value << sep;
+                    fimbalance.flush();
                     break;
                 case CumulativeImbalance:
                     fcumimbalance << report_value << sep;
+                    fcumimbalance.flush();
                     break;
                 case CumulativeVanillaImbalance:
                     fvanimbalance << report_value << sep;
+                    fvanimbalance.flush();
                     break;
                 case Time:
                     ftime << report_value << sep;
+                    ftime.flush();
                     break;
                 case CumulativeTime:
                     fcumtime << report_value << sep;
+                    fcumtime.flush();
                     break;
                 case Efficiency:
                     fefficiency << report_value << sep;
+                    fefficiency.flush();
                     break;
                 case LoadBalancingIteration:
                     flbit << report_value << sep;
+                    flbit.flush();
                     break;
                 case LoadBalancingCost:
                     flbcost << report_value << sep;
+                    flbcost.flush();
                     break;
                 case Interactions:
                     finteractions << report_value << sep;
+                    finteractions.flush();
                     break;
             }
         }
@@ -120,6 +136,16 @@ namespace simulation {
                 fparticle << frame_header<N>() << ",rank" << std::endl;
                 fparticle << str.str();
                 fparticle.close();
+            }
+        }
+
+        template<class T>
+        friend std::ostream& operator<<(MonitoringSession &session, const T os) {
+            if(session.is_managing) {
+                session.fstdout << os;
+                return session.fstdout;
+            } else {
+                return null;
             }
         }
     };

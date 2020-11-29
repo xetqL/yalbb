@@ -23,6 +23,35 @@
 #define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<< __LINE__ << "("<< __PRETTY_FUNCTION__<< ") = " << (x) << std::endl;
 #endif
 
+template<typename T>
+constexpr auto convert(T&& t) {
+    if constexpr (std::is_same<std::remove_cv_t<std::remove_reference_t<T>>, std::string>::value) {
+        return std::forward<T>(t).c_str();
+    } else {
+        return std::forward<T>(t);
+    }
+}
+
+/**
+ * printf like formatting for C++ with std::string
+ * Original source: https://stackoverflow.com/a/26221725/11722
+ */
+template<typename ... Args>
+std::string stringFormatInternal(const std::string& format, Args&& ... args)
+{
+    size_t size = snprintf(nullptr, 0, format.c_str(), std::forward<Args>(args) ...) + 1;
+    if( size <= 0 ){ throw std::runtime_error( "Error during formatting." ); }
+    std::unique_ptr<char[]> buf(new char[size]);
+    snprintf(buf.get(), size, format.c_str(), args ...);
+    return std::string(buf.get(), buf.get() + size - 1);
+}
+
+template<typename ... Args>
+std::string fmt(std::string fmt, Args&& ... args) {
+    return stringFormatInternal(fmt, convert(std::forward<Args>(args))...);
+}
+
+
 inline std::string get_date_as_string();
 bool file_exists(const std::string fileName);
 std::vector<std::string> split(const std::string &s, char delimiter);
@@ -38,78 +67,14 @@ struct MESH_DATA {
     std::vector<T> els;
 };
 const double CUTOFF_RADIUS_FACTOR = 4.0;
-using Real       = float;
+using Real       = double;
 using Time       = double;
 using Rank       = int;
 using Integer    = long long int;
 using Complexity = Integer;
 using Index      = Integer;
 
-template<class GetPosPtrFunc, class GetVelPtrFunc, class GetForceFunc, class BoxIntersectionFunc, class PointAssignationFunc, class LoadBalancingFunc>
-class FunctionWrapper {
-    GetPosPtrFunc posPtrFunc;
-    GetVelPtrFunc velPtrFunc;
-    GetForceFunc forceFunc;
-    BoxIntersectionFunc boxIntersectionFunc;
-    PointAssignationFunc pointAssignationFunc;
-    LoadBalancingFunc loadBalancingFunc;
-public:
-    FunctionWrapper(GetPosPtrFunc posPtrFunc, GetVelPtrFunc velPtrFunc, GetForceFunc forceFunc,
-                                  BoxIntersectionFunc boxIntersectionFunc, PointAssignationFunc pointAssignationFunc,
-                                  LoadBalancingFunc loadBalancingFunc) : posPtrFunc(posPtrFunc), velPtrFunc(velPtrFunc),
-                                                                         forceFunc(forceFunc),
-                                                                         boxIntersectionFunc(boxIntersectionFunc),
-                                                                         pointAssignationFunc(pointAssignationFunc),
-                                                                         loadBalancingFunc(loadBalancingFunc) {}
 
-    const GetPosPtrFunc &getPosPtrFunc() const {
-        return posPtrFunc;
-    }
-
-    void setPosPtrFunc(const GetPosPtrFunc &posPtrFunc) {
-        FunctionWrapper::posPtrFunc = posPtrFunc;
-    }
-
-    const GetVelPtrFunc &getVelPtrFunc() const {
-        return velPtrFunc;
-    }
-
-    void setVelPtrFunc(const GetVelPtrFunc &velPtrFunc) {
-        FunctionWrapper::velPtrFunc = velPtrFunc;
-    }
-
-    GetForceFunc getForceFunc() const {
-        return forceFunc;
-    }
-
-    void setGetForceFunc(GetForceFunc forceFunc) {
-        FunctionWrapper::forceFunc = forceFunc;
-    }
-
-    BoxIntersectionFunc getBoxIntersectionFunc() const {
-        return boxIntersectionFunc;
-    }
-
-    void setBoxIntersectionFunc(BoxIntersectionFunc boxIntersectionFunc) {
-        FunctionWrapper::boxIntersectionFunc = boxIntersectionFunc;
-    }
-
-    PointAssignationFunc getPointAssignationFunc() const {
-        return pointAssignationFunc;
-    }
-
-    void setPointAssignationFunc(PointAssignationFunc pointAssignationFunc) {
-        FunctionWrapper::pointAssignationFunc = pointAssignationFunc;
-    }
-
-    LoadBalancingFunc getLoadBalancingFunc() const {
-        return loadBalancingFunc;
-    }
-
-    void setLoadBalancingFunc(LoadBalancingFunc loadBalancingFunc) {
-        FunctionWrapper::loadBalancingFunc = loadBalancingFunc;
-    }
-};
 
 template<int N>
 std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array){

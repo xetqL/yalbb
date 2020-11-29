@@ -14,7 +14,6 @@
 #include <numeric>
 #include <set>
 
-using Real       = float;
 using Time       = double;
 using Rank       = int;
 using Integer    = long long int;

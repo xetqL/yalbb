@@ -60,8 +60,17 @@ void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPos
         std::visit([&](const auto& boundary){ boundary.collide(pos, vel); }, boundary);
     }
 }
+template<unsigned N, class T, class UnaryForceFunc>
+void apply_constant_forces(const std::vector<T>& els, std::vector<Real>& flocal, UnaryForceFunc uff){
+    std::fill(flocal.begin(),flocal.end(), 0.0);
+    const auto S = els.size();
+    for(auto i = 0; i < S; ++i) {
+        const auto fidx = N*i;
+        uff(els.at(i), flocal.begin()+fidx);
+    }
+}
 
-template<int N, class T, class SetPosFunc, class SetVelFunc, class GetForceFunc>
+template<int N, class T, class SetPosFunc, class SetVelFunc, class BinaryForceFunc, class UnaryForceFunc>
 Complexity nbody_compute_step(
         std::vector<Real>& flocal,
         std::vector<T>& elements,
@@ -71,19 +80,13 @@ Complexity nbody_compute_step(
         std::vector<Integer> *head,                // the cell starting point
         std::vector<Integer> *lscl,                // the particle linked list
         BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
-        GetForceFunc getForceFunc,                 // function to compute force between entities
+        UnaryForceFunc unaryForceFunc,
+        BinaryForceFunc getForceFunc,              // function to compute force between entities
         const Boundary<N>& boundary,
         const Real cutoff,                         // simulation parameters
-        const Real dt,
-        const Real simwidth,
-        const Real Gforce,
-        const Real bf) {
+        const Real dt) {
 
-    std::fill(flocal.begin(), flocal.end(), (Real) 0.0);
-
-    const auto size = flocal.size();
-
-    for(int i = N-1; i < size; i += N) flocal.at(i) = Gforce;
+    apply_constant_forces<N>(elements, flocal, unaryForceFunc);
 
     leapfrog1<N, T>(dt, cutoff, flocal, elements, getPosPtrFunc, getVelPtrFunc);
 

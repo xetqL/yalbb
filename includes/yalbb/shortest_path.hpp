@@ -59,6 +59,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
     auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
     auto getForceFunc       = fWrapper.getForceFunc();
+    auto unaryForceFunc       = fWrapper.getUnaryForceFunc();
     std::vector<Time> average_time;
 
     {
@@ -176,7 +177,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         CLL_init<N, T>({{mesh_data.els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
                         PAR_START_TIMER(it_compute_time, comm);
-                        int nb_interactions = nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  getForceFunc,  boundary, rc, dt, simsize, params->G, params->bounce);
+                        int nb_interactions = nbody_compute_step<N>(flocal, mesh_data.els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox,  unaryForceFunc, getForceFunc,  boundary, rc, dt);
                         END_TIMER(it_compute_time);
 
                         it_compute_time += lb_time;
@@ -218,7 +219,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     std::vector<Time>  eff_hist;
     int sol_id = 0;
 
-    std::string folder_prefix = "logs/"+std::to_string(params->seed)+"/"+std::to_string(params->id)+"/"+simulation_name;
+    std::string folder_prefix = fmt("%s/%s", "logs", simulation_name);
 
     for (auto solution : solutions) {
         Time total_time = solution->cost();

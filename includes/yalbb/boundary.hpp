@@ -59,9 +59,8 @@ struct CubicalBoundary {
 
     void collide(std::array<Real, N>* pos, std::array<Real, N>* vel) const {
         for(auto dim=0; dim < N; ++dim) {
-            if(pos->at(dim) < box.at(2*dim))   reflect(box.at(2*dim),   bf, &pos->at(dim), &vel->at(dim));
-            if(pos->at(dim) > box.at(2*dim+1)) reflect(box.at(2*dim+1), bf, &pos->at(dim), &vel->at(dim));
-            dim++;
+            if(pos->at(dim) < box.at(2*dim))   { reflect(box.at(2 * dim), bf, &pos->at(dim), &vel->at(dim)); }
+            if(pos->at(dim) > box.at(2*dim+1)) { reflect(box.at(2 * dim + 1), bf, &pos->at(dim), &vel->at(dim)); }
         }
     }
 };

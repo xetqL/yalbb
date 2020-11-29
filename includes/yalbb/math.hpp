@@ -30,8 +30,8 @@ namespace vec::generic{
         template<class InputIt, class OutputIt, class UnaryOp>
         OutputIt apply(InputIt beg1, InputIt end1, OutputIt out, UnaryOp op) {
         const auto beg_out = out;
-        for(;beg1 != end1; beg1++){
-            (*out)++ = op( (*beg1) );
+        for(;beg1 != end1; beg1++, out++){
+            *out = op( (*beg1) );
         }
         return beg_out;
     }
@@ -52,13 +52,32 @@ namespace vec::generic{
         return ret;
     }
     template<class T> T operator * (const typename T::value_type lhs, const T& rhs){
-            return rhs * lhs;
+        return rhs * lhs;
     }
     template<class T> T operator * (const T& lhs, const typename T::value_type rhs){
-    T ret = lhs;
-    apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::multiplies{});
-    return ret;
-}
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::multiplies{});
+        return ret;
+    }
+    template<class T> T abs(const T& lhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), std::begin(ret), [](auto& v){return std::abs(v);});
+        return ret;
+    }
+
+    template<class T> bool almost_equal(const T& lhs, const T& rhs){
+        T epsilon = lhs;
+        std::fill(epsilon.begin(), epsilon.end(), std::numeric_limits<typename T::value_type>::epsilon());
+        return abs(lhs - rhs) <= epsilon;
+    }
+
+    template<class T> bool operator == (const T& lhs, const T& rhs){
+        return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs));
+    }
+
+    template<class T> bool operator <= (const T& lhs, const T& rhs){
+        return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs), std::less_equal<typename T::value_type>{});
+    }
     template<class T> T operator / (const T& lhs, const typename T::value_type rhs){
         T ret = lhs;
         apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::divides{});

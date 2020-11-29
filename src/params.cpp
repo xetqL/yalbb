@@ -4,25 +4,7 @@
 #include "zupply.hpp"
 #include "params.hpp"
 
-void print_params(std::ostream& stream, const sim_param_t& params){
-    stream << "==============================================" << std::endl;
-    stream << "Parameters: " << std::endl;
-    stream << "Particles: " << params.npart << std::endl;
-    stream << "Seed: " << params.seed << std::endl;
-    stream << "id: " << params.id << std::endl;
-    stream << "Simulation size: " << params.simsize << std::endl;
-    stream << "Number of time-steps: " << params.nframes << "x" << params.npframe << std::endl;
-    stream << "Timestep: "<< params.dt << std::endl;
-    stream << "Initial conditions: " << std::endl;
-    stream << "SIG:" << params.sig_lj << std::endl;
-    stream << "EPS:  " << params.eps_lj << std::endl;
-    stream << "Cut-off: "<< params.rc << std::endl;
-    stream << "Bounce: " << params.bounce << std::endl;
-    stream << "A* bpath " << params.nb_best_path << std::endl;
-    stream << "Gravity:  " << params.G << std::endl;
-    stream << "Temperature: " << params.T0 << std::endl;
-    stream << "==============================================" << std::endl;
-}
+
 void print_params(const sim_param_t& params) {
     print_params(std::cout, params);
 }
@@ -44,7 +26,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_value('I', "import", params.fname, std::string("particles.in"), "import particles from this file", "STRING");
     parser.add_opt_value('l', "lattice", params.rc, 2.5f, "Lattice size", "FLOAT");
     parser.add_opt_value('n', "nparticles", params.npart, 500, "Number of particles", "INT").require();
-    parser.add_opt_value('p', "prefix", params.prefix, std::string(), "prefix for results", "STRING");
+    parser.add_opt_value('N', "name", params.simulation_name, std::string(), "Simulation name", "STRING");
 
     parser.add_opt_flag('r', "record", "Record the simulation", &params.record);
     parser.add_opt_value('s', "siglj", params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
