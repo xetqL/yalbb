@@ -44,6 +44,7 @@ struct sim_param_t {
     std::string fname;  /* File name (run.out)        */
 
     int verbosity;
+
 };
 namespace {
     #define show(x) #x << "=" << x

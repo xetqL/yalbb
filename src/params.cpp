@@ -8,6 +8,7 @@
 void print_params(const sim_param_t& params) {
     print_params(std::cout, params);
 }
+
 std::optional<sim_param_t> get_params(int argc, char** argv){
     sim_param_t params;
     zz::cfg::ArgParser parser;
@@ -48,6 +49,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     params.import    = (bool) parser.count('I');
     params.verbosity = verbose.get_count();
     params.rc *= params.sig_lj;
+    params.simsize = std::ceil(params.simsize / params.rc) * params.rc;
     params.G  *= 9.81f;
 
     return params;

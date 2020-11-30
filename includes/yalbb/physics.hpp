@@ -60,6 +60,7 @@ void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPos
         std::visit([&](const auto& boundary){ boundary.collide(pos, vel); }, boundary);
     }
 }
+
 template<unsigned N, class T, class UnaryForceFunc>
 void apply_constant_forces(const std::vector<T>& els, std::vector<Real>& flocal, UnaryForceFunc uff){
     std::fill(flocal.begin(),flocal.end(), 0.0);
