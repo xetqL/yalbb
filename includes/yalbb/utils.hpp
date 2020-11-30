@@ -67,14 +67,13 @@ struct MESH_DATA {
     std::vector<T> els;
 };
 const double CUTOFF_RADIUS_FACTOR = 4.0;
-using Real       = double;
+
+using Real       = float;
 using Time       = double;
 using Rank       = int;
 using Integer    = long long int;
 using Complexity = Integer;
 using Index      = Integer;
-
-
 
 template<int N>
 std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array){
