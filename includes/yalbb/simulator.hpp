@@ -149,6 +149,7 @@ std::vector<Time> simulate(
             batch_time += it_time;
 
             report_session.report(simulation::CumulativeImbalance,    probe->get_cumulative_imbalance_time(), " ");
+            report_session.report(simulation::CumulativeVanillaImbalance,    probe->get_vanilla_cumulative_imbalance_time(), " ");
             report_session.report(simulation::Imbalance,              probe->compute_load_imbalance(), " ");
             report_session.report(simulation::Time,                   it_time, " ");
             report_session.report(simulation::CumulativeTime,         cum_time, " ");

@@ -26,10 +26,12 @@ void  Probe::reset_cumulative_imbalance_time() {
 }
 
 Time  Probe::compute_avg_lb_time() const {
-    if(lb_times.empty()) return 0.0;
+    if (lb_times.empty()) return 0.0;
     const auto N = lb_times.size();
     const auto window_size = std::min((decltype(N)) 5, N);
-    return std::accumulate(lb_times.cbegin(), std::next(lb_times.cbegin(), window_size), 0.0) / N; }
+    //return std::accumulate(lb_times.cbegin(), std::next(lb_times.cbegin(), window_size), 0.0) / N; }
+    return lb_times.back();
+}
 
 Time* Probe::max_it_time() { return &max_it; }
 Time* Probe::min_it_time() { return &min_it; }
@@ -81,7 +83,8 @@ Time* Probe::sum_it_time() { return &sum_it; }
 void  Probe::push_load_balancing_time(Time lb_time){
     lb_times.push_back(lb_time);
 }
-void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){ lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
+void  Probe::push_load_balancing_parallel_efficiency(Real lb_parallel_efficiency){
+    lb_parallel_efficiencies.push_back(lb_parallel_efficiency); }
 void  Probe::update_lb_parallel_efficiencies() { lb_parallel_efficiencies.push_back(get_avg_it() / get_max_it()); }
 
 Real Probe::compute_avg_lb_parallel_efficiency() {return std::accumulate(lb_parallel_efficiencies.cbegin(), lb_parallel_efficiencies.cend(), 0.0) / lb_parallel_efficiencies.size();}

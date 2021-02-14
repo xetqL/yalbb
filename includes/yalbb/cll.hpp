@@ -7,8 +7,10 @@
 
 #include "utils.hpp"
 #include "coordinate_translater.hpp"
+#include "bit.hpp"
 
 constexpr Integer EMPTY = -1;
+
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
@@ -32,6 +34,54 @@ inline void CLL_update(Integer acc,
         acc += n_els;
     }
 }
+
+template<int N, class T, class GetPositionFunc>
+inline void CLL_update(Integer acc,
+                       std::initializer_list<std::pair<T*, size_t>>&& elements,
+                       GetPositionFunc getPositionFunc,
+                       const BoundingBox<N>& bbox, Real rc,
+                       std::vector<Integer> *head,
+                       std::vector<Integer> *lscl,
+                       std::vector<Integer> *non_empty_boxes) {
+    auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+    Integer c;
+    const auto nmask = std::ceil(head->size() / 64) * 64;
+    std::vector<uint64_t> boxes_non_empty_status(nmask, 0);
+    for (const auto &span : elements) {
+        auto el_ptr = span.first;
+        auto n_els = span.second;
+        for (size_t i = 0; i < n_els; ++i) {
+            auto &pos = *getPositionFunc(&el_ptr[i]);
+            if (is_within<N>(bbox, pos)) {
+                c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
+                enable_bit(boxes_non_empty_status, c);
+                lscl->at(i + acc) = head->at(c);
+                head->at(c) = i + acc;
+            }
+        }
+        acc += n_els;
+    }
+    auto nbits = head->size();
+    non_empty_boxes->reserve(nbits / 2);
+    for(Integer i = 0; i < nbits; ++i){
+        if(is_enabled(boxes_non_empty_status, i))
+            non_empty_boxes->push_back(i);
+    }
+    non_empty_boxes->shrink_to_fit();
+}
+
+template<int N, class T, class GetPositionFunc>
+inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
+                     GetPositionFunc getPositionFunc,
+                     const BoundingBox<N>& bbox, Real rc,
+                     std::vector<Integer> *head,
+                     std::vector<Integer> *lscl,
+                     std::vector<Integer> *non_empty_boxes) {
+    apply_resize_strategy(head, get_total_cell_number<N>(bbox, rc));
+    std::fill(head->begin(), head->end(), EMPTY);
+    CLL_update<N, T, GetPositionFunc>(0, std::move(elements), getPositionFunc, bbox, rc, head, lscl, non_empty_boxes);
+}
+
 template<int N, class T, class GetPositionFunc>
 inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
               GetPositionFunc getPositionFunc,
