@@ -23,6 +23,8 @@
 #define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<< __LINE__ << "("<< __PRETTY_FUNCTION__<< ") = " << (x) << std::endl;
 #endif
 
+
+
 template<typename T>
 constexpr auto convert(T&& t) {
     if constexpr (std::is_same<std::remove_cv_t<std::remove_reference_t<T>>, std::string>::value) {
@@ -74,6 +76,28 @@ using Rank       = int;
 using Integer    = long long int;
 using Complexity = Integer;
 using Index      = Integer;
+
+template<unsigned N>
+std::array<Real, 2*N> get_simbox(Real simwidth){
+    if constexpr (N==2) return {0,simwidth, 0,simwidth};
+    if constexpr (N==3) return {0,simwidth, 0,simwidth, 0,simwidth};
+}
+template<unsigned N>
+std::array<Real, N> get_box_center(const std::array<Real, 2*N>& box){
+    std::array<Real, N> center{};
+    for(unsigned i = 0; i < N; ++i) {
+        center[i] = (box.at(2*i+1) - box.at(2*i)) / static_cast<Real>(2.0);
+    }
+    return center;
+}
+template<unsigned N>
+std::array<Real, N> get_box_width(const std::array<Real, 2*N>& box){
+    std::array<Real, N> widths{};
+    for(unsigned i = 0; i < N; ++i){
+        widths[i] = (box.at(2*i+1) - box.at(2*i));
+    }
+    return widths;
+}
 
 template<int N>
 std::array<double, N> get_as_double_array(const std::array<Real, N>& real_array){

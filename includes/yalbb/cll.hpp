@@ -7,7 +7,6 @@
 
 #include "utils.hpp"
 #include "coordinate_translater.hpp"
-#include "bit.hpp"
 
 constexpr Integer EMPTY = -1;
 
@@ -34,7 +33,6 @@ inline void CLL_update(Integer acc,
         acc += n_els;
     }
 }
-
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
@@ -45,26 +43,24 @@ inline void CLL_update(Integer acc,
                        std::vector<Integer> *non_empty_boxes) {
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
     Integer c;
-    const auto nmask = std::ceil(head->size() / 64) * 64;
-    std::vector<uint64_t> boxes_non_empty_status(nmask, 0);
+    const auto ncells= head->size();
+    const auto nmask = std::ceil(ncells / 64) * 64;
     for (const auto &span : elements) {
         auto el_ptr = span.first;
         auto n_els = span.second;
         for (size_t i = 0; i < n_els; ++i) {
             auto &pos = *getPositionFunc(&el_ptr[i]);
-            if (is_within<N>(bbox, pos)) {
+            //if (is_within<N>(bbox, pos)) {
                 c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
-                enable_bit(boxes_non_empty_status, c);
                 lscl->at(i + acc) = head->at(c);
                 head->at(c) = i + acc;
-            }
+            //}
         }
         acc += n_els;
     }
-    auto nbits = head->size();
-    non_empty_boxes->reserve(nbits / 2);
-    for(Integer i = 0; i < nbits; ++i){
-        if(is_enabled(boxes_non_empty_status, i))
+    non_empty_boxes->reserve(ncells / 2);
+    for(unsigned i = 0; i < ncells; ++i){
+        if(head->at(i) != EMPTY)
             non_empty_boxes->push_back(i);
     }
     non_empty_boxes->shrink_to_fit();
@@ -137,6 +133,43 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
                         j = lscl->at(j);
                     }
                 }
+            }
+        }
+    }
+    return cmplx;
+}
+template<class T, class GetPositionFunc, class BinaryOp>
+Integer CLL_foreach_interaction(const T *elements, Integer n_elements,
+                                const T *remote_elements,
+                                GetPositionFunc getPosFunc,
+                                const BoundingBox<2>& bbox, Real rc,
+                                const std::vector<Integer> *head, const std::vector<Integer> *lscl,
+                                BinaryOp binary_op) {
+    auto lc = get_cell_number_by_dimension<2>(bbox, rc);
+    Integer c1, ic1[3], j;
+    std::array<Integer, 3> ic;
+    const T *source, *receiver;
+    Integer cmplx = n_elements;
+    for (size_t i = 0; i < n_elements; ++i) {
+        const auto& pos = *getPosFunc(const_cast<T*>(&elements[i]));
+        receiver = &elements[i];
+
+        for(int d = 0; d < 3; ++d) ic[d] = (pos[d]-bbox[2*d]) / rc;
+
+        for (ic1[0] = ic[0] - 1; ic1[0] <= (ic[0]+1); ic1[0]++) {
+            for (ic1[1] = ic[1] - 1; ic1[1] <= (ic[1] + 1); ic1[1]++) {
+                    /* this is for bounce back, to avoid heap-buffer over/under flow */
+                if((ic1[0] < 0 || ic1[0] >= lc[0]) || (ic1[1] < 0 || ic1[1] >= lc[1])) continue;
+                c1 = (ic1[0]) + (lc[0] * ic1[1]);
+                j = head->at(c1);
+                while(j != EMPTY) {
+                    if(i != j) {
+                        source = j < n_elements ? &elements[j] : &remote_elements[j - n_elements];
+                        binary_op(receiver, source);
+                    }
+                    j = lscl->at(j);
+                }
+
             }
         }
     }

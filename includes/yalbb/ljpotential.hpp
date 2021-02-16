@@ -13,7 +13,7 @@ Real compute_LJ_force(Real r2, Real eps, Real sig);
 
 template<int N, class T, class GetPosPtrFunc>
 std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real eps, Real sig, Real rc, GetPosPtrFunc getPosPtr) {
-    auto delta = 0.0;
+    Real delta = 0.0;
 
     std::array<Real, N> delta_dim;
     std::array<Real, N> force;
@@ -24,7 +24,7 @@ std::array<Real, N> lj_compute_force(const T* receiver, const T* source, Real ep
     for (int dim = 0; dim < N; ++dim) delta_dim[dim] = rec_pos->at(dim) - sou_pos->at(dim);
     for (int dim = 0; dim < N; ++dim) delta += (delta_dim[dim] * delta_dim[dim]);
 
-    const auto min_r2 = (sig * sig) * 0.99;
+    const Real min_r2 = (sig * sig);
 
     delta = std::max(delta, min_r2);
 

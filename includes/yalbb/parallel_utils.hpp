@@ -260,7 +260,7 @@ std::vector<T> retrieve_ghosts(
     auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
     const int nb_export = nb_elements * nb_external_procs;
 
-    std::vector<T>   export_buf;
+    std::vector<T>     export_buf;
     export_buf.reserve(nb_export);
 
     for (int j = 0; j < num_found; ++j) {
@@ -285,4 +285,79 @@ std::vector<T> retrieve_ghosts(
     return import_buf;
 
 }
+
+template<int N, class T, class LB, class BoxIntersectFunc>
+std::vector<T> retrieve_ghosts(
+        LB* lb,
+        std::vector<T>& data,
+        const BoundingBox<N>& bbox,
+        BoxIntersectFunc boxIntersect,
+        Real rc,
+        const std::vector<Integer>& head,
+        const std::vector<Integer>& lscl,
+        const std::vector<Integer>& non_empty_boxes,
+        MPI_Datatype datatype,
+        MPI_Comm LB_COMM) {
+
+    const auto nb_elements = data.size();
+    int wsize, caller_rank;
+    MPI_Comm_size(LB_COMM, &wsize);
+    MPI_Comm_rank(LB_COMM, &caller_rank);
+
+    if (wsize == 1) return {};
+    int num_found;
+
+    std::array<double, 3> pos_in_double;
+    std::vector<std::vector<T*> > data_to_migrate(wsize);
+    std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+    double radius = CUTOFF_RADIUS_FACTOR * rc;
+    std::vector<int> PEs(wsize);
+
+    auto lc = get_cell_number_by_dimension<N>(bbox, rc);
+    for (Integer non_empty_box : non_empty_boxes) {
+        auto[x, y, z] = CoordinateTranslater::translate_linear_index_into_xyz(non_empty_box, lc[0], lc[1]);
+        auto[px,py,pz]= CoordinateTranslater::translate_local_xyz_into_position<N>({x,y,z}, bbox, rc);
+        boxIntersect(lb, px - radius, py - radius, pz - radius, px + radius, py + radius, pz + radius, &PEs.front(), &num_found);
+        auto j = head.at(non_empty_box);
+        while(j != EMPTY) {
+            for (unsigned k = 0; k < num_found; ++k) {
+                data_to_migrate.at(PEs[k]).push_back(&data.at(j));
+            }
+            j = lscl.at(j);
+        }
+    }
+
+    // build exportation lists
+    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+    auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
+    const int nb_export = nb_elements * nb_external_procs;
+
+    std::vector<T>   export_buf;
+    export_buf.reserve(nb_export);
+
+    for (unsigned PE = 0; PE < wsize; ++PE) {
+        //const auto PE = PEs[j];
+        if(PE != caller_rank) {
+            export_counts.at(PE) = data_to_migrate.at(PE).size();
+            for(auto beg = data_to_migrate.at(PE).begin(); beg != data_to_migrate.at(PE).end(); ++beg)
+                export_buf.push_back(*(*beg));
+        }
+    }
+
+    for (int PE = 1; PE < wsize; ++PE)
+        export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
+
+    // build importation lists
+    int nb_import;
+    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
+    for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    std::vector<T> import_buf(nb_import);
+    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
+                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
+
+    return import_buf;
+
+}
+
 #endif //NBMPI_PARALLEL_UTILS_HPP
