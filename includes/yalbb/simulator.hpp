@@ -33,11 +33,6 @@ template<int N> using Position  = std::array<Real, N>;
 template<int N> using Velocity  = std::array<Real, N>;
 
 template<int N, class T, class D, class LoadBalancer, class Wrapper>
-//std::vector<std::vector<Time>> proc_time_per_iteration
-// t11,t12,t13,...,t1p: sum_x=1 to p t1x/p = mu(1)
-// t21,t22,t23,...,t2p: sum_x=1 to p t2x/p = mu(2)
-// ...............................................
-// ti1,ti2,ti3,...,tip: sum_x=1 to p tix/p = mu(i)
 std::vector<Time> simulate(
         LoadBalancer* LB,
         MESH_DATA<T> *mesh_data,
@@ -81,6 +76,7 @@ std::vector<Time> simulate(
 
     simulation::MonitoringSession report_session {!rank, params->record, folder_prefix, "", params->monitor};
     print_params(report_session, *params);
+
     if (params->record) {
         recv_buf.reserve(params->npart);
         auto ranks = gather_elements_on(nproc, rank, params->npart, mesh_data->els, 0, recv_buf, datatype, comm);
@@ -101,6 +97,7 @@ std::vector<Time> simulate(
         batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
+            START_TIMER(complete_iteration_time);
             lb_time = 0.0;
             it_time = 0.0;
             bool lb_decision = lb_policy.should_load_balance();
@@ -142,8 +139,6 @@ std::vector<Time> simulate(
             PAR_START_TIMER(it_compute_time, comm);
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
-            auto TIME = it_compute_time;
-            MPI_Allreduce(MPI_IN_PLACE, &TIME, 1, get_mpi_type<decltype(TIME)>(), MPI_SUM, comm);
             it_compute_time += lb_time;
 
             //------ end ------ //
@@ -172,6 +167,8 @@ std::vector<Time> simulate(
             report_session.report(simulation::LoadBalancingIteration, static_cast<int>(lb_decision), " ");
 
             probe->next_iteration();
+            END_TIMER(complete_iteration_time);
+            if(!rank) std::cout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
         }
         if(!rank) std::cout << batch_time << std::endl;
         probe->end_batch(batch_time);

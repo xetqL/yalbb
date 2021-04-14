@@ -59,6 +59,11 @@ namespace vec::generic{
         apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::multiplies{});
         return ret;
     }
+    template<class T> T operator - (const T& lhs, const typename T::value_type rhs){
+        T ret = lhs;
+        apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::minus{});
+        return ret;
+    }
     template<class T> T abs(const T& lhs){
         T ret = lhs;
         apply(std::begin(lhs), std::end(lhs), std::begin(ret), [](auto& v){return std::abs(v);});

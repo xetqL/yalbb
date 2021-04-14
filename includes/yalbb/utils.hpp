@@ -70,7 +70,7 @@ struct MESH_DATA {
 };
 const double CUTOFF_RADIUS_FACTOR = 4.0;
 
-using Real       = float;
+using Real       = double;
 using Time       = double;
 using Rank       = int;
 using Integer    = long long int;
