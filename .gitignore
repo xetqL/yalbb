@@ -1,6 +1,7 @@
 *.result
 *.metrics
 *.ovito
+*.log
 dataset*
 data/
 Makefile
