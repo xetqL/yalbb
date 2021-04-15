@@ -5,6 +5,7 @@
 #ifndef NBMPI_PARALLEL_UTILS_HPP
 #define NBMPI_PARALLEL_UTILS_HPP
 
+#include "type.hpp"
 #include "utils.hpp"
 #include "coordinate_translater.hpp"
 #include "cll.hpp"
@@ -14,14 +15,7 @@
 #include <numeric>
 #include <set>
 
-using Time       = double;
-using Rank       = int;
-using Integer    = long long int;
-using Complexity = Integer;
-using Index      = Integer;
 
-#define MPI_TIME MPI_DOUBLE
-#define MPI_COMPLEXITY MPI_LONG_LONG
 
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\

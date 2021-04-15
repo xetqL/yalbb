@@ -28,7 +28,7 @@ find_package (Threads)
 file(GLOB SRC_FILES src/*.cpp)
 file(GLOB_RECURSE INCLUDE_FILES includes/yalbb/*.hpp)
 
-add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/probe_processor.cpp includes/yalbb/probe_processor.hpp includes/yalbb/boundary.hpp includes/yalbb/math.hpp)
+add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/probe_processor.cpp includes/yalbb/probe_processor.hpp includes/yalbb/boundary.hpp includes/yalbb/math.hpp includes/yalbb/yalbb.hpp includes/yalbb/type.hpp)
 
 target_include_directories(yalbb PRIVATE ${MPI_C_INCLUDE_PATH})
 target_include_directories(yalbb PUBLIC

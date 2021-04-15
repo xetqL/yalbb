@@ -19,11 +19,11 @@
 #include <cstring>
 #include <variant>
 
+#include "type.hpp"
+
 #ifdef DEBUG
 #define print(x) std::cout << (#x) <<" in "<< __FILE__ << ":"<< __LINE__ << "("<< __PRETTY_FUNCTION__<< ") = " << (x) << std::endl;
 #endif
-
-
 
 template<typename T>
 constexpr auto convert(T&& t) {
@@ -70,12 +70,7 @@ struct MESH_DATA {
 };
 const double CUTOFF_RADIUS_FACTOR = 4.0;
 
-using Real       = double;
-using Time       = double;
-using Rank       = int;
-using Integer    = long long int;
-using Complexity = Integer;
-using Index      = Integer;
+
 
 template<unsigned N>
 std::array<Real, 2*N> get_simbox(Real simwidth){
