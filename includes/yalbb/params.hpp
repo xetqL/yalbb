@@ -122,7 +122,7 @@ struct TParser {
      */
     virtual void post_parsing() = 0;
 
-    std::optional<std::unique_ptr<Param>> get_params(int argc, char** argv) final {
+    std::optional<std::unique_ptr<Param>> get_params(int argc, char** argv) {
         parser.parse(argc, argv);
         if (parser.count_error() > 0) {
             std::cout << parser.get_error() << std::endl;
