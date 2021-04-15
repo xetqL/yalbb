@@ -87,6 +87,47 @@ void print_params(T& stream, const sim_param_t* params) {
     stream << "[Miscellaneous]" << std::endl;
     stream << show(params->verbosity) << std::endl;
 }
+template<class T>
+void print_params(T& stream, const sim_param_t params) {
+    stream << "[Global]" << std::endl;
+    stream << show(params.simulation_name) << std::endl;
+    stream << show(params.npart) << std::endl;
+    stream << show(params.seed) << std::endl;
+    stream << show(params.id) << std::endl;
+    stream << "\n";
+
+    // stream << "[Physics]" << std::endl;
+    // stream << show(params.T0) << std::endl;
+    // stream << show(params.sig_lj) << std::endl;
+    // stream << show(params.eps_lj) << std::endl;
+    // stream << show(params.G) << std::endl;
+    // stream << show(params.bounce) << std::endl;
+    // stream << show(params.dt) << std::endl;
+    // stream << show(params.rc) << std::endl;
+    // stream << "\n";
+
+    stream << "[Box]" << std::endl;
+    stream << show(params.simsize) << std::endl;
+    stream << "\n";
+
+    stream << "[Iterations]" << std::endl;
+    stream << show(params.nframes) << std::endl;
+    stream << show(params.npframe) << std::endl;
+    stream << "Total=" << (params.nframes * params.npframe) << std::endl;
+    stream << "\n";
+
+    stream << "[LBSolver]" << std::endl;
+    stream << show(params.nb_best_path) << std::endl;
+    stream << "\n";
+
+    stream << "[Storing]" << std::endl;
+    stream << show(params.monitor) << std::endl;
+    stream << show(params.record) << std::endl;
+    stream << "\n";
+
+    stream << "[Miscellaneous]" << std::endl;
+    stream << show(params.verbosity) << std::endl;
+}
 
 
 template<class Param>
