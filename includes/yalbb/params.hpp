@@ -163,15 +163,15 @@ struct TParser {
      */
     virtual void post_parsing() = 0;
 
-    std::optional<std::unique_ptr<Param>> get_params(int argc, char** argv) {
+    std::unique_ptr<Param> get_params(int argc, char** argv) {
         parser.parse(argc, argv);
         if (parser.count_error() > 0) {
             std::cout << parser.get_error() << std::endl;
             std::cout << parser.get_help() << std::endl;
-            return std::nullopt;
+            return nullptr;
         }
         this->post_parsing();
-        return std::move((std::unique_ptr<Param>) this->params);
+        return std::move(this->params);
     }
 };
 
