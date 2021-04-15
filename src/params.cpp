@@ -15,12 +15,6 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     // Optimal Search
     parser.add_opt_value('B', "best", params.nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT").require();
 
-    // Force (user-defined)
-    // parser.add_opt_value('e', "epslj",       params.eps_lj, 1.0f, "Epsilon (lennard-jones)", "FLOAT");
-    // parser.add_opt_value('g', "gravitation", params.G, 1.0f, "Number of G's", "FLOAT");
-    // parser.add_opt_value('T', "temperature", params.T0, 1.0f, "Initial temperatore", "FLOAT");
-    // parser.add_opt_value('s', "siglj",       params.sig_lj, 1e-2f, "Sigma (lennard-jones)", "FLOAT");
-    // parser.add_opt_value('b', "bounce",      params.bounce, 1.0f, "Bouncing factor (1=full bounce, 0=no bounce)", "FLOAT");
 
     // Config
     parser.add_opt_value('N', "name", params.simulation_name, std::string(), "Simulation name", "STRING");
@@ -47,10 +41,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
         return std::nullopt;
     }
 
-    // params.import    = (bool) parser.count('I');
-    // params.verbosity = verbose.get_count();
-    // params.G  *= 9.81f;
-    // params.rc       *= params.sig_lj;
+
 
     return params;
 }

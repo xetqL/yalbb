@@ -4,12 +4,14 @@
 
 #ifndef PARAMS_H
 #define PARAMS_H
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <unistd.h>
 #include <optional>
+#include "zupply.hpp"
 
 /*@T
  * \section{System parameters}
@@ -26,14 +28,8 @@ struct sim_param_t {
     int   npframe;      /* Steps per frame (100)      */
     float dt;           /* Time step (1e-4)           */
 
-    // float eps_lj;       /* Strength for L-J (1)       */
-    // float sig_lj;       /* Radius for L-J   (1e-2)    */
-    // float G;            /* Gravitational strength (1) */
-    // float T0;           /* Initial temperature (1)    */
-
     float simsize;      /* Borders of the simulation  */
     float rc;           /* factor multiplying sigma for cutoff */
-    // float bounce;       /* shock absorption factor (0=no bounce, 1=full bounce) */
 
     bool  record;       /* record the simulation in a binary file */
     bool  import  = false;
