@@ -305,7 +305,9 @@ std::vector<T> retrieve_ghosts(
     std::vector<std::vector<T*> > data_to_migrate(wsize);
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+
     double radius = CUTOFF_RADIUS_FACTOR * rc;
+
     std::vector<int> PEs(wsize);
 
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
@@ -316,7 +318,7 @@ std::vector<T> retrieve_ghosts(
         auto j = head.at(non_empty_box);
         while(j != EMPTY) {
             for (unsigned k = 0; k < num_found; ++k) {
-                data_to_migrate.at(PEs[k]).push_back(&data.at(j));
+                data_to_migrate.at(PEs.at(k)).push_back(&data.at(j));
             }
             j = lscl.at(j);
         }

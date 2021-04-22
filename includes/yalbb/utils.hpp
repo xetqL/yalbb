@@ -68,15 +68,15 @@ template<class T>
 struct MESH_DATA {
     std::vector<T> els;
 };
+
 const double CUTOFF_RADIUS_FACTOR = 4.0;
-
-
 
 template<unsigned N>
 std::array<Real, 2*N> get_simbox(Real simwidth){
     if constexpr (N==2) return {0,simwidth, 0,simwidth};
     if constexpr (N==3) return {0,simwidth, 0,simwidth, 0,simwidth};
 }
+
 template<unsigned N>
 std::array<Real, N> get_box_center(const std::array<Real, 2*N>& box){
     std::array<Real, N> center{};

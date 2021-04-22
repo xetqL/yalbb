@@ -171,7 +171,7 @@ struct TParser {
             return nullptr;
         }
         this->post_parsing();
-        return std::move(this->params);
+        return std::unique_ptr<Param>(static_cast<Param*>(this->params.release()));
     }
 };
 

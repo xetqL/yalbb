@@ -9,7 +9,7 @@
 
 struct YALBB {
     MPI_Comm comm;
-    YALBB(int argc, char** argv) : {
+    YALBB(int argc, char** argv) {
         MPI_Init(&argc, &argv);
         MPI_Comm_dup(MPI_COMM_WORLD, &comm);
     }

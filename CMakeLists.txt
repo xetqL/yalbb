@@ -14,6 +14,11 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL Sanitize)
     message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
 endif()
 
+if("${CMAKE_BUILD_TYPE}" STREQUAL Profile)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -p ${CMAKE_CXX_FLAGS_DEBUG}")
+    message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
+endif()
+
 # set(CMAKE_CXX_FLAGS "-O0 -g -DNDEBUG")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

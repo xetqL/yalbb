@@ -55,9 +55,6 @@ std::vector<Time> simulate(
     auto getForceFunc       = fWrapper.getForceFunc();
     auto unaryForceFunc     = fWrapper.getUnaryForceFunc();
 
-    doLoadBalancingFunc(LB, mesh_data);
-    probe->set_balanced(true);
-
     PolicyRunner lb_policy(probe, criterion);
 
     int nproc, rank;
@@ -127,8 +124,10 @@ std::vector<Time> simulate(
                 if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
             }
             non_empty_boxes.shrink_to_fit();
+
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, non_empty_boxes, datatype, comm);
+
             const auto nremote = remote_el.size();
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
