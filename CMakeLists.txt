@@ -3,8 +3,6 @@ project(nbmpi)
 
 find_package(MPI REQUIRED)
 
-set(CMAKE_CXX_COMPILER mpic++ CACHE STRING "CXX COMPILER")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -19,36 +17,36 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL Profile)
     message("Flags for build type \"${CMAKE_BUILD_TYPE}\" are: ${CMAKE_CXX_FLAGS}")
 endif()
 
-# set(CMAKE_CXX_FLAGS "-O0 -g -DNDEBUG")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/bin)
-
-#
-set(EXECUTABLE_SOURCE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/src)
-set(TEST_SOURCE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/tests)
-set(INCLUDE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/includes)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY  ${CMAKE_CURRENT_LIST_DIR}/lib)
+set(INCLUDE_DIRECTORY               ${CMAKE_CURRENT_LIST_DIR}/include)
 
 find_package (Threads)
+
 file(GLOB SRC_FILES src/*.cpp)
-file(GLOB_RECURSE INCLUDE_FILES includes/yalbb/*.hpp)
+file(GLOB_RECURSE INCLUDE_FILES include/yalbb/*.hpp)
 
-add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/probe_processor.cpp includes/yalbb/probe_processor.hpp includes/yalbb/boundary.hpp includes/yalbb/math.hpp includes/yalbb/yalbb.hpp includes/yalbb/type.hpp)
+add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp)
 
-target_include_directories(yalbb PRIVATE ${MPI_C_INCLUDE_PATH})
-target_include_directories(yalbb PUBLIC
-        ${CMAKE_CURRENT_LIST_DIR}/spdlog/include
-        includes/yalbb
-        zupply/src)
+if(MPI_COMPILE_FLAGS)
+    set_target_properties(yalbb PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif()
 
-target_link_libraries(yalbb PRIVATE
-        ${MPI_C_LIBRARIES}
-        ${CMAKE_THREAD_LIBS_INIT})
+if(MPI_LINK_FLAGS)
+    set_target_properties(yalbb PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
+
+target_include_directories(yalbb PUBLIC  ${MPI_INCLUDE_PATH} include/yalbb zupply/src)
+
+target_link_libraries(yalbb PUBLIC ${MPI_LIBRARIES})
+target_link_libraries(yalbb PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+set_target_properties(yalbb PROPERTIES PUBLIC_HEADER "${INCLUDE_FILES}")
 
 install(TARGETS yalbb
-        LIBRARY
-          DESTINATION ${CMAKE_CURRENT_LIST_DIR}/lib
+        ARCHIVE
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/yalbb/lib
           COMPONENT Libraries
+        PUBLIC_HEADER
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/yalbb/include
         COMPONENT Development)
 
 ########################################################################################################################
