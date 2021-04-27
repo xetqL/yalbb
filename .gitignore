@@ -1,3 +1,4 @@
+changes
 *.result
 *.metrics
 *.ovito
@@ -5,7 +6,7 @@
 dataset*
 data/
 Makefile
-
+Testing
 # Application
 *.out
 logs/
