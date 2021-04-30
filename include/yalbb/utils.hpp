@@ -172,10 +172,12 @@ template<typename T> T dto(double v) {
     return ret;
 }
 
-template<int N> using BoundingBox = std::array<Real, 2*N>;
-template<int D, int N> constexpr Real get_size(const BoundingBox<N>& bbox) { return bbox.at(2*D+1) - bbox.at(2*D); }
-template<int D, int N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
-template<int D, int N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
+template<unsigned N> using BoundingBox = std::array<Real, 2*N>;
+template<unsigned D, unsigned N> Real get_size(const BoundingBox<N>& bbox) { 
+	return std::max(static_cast<Real>(0.0), bbox.at(2*D+1) - bbox.at(2*D)); 
+}
+template<unsigned D, unsigned N> constexpr Real get_min_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D); }
+template<unsigned D, unsigned N> constexpr Real get_max_dim(const BoundingBox<N>& bbox) { return bbox.at(2*D+1); }
 
 template<int N>
 bool is_within(const BoundingBox<N>& bbox, std::array<Real, N>& xyz){
@@ -203,7 +205,7 @@ void update_bbox_for_container(BoundingBox<N>& new_bbox, GetPosFunc getPosFunc, 
 }
 
 template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t required_size) {
-    auto current_size = vec->size();
+    /*auto current_size = vec->size();
     auto current_capacity = vec->capacity();
 
     if(current_size < required_size) {
@@ -211,7 +213,7 @@ template<class T> void apply_resize_strategy(std::vector<T>* vec, size_t require
     } else if(current_capacity >= 4.0 * required_size) {
         vec->resize(current_capacity / 2); // resize to 2*req size
         vec->shrink_to_fit();              // shrink to fit to 2*req size
-    }
+    }*/
     vec->resize(required_size);            // the size is the one we needed
 }
 
@@ -233,7 +235,7 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
     Real radius = CUTOFF_RADIUS_FACTOR * rc;
     for(int i = 0; i < N; ++i) {
-        new_bbox.at(2*i)   = std::max((Real) 0.0, std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius);
+        new_bbox.at(2*i)   = std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius;
         new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;
     }
 
