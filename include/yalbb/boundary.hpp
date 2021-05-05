@@ -16,7 +16,7 @@ constexpr unsigned compute_number_of_neighbors(){
 }
 
 template<unsigned N>
-struct Boundary {
+struct IBoundary {
     static const unsigned n_neighbors = compute_number_of_neighbors<N>();
     virtual void apply(std::array<Real, N>* pos, std::array<Real, N>* vel) = 0;
     virtual std::array<Integer, n_neighbors> neighbors(Integer ibox) = 0;
