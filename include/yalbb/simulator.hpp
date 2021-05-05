@@ -72,6 +72,10 @@ std::vector<Time> simulate(
     std::string folder_prefix = fmt("%s/%s", "logs", simulation_name);
 
     simulation::MonitoringSession report_session {!rank, params->record, folder_prefix, "", params->monitor};
+
+    report_session << "[MPI]" << std::endl;
+    report_session << show(nproc) << std::endl;
+
     print_params(report_session, *params);
 
     if (params->record) {

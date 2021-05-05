@@ -9,6 +9,8 @@
 #include <vector>
 #include <ostream>
 
+#define show(x) #x << "=" << x
+
 namespace simulation {
     namespace {
         std::ostream null{nullptr};
