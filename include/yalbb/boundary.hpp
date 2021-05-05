@@ -4,6 +4,23 @@
 
 #pragma once
 #include "math.hpp"
+template<unsigned N>
+constexpr unsigned compute_number_of_neighbors(){
+    if constexpr(N == 3) // 3x3x3
+        return 27;
+
+    if constexpr(N == 2) // 3x3
+        return 9;
+    else
+        return 0;
+}
+
+template<unsigned N>
+struct Boundary {
+    static const unsigned n_neighbors = compute_number_of_neighbors<N>();
+    virtual void apply(std::array<Real, N>* pos, std::array<Real, N>* vel) = 0;
+    virtual std::array<Integer, n_neighbors> neighbors(Integer ibox) = 0;
+};
 
 void reflect(Real wall, Real bf, Real* x, Real* v) {
     constexpr  Real two  = 2.0;
@@ -14,7 +31,8 @@ void reflect(Real wall, Real bf, Real* x, Real* v) {
     *v = (-(*v)) * bf;
 }
 
-template<size_t N> struct SphericalBoundary {
+template<unsigned N>
+struct SphericalBoundary {
     const std::array<Real, N> center {};
     const Real radius {};
     const Real r2 = radius*radius;
