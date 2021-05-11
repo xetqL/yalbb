@@ -44,6 +44,9 @@ std::vector<Time> simulate(
         MPI_Datatype datatype,
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string simulation_name = "") {
+
+    io::ParallelOutput pcout(std::cout);
+    //io::ParallelOutput pcerr(std::cerr)
     auto rc = params->rc;
     auto dt = params->dt;
 
@@ -89,12 +92,11 @@ std::vector<Time> simulate(
 
     apply_resize_strategy(&lscl,     mesh_data->els.size());
     apply_resize_strategy(&flocal, N*mesh_data->els.size());
-    //apply_resize_strategy(&head,     nb_cell_estimation);
 
     Time lb_time = 0.0, it_time, cum_time = 0.0, batch_time;
 
     for (int frame = 0; frame < nframes; ++frame) {
-        if(!rank) std::cout << "Computing frame " << frame << " ";
+        pcout << "Computing frame " << frame << std::endl;
         batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
@@ -112,6 +114,7 @@ std::vector<Time> simulate(
                 MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
                 probe->push_load_balancing_time(lb_time_spent);
                 probe->reset_cumulative_imbalance_time();
+                if(params->verbosity >= 2) pcout << fmt("Load Balancing at %d; cost = %f", frame * npframe + i, lb_time_spent) << std::endl;
             }
 
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
@@ -121,6 +124,7 @@ std::vector<Time> simulate(
             apply_resize_strategy(&lscl,   nlocal);
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+
             std::vector<Integer> non_empty_boxes{};
             const auto ncells = head.size();
             non_empty_boxes.reserve(ncells / 2);
@@ -137,7 +141,6 @@ std::vector<Time> simulate(
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
             CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-            //CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
@@ -171,9 +174,12 @@ std::vector<Time> simulate(
 
             probe->next_iteration();
             END_TIMER(complete_iteration_time);
-            if(!rank) std::cout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
+
+            if(params->verbosity >= 2) pcout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
         }
-        if(!rank) std::cout << batch_time << std::endl;
+
+        if(params->verbosity >= 1) pcout << batch_time << std::endl;
+
         probe->end_batch(batch_time);
 
         if (params->record) {

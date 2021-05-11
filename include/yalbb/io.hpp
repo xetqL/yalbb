@@ -11,6 +11,29 @@
 
 #define show(x) #x << "=" << x
 
+namespace io {
+
+    struct ParallelOutput {
+        int rank = -1;
+        std::ostream& out;
+
+        explicit ParallelOutput(std::ostream& _out) : out(_out) {
+            MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        }
+        const ParallelOutput& operator<<(std::ostream& (*F)(std::ostream&)) const {
+            if(!rank) F(out);
+            return *this;
+        }
+        template<class T> ParallelOutput& operator<<(const T& data) {
+            if(!rank) std::cout << data;
+            return *this;
+        }
+
+    };
+
+
+}
+
 namespace simulation {
     namespace {
         std::ostream null{nullptr};
