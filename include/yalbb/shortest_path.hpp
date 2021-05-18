@@ -260,7 +260,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         }
 
         std::reverse(solution_path.begin(), solution_path.end());
-        if(sol_id == 0) scenario = decisio  ns;
+        if(sol_id == 0) scenario = decisions;
 
         report_session.report(simulation::CumulativeImbalance,           cumulative_load_imbalance);
         report_session.report(simulation::CumulativeTime,                time_hist);
