@@ -15,8 +15,6 @@
 #include <numeric>
 #include <set>
 
-
-
 #define TIME_IT(a, name){\
  double start = MPI_Wtime();\
  a;\
@@ -104,7 +102,6 @@ typename std::vector<T>::const_iterator migrate_data(
     MPI_Comm_size(LB_COMM, &wsize);
     int caller_rank;
     MPI_Comm_rank(LB_COMM, &caller_rank);
-    const auto prev_size = data.size();
     if(wsize == 1) return data.cend();
     auto nb_elements = data.size();
 
@@ -113,7 +110,7 @@ typename std::vector<T>::const_iterator migrate_data(
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
     size_t data_id = 0;
-    int PE, num_known = 0, nb_export, nb_import;
+    int PE, num_known = 0;
 
     while (data_id < nb_elements) {
         pointAssignFunc(LB, &data.at(data_id), &PE);

@@ -27,15 +27,20 @@ public:
     static inline std::vector<Time> optimistic_remaining_time {};
 
     std::shared_ptr< NodeType > parent;
-    std::vector<Time> li_slowdown_hist, van_li_slowdown_hist, time_hist, time_per_it, efficiency_hist;
+    std::vector<Time> li_slowdown_hist,
+    van_li_slowdown_hist,
+    time_hist,
+    time_per_it,
+    efficiency_hist;
+    std::vector<unsigned> interactions_hist;
     std::vector<int>  dec_hist;
 
     Decision decision;             // Y / N boolean
     Probe stats{0};
     Time cumulative_cost = 0.0;      // estimated cost to the solution
 
-    LBStructCopyF lb_copy_f;
-    LBStructDeleteF lb_delete_f;
+    LBStructCopyF& lb_copy_f;
+    LBStructDeleteF& lb_delete_f;
     LBStruct* lb;
 
     void init_hist(size_t s) {
@@ -45,6 +50,7 @@ public:
         time_per_it.resize(s);
         efficiency_hist.resize(s);
         dec_hist.resize(s);
+        interactions_hist.resize(s);
     }
 
     Node (int startit, int batch_size, Decision decision, std::shared_ptr<NodeType> p) :
@@ -58,7 +64,7 @@ public:
         init_hist(batch_size);
     };
 
-    Node(LBStruct* zz, int start_it, int batch_size, Decision decision, LBStructCopyF copy_f, LBStructDeleteF delete_f) :
+    Node(LBStruct* zz, int start_it, int batch_size, Decision decision, LBStructCopyF& copy_f, LBStructDeleteF& delete_f) :
             start_it(start_it), end_it(start_it+batch_size), batch_size(batch_size), parent(nullptr),
             decision(decision),
             lb_copy_f(copy_f),

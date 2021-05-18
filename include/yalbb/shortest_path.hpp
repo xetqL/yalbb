@@ -62,13 +62,16 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     auto unaryForceFunc       = fWrapper.getUnaryForceFunc();
     std::vector<Time> average_time;
 
-    {
+    { // find \mu(i)
         MPI_Comm NEW_COMM;
         MPI_Comm_dup(comm, &NEW_COMM);
         auto data = *_mesh_data;
         LoadBalancer* new_LB = lb_copy_f(LB);
         auto new_params = *params;
-        new_params.monitor = false;
+
+        new_params.monitor = true;
+        new_params.verbosity = 3;
+        new_params.id += 10000;
         Probe probe(nproc);
         average_time = simulate<N>(new_LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, NEW_COMM);
         for(auto it = std::begin(average_time); it != std::end(average_time); it++){
@@ -94,7 +97,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     for (int i = 0; i < nb_data; ++i) _mesh_data->els[i].lid = i;
 
     std::vector<std::shared_ptr<Node>> container;
-    container.reserve((unsigned long) std::pow(2, 20));
+    container.reserve((unsigned long) params->nframes * params->nframes);
     using PriorityQueue = std::multiset<std::shared_ptr<Node>, Compare>;
     PriorityQueue pQueue;
 
@@ -110,7 +113,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     std::vector<Index> lscl, head;
     std::vector<Real> flocal;
 
-    auto nb_cell_estimation = std::pow(simsize / rc, 3.0) / nproc;
+    auto nb_cell_estimation = std::pow(simsize / rc, static_cast<Real>(N)) / nproc;
     apply_resize_strategy(&lscl, _mesh_data->els.size());
     apply_resize_strategy(&flocal, N * _mesh_data->els.size());
     apply_resize_strategy(&head, nb_cell_estimation);
@@ -141,6 +144,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                     auto LB = node->lb;
 
                     auto &cum_li_hist = node->li_slowdown_hist;
+                    auto &interactions_hist = node->interactions_hist;
                     auto &vanilla_cum_li_hist = node->van_li_slowdown_hist;
                     auto &time_hist   = node->time_hist;
                     auto &dec_hist    = node->dec_hist;
@@ -178,13 +182,9 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         for(unsigned box = 0; box < ncells; ++box) {
                             if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
                         }
-                        non_empty_boxes.shrink_to_fit();
-
                         auto remote_el     = retrieve_ghosts<N>(LB, mesh_data.els, bbox, boxIntersectFunc, params->rc,
                                                                 head, lscl, non_empty_boxes, datatype, comm);
-
                         const auto nremote = remote_el.size();
-
                         apply_resize_strategy(&lscl,   nlocal + nremote);
                         apply_resize_strategy(&flocal, N*nlocal);
                         CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
@@ -207,6 +207,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         dec_hist[i]    = lb_decision;
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
                         eff_hist[i]    = probe->get_efficiency();
+                        interactions_hist[i]    = nb_interactions;
                         batch_time    += it_compute_time;
 
                         probe->next_iteration();
@@ -230,6 +231,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     LBDecHist decisions;
     std::vector<Time> time_hist;
     std::vector<Time>  eff_hist;
+    std::vector<unsigned>  inter_hist;
     int sol_id = 0;
 
     std::string folder_prefix = fmt("%s/%s", "logs", simulation_name);
@@ -242,26 +244,29 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         auto it_dec = decisions.begin();
         auto it_time = time_hist.begin();
         auto it_eff  = eff_hist.begin();
+        auto it_inter  = inter_hist.begin();
         /* Reconstruct data from A* search */
         while (solution->start_it >= 0) { //reconstruct path
             solution_path.push_back(solution);
             it_li   = cumulative_load_imbalance.insert(it_li, solution->li_slowdown_hist.begin(),
                                                               solution->li_slowdown_hist.end());
-            it_van_li   = van_cumulative_load_imbalance.insert(it_van_li, solution->van_li_slowdown_hist.begin(),
+            it_van_li = van_cumulative_load_imbalance.insert(it_van_li, solution->van_li_slowdown_hist.begin(),
                                                                       solution->van_li_slowdown_hist.end());
             it_dec  = decisions.insert(it_dec,  solution->dec_hist.begin(),  solution->dec_hist.end());
             it_time = time_hist.insert(it_time, solution->time_hist.begin(), solution->time_hist.end());
             it_eff  =  eff_hist.insert(it_eff,  solution->efficiency_hist.begin(),  solution->efficiency_hist.end());
+            it_inter=  inter_hist.insert(it_inter,  solution->interactions_hist.begin(),  solution->interactions_hist.end());
             solution = solution->parent;
         }
 
         std::reverse(solution_path.begin(), solution_path.end());
-        if(sol_id == 0) scenario = decisions;
+        if(sol_id == 0) scenario = decisio  ns;
 
         report_session.report(simulation::CumulativeImbalance,           cumulative_load_imbalance);
         report_session.report(simulation::CumulativeTime,                time_hist);
         report_session.report(simulation::Efficiency,                    eff_hist);
         report_session.report(simulation::LoadBalancingIteration,        decisions);
+        report_session.report(simulation::Interactions,                  inter_hist);
 
         sol_id++;
     }

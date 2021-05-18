@@ -124,15 +124,12 @@ std::vector<Time> simulate(
             apply_resize_strategy(&lscl,   nlocal);
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-
             std::vector<Integer> non_empty_boxes{};
             const auto ncells = head.size();
             non_empty_boxes.reserve(ncells / 2);
             for(unsigned box = 0; box < ncells; ++box) {
                 if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
             }
-            non_empty_boxes.shrink_to_fit();
-
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, non_empty_boxes, datatype, comm);
 
