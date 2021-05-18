@@ -13,7 +13,7 @@ constexpr Integer EMPTY = -1;
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
-                       GetPositionFunc getPositionFunc,
+                       GetPositionFunc& getPositionFunc,
                        const BoundingBox<N>& bbox, Real rc,
                        std::vector<Integer> *head,
                        std::vector<Integer> *lscl) {
@@ -22,7 +22,7 @@ inline void CLL_update(Integer acc,
     for (const auto &span : elements) {
         auto el_ptr = span.first;
         auto n_els = span.second;
-        for (size_t i = 0; i < n_els; ++i) {
+        for (auto i = 0; i < n_els; ++i) {
             auto &pos = *getPositionFunc(&el_ptr[i]);
             if (is_within<N>(bbox, pos)) {
                 c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
@@ -36,7 +36,7 @@ inline void CLL_update(Integer acc,
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
-                       GetPositionFunc getPositionFunc,
+                       GetPositionFunc& getPositionFunc,
                        const BoundingBox<N>& bbox, Real rc,
                        std::vector<Integer> *head,
                        std::vector<Integer> *lscl,
@@ -44,17 +44,14 @@ inline void CLL_update(Integer acc,
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
     Integer c;
     const auto ncells= head->size();
-    const auto nmask = std::ceil(ncells / 64) * 64;
     for (const auto &span : elements) {
         auto el_ptr = span.first;
         auto n_els = span.second;
-        for (size_t i = 0; i < n_els; ++i) {
+        for (auto i = 0; i < n_els; ++i) {
             auto &pos = *getPositionFunc(&el_ptr[i]);
-            //if (is_within<N>(bbox, pos)) {
-                c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
-                lscl->at(i + acc) = head->at(c);
-                head->at(c) = i + acc;
-            //}
+            c = CoordinateTranslater::translate_position_into_local_index<N>(pos, rc, bbox, lc[0], lc[1]);
+            lscl->at(i + acc) = head->at(c);
+            head->at(c) = i + acc;
         }
         acc += n_els;
     }
@@ -63,12 +60,11 @@ inline void CLL_update(Integer acc,
         if(head->at(i) != EMPTY)
             non_empty_boxes->push_back(i);
     }
-    non_empty_boxes->shrink_to_fit();
 }
 
 template<int N, class T, class GetPositionFunc>
 inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
-                     GetPositionFunc getPositionFunc,
+                     GetPositionFunc& getPositionFunc,
                      const BoundingBox<N>& bbox, Real rc,
                      std::vector<Integer> *head,
                      std::vector<Integer> *lscl,
@@ -80,7 +76,7 @@ inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
 
 template<int N, class T, class GetPositionFunc>
 inline void CLL_init(std::initializer_list<std::pair<T*, size_t>>&& elements,
-              GetPositionFunc getPositionFunc,
+              GetPositionFunc& getPositionFunc,
               const BoundingBox<N>& bbox, Real rc,
               std::vector<Integer> *head,
               std::vector<Integer> *lscl) {
@@ -99,10 +95,10 @@ template<class T, class GetPositionFunc, class ComputeForceFunc>
 Integer CLL_compute_forces3d(std::vector<Real>* acc,
                              const T *elements, Integer n_elements,
                              const T *remote_elements,
-                             GetPositionFunc getPosFunc,
+                             GetPositionFunc& getPosFunc,
                              const BoundingBox<3>& bbox, Real rc,
                              const std::vector<Integer> *head, const std::vector<Integer> *lscl,
-                             ComputeForceFunc computeForceFunc) {
+                             ComputeForceFunc& computeForceFunc) {
     auto lc = get_cell_number_by_dimension<3>(bbox, rc);
     Integer c1, ic1[3], j;
     std::array<Integer, 3> ic;
@@ -141,10 +137,10 @@ Integer CLL_compute_forces3d(std::vector<Real>* acc,
 template<class T, class GetPositionFunc, class BinaryOp>
 Integer CLL_foreach_interaction(const T *elements, Integer n_elements,
                                 const T *remote_elements,
-                                GetPositionFunc getPosFunc,
+                                GetPositionFunc& getPosFunc,
                                 const BoundingBox<2>& bbox, Real rc,
                                 const std::vector<Integer> *head, const std::vector<Integer> *lscl,
-                                BinaryOp binary_op) {
+                                BinaryOp& binary_op) {
     auto lc = get_cell_number_by_dimension<2>(bbox, rc);
     Integer c1, ic1[3], j;
     std::array<Integer, 3> ic;
@@ -179,13 +175,13 @@ Integer CLL_foreach_interaction(const T *elements, Integer n_elements,
 template<class T, class GetPositionFunc, class BinaryOp>
 Integer CLL_foreach_interaction(const T *elements, Integer n_elements,
                     const T *remote_elements,
-                    GetPositionFunc getPosFunc,
+                    GetPositionFunc& getPosFunc,
                     const BoundingBox<3>& bbox, Real rc,
                     const std::vector<Integer> *head, const std::vector<Integer> *lscl,
-                    BinaryOp binary_op) {
+                    BinaryOp& binary_op) {
     auto lc = get_cell_number_by_dimension<3>(bbox, rc);
     Integer c1, ic1[3], j;
-    std::array<Integer, 3> ic;
+    std::array<Integer, 3> ic{};
     const T *source, *receiver;
     Integer cmplx = n_elements;
     for (size_t i = 0; i < n_elements; ++i) {
@@ -219,13 +215,13 @@ template<class T, class GetPositionFunc, class ComputeForceFunc>
 Integer CLL_compute_forces2d(std::vector<Real>* acc,
                              const T *elements, Integer n_elements,
                              const T *remote_elements,
-                             GetPositionFunc getPosFunc,
+                             GetPositionFunc& getPosFunc,
                              const BoundingBox<2>& bbox, Real rc,
                              const std::vector<Integer> *head, const std::vector<Integer> *lscl,
-                             ComputeForceFunc computeForceFunc) {
+                             ComputeForceFunc& computeForceFunc) {
     auto lc = get_cell_number_by_dimension<2>(bbox, rc);
     Integer c1, ic1[2], j;
-    std::array<Integer, 2> ic;
+    std::array<Integer, 2> ic{};
     const T *source, *receiver;
     Integer cmplx = n_elements;
     for (size_t i = 0; i < n_elements; ++i) {
@@ -263,10 +259,10 @@ template<int N, class T, class GetPositionFunc, class ComputeForceFunc>
 Integer CLL_compute_forces(std::vector<Real>* acc,
                            const std::vector<T>& loc_el,
                            const std::vector<T>& rem_el,
-                           GetPositionFunc getPosFunc,
+                           GetPositionFunc& getPosFunc,
                            const BoundingBox<N>& bbox, Real rc,
                            const std::vector<Integer> *head, const std::vector<Integer> *lscl,
-                           ComputeForceFunc computeForceFunc) {
+                           ComputeForceFunc& computeForceFunc) {
     //std::memset(acc->data(), 0.0f, sizeof(Real) * acc->size());
     if constexpr(N==3) {
         return CLL_compute_forces3d(acc, loc_el.data(), loc_el.size(), rem_el.data(), getPosFunc, bbox, rc, head, lscl, computeForceFunc);

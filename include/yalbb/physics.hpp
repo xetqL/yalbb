@@ -12,7 +12,7 @@
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
 void leapfrog1(const Real dt, const Real cut_off, const std::vector<Real>& acc, std::vector<T>& elements
-        ,GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr)  {
+        ,GetPosPtrFunc& getPosPtr, GetVelPtrFunc& getVelPtr)  {
     int i = 0;
     constexpr Real two = 2.0;
     constexpr Real maxSpeedPercentage = 0.5;
@@ -52,7 +52,7 @@ void leapfrog2(const Real dt, const std::vector<Real>& acc, std::vector<T>& elem
 }
 
 template<int N, class T, class GetPosPtrFunc, class GetVelPtrFunc>
-void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPosPtrFunc getPosPtr, GetVelPtrFunc getVelPtr) {
+void apply_reflect(std::vector<T> &elements, const Boundary<N>& boundary, GetPosPtrFunc& getPosPtr, GetVelPtrFunc& getVelPtr) {
     for(auto &element: elements) {
         size_t dim = 0;
         std::array<Real, N>* pos  = getPosPtr(&element);
@@ -76,13 +76,13 @@ Complexity nbody_compute_step(
         std::vector<Real>& flocal,
         std::vector<T>& elements,
         std::vector<T>& remote_el,
-        SetPosFunc getPosPtrFunc,                  // function to get force of an entity
-        SetVelFunc getVelPtrFunc,                  // function to get force of an entity
+        SetPosFunc& getPosPtrFunc,                  // function to get force of an entity
+        SetVelFunc& getVelPtrFunc,                  // function to get force of an entity
         std::vector<Integer> *head,                // the cell starting point
         std::vector<Integer> *lscl,                // the particle linked list
         BoundingBox<N>& bbox,                      // IN:OUT bounding box of particles
-        UnaryForceFunc unaryForceFunc,
-        BinaryForceFunc getForceFunc,              // function to compute force between entities
+        UnaryForceFunc& unaryForceFunc,
+        BinaryForceFunc& getForceFunc,              // function to compute force between entities
         const Boundary<N>& boundary,
         const Real cutoff,                         // simulation parameters
         const Real dt) {

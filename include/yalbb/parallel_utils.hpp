@@ -282,7 +282,7 @@ std::vector<T> retrieve_ghosts(
         LB* lb,
         std::vector<T>& data,
         const BoundingBox<N>& bbox,
-        BoxIntersectFunc boxIntersect,
+        BoxIntersectFunc& boxIntersect,
         Real rc,
         const std::vector<Integer>& head,
         const std::vector<Integer>& lscl,
@@ -298,7 +298,7 @@ std::vector<T> retrieve_ghosts(
     if (wsize == 1) return {};
     int num_found;
 
-    std::array<double, 3> pos_in_double;
+    std::array<double, 3> pos_in_double{};
     std::vector<std::vector<T*> > data_to_migrate(wsize);
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
