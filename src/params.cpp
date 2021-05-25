@@ -30,6 +30,7 @@ std::optional<sim_param_t> get_params(int argc, char** argv){
     parser.add_opt_value('l', "lattice", params.rc, 2.5f, "Lattice size", "FLOAT");
     parser.add_opt_value('t', "dt", params.dt, 1e-5f, "Time step", "FLOAT");
     parser.add_opt_value('w', "width", params.simsize, 1.0f, "Simulation box width", "FLOAT");
+    parser.add_opt_flag('X', "burn",  "enable burn cpu",      &params.burn);
 
     bool output;
     auto &verbose = parser.add_opt_flag('v', "verbose", "Set verbosity", &output);

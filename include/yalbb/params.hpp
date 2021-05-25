@@ -32,6 +32,7 @@ struct sim_param_t {
     float rc;           /* factor multiplying sigma for cutoff */
 
     bool  record;       /* record the simulation in a binary file */
+    bool  burn ;
     bool  import  = false;
     bool  monitor = true;
     int   seed;         /* seed used in the RNG */
