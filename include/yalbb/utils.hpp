@@ -233,7 +233,7 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
     update_bbox_for_container<N>(new_bbox, getPosFunc, elementContainers...);
 
     /* hook to grid, resulting bbox is divisible by lc[i] forall i */
-    Real radius = CUTOFF_RADIUS_FACTOR * rc;
+    Real radius = rc;
     for(int i = 0; i < N; ++i) {
         new_bbox.at(2*i)   = std::floor((new_bbox.at(2*i)) / rc)  * rc  - radius;
         new_bbox.at(2*i+1) = std::ceil((new_bbox.at(2*i+1)) / rc)  * rc + radius;
@@ -241,6 +241,22 @@ BoundingBox<N> get_bounding_box(Real rc, GetPosFunc getPosFunc, T&... elementCon
 
     return new_bbox;
 }
+
+template<int N, class GetPosFunc, class... T>
+BoundingBox<N> update_bounding_box(BoundingBox<N>& bbox, Real rc, GetPosFunc getPosFunc, T&... elementContainers){
+
+    update_bbox_for_container<N>(bbox, getPosFunc, elementContainers...);
+
+    /* hook to grid, resulting bbox is divisible by lc[i] forall i */
+    Real radius = rc;
+    for(int i = 0; i < N; ++i) {
+        bbox.at(2*i)   = std::floor((bbox.at(2*i)) / rc)  * rc  - radius;
+        bbox.at(2*i+1) = std::ceil((bbox.at(2*i+1)) / rc)  * rc + radius;
+    }
+
+    return bbox;
+}
+
 
 template<int N>
 inline std::array<Integer, N> get_cell_number_by_dimension(const BoundingBox<N>& bbox, Real rc) {

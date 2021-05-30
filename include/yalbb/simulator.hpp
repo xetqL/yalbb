@@ -94,13 +94,14 @@ std::vector<Time> simulate(
     apply_resize_strategy(&flocal, N*mesh_data->els.size());
 
     Time lb_time = 0.0, it_time, cum_time = 0.0, batch_time;
-
+    std::vector<Integer> non_empty_boxes{};
     for (int frame = 0; frame < nframes; ++frame) {
         pcout << "Computing frame " << frame << std::endl;
         batch_time = 0.0;
         probe->start_batch(frame);
         for (int i = 0; i < npframe; ++i) {
             START_TIMER(complete_iteration_time);
+
             lb_time = 0.0;
             it_time = 0.0;
             bool lb_decision = lb_policy.should_load_balance();
@@ -120,23 +121,28 @@ std::vector<Time> simulate(
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
+
             const auto nlocal  = mesh_data->els.size();
             apply_resize_strategy(&lscl,   nlocal);
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
-            std::vector<Integer> non_empty_boxes{};
+
             const auto ncells = head.size();
             non_empty_boxes.reserve(ncells / 2);
             for(unsigned box = 0; box < ncells; ++box) {
                 if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
             }
+
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, non_empty_boxes, datatype, comm);
 
             const auto nremote = remote_el.size();
+            update_bounding_box<N>(bbox, rc, getPosPtrFunc, remote_el);
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
+            apply_resize_strategy(&head, get_total_cell_number<N>(bbox, rc));
+
             CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
