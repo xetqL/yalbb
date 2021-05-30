@@ -137,7 +137,6 @@ std::vector<Time> simulate(
                                                     head, lscl, non_empty_boxes, datatype, comm);
 
             const auto nremote = remote_el.size();
-            update_bounding_box<N>(bbox, rc, getPosPtrFunc, remote_el);
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
@@ -162,7 +161,7 @@ std::vector<Time> simulate(
 
             average_it_time.at(i + frame * npframe) = probe->get_avg_it();
 
-            MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
+            MPI_Allreduce(MPI_IN_PLACE,     &nlocal,     1, get_mpi_type<decltype(nlocal)>(),  MPI_SUM, comm);
 
             it_time     = it_compute_time;
             cum_time   += it_time;
