@@ -127,7 +127,7 @@ std::vector<Time> simulate(
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
-            const auto ncells = head.size();
+            auto ncells = head.size();
             non_empty_boxes.reserve(ncells / 2);
             for(unsigned box = 0; box < ncells; ++box) {
                 if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
