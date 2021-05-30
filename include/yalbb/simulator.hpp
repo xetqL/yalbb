@@ -141,9 +141,13 @@ std::vector<Time> simulate(
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
-            apply_resize_strategy(&head, get_total_cell_number<N>(bbox, rc));
 
-            CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+            bbox = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els, remote_el);
+            CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+
+            //apply_resize_strategy(&head, get_total_cell_number<N>(bbox, rc));
+
+            //CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
             int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
