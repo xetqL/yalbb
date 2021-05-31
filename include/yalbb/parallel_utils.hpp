@@ -303,21 +303,24 @@ std::vector<T> retrieve_ghosts(
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
-    double radius = rc;
+    double radius = 2.0*rc;
 
     std::vector<int> PEs(wsize);
 
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
-    for (Integer non_empty_box : non_empty_boxes) {
-        auto[x, y, z] = CoordinateTranslater::translate_linear_index_into_xyz(non_empty_box, lc[0], lc[1]);
-        auto[px,py,pz]= CoordinateTranslater::translate_local_xyz_into_position<N>({x,y,z}, bbox, rc);
-        boxIntersect(lb, px - radius, py - radius, pz - radius, px + radius, py + radius, pz + radius, &PEs.front(), &num_found);
-        auto j = head.at(non_empty_box);
-        while(j != EMPTY) {
-            for (unsigned k = 0; k < num_found; ++k) {
-                data_to_migrate.at(PEs.at(k)).push_back(&data.at(j));
+    const auto ncells = head.size();
+    for (auto c = 0; c < ncells; ++c) {
+        auto j = head.at(c);
+        if(j != EMPTY) {
+            auto[x, y, z] = CoordinateTranslater::translate_linear_index_into_xyz(c, lc[0], lc[1]);
+            auto[px,py,pz]= CoordinateTranslater::translate_local_xyz_into_position<N>({x,y,z}, bbox, rc);
+            boxIntersect(lb, px - radius, py - radius, pz - radius, px + radius, py + radius, pz + radius, &PEs.front(), &num_found);
+            while(j != EMPTY && num_found) {
+                for (unsigned k = 0; k < num_found; ++k) {
+                    data_to_migrate.at(PEs.at(k)).push_back(&data.at(j));
+                }
+                j = lscl.at(j);
             }
-            j = lscl.at(j);
         }
     }
 
