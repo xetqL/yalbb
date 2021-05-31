@@ -145,7 +145,13 @@ std::vector<Time> simulate(
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
-            auto nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, b
+            auto nb_interactions = nbody_compute_step<N>(flocal,
+                                                                     mesh_data->els,
+                                                                     remote_el,
+                                                                     getPosPtrFunc,
+                                                                     getVelPtrFunc,
+                                                                     &head, &lscl,
+                                                                     bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
             it_compute_time += lb_time;
 
