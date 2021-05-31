@@ -161,7 +161,7 @@ std::vector<Time> simulate(
 
             average_it_time.at(i + frame * npframe) = probe->get_avg_it();
 
-            MPI_Allreduce(&nlocal,     &nb_interactions,     1, get_mpi_type<decltype(nlocal)>(),  MPI_SUM, comm);
+            MPI_Allreduce(&nb_interactions,     &nb_interactions,     1, get_mpi_type<decltype(nlocal)>(),  MPI_SUM, comm);
 
             it_time     = it_compute_time;
             cum_time   += it_time;
