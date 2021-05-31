@@ -149,7 +149,7 @@ std::vector<Time> simulate(
             //CLL_update<N, T>(nlocal, {{remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
-            int nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
+            decltype(nlocal) nb_interactions = nbody_compute_step<N>(flocal, mesh_data->els, remote_el, getPosPtrFunc, getVelPtrFunc, &head, &lscl, bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
             it_compute_time += lb_time;
 
@@ -161,7 +161,7 @@ std::vector<Time> simulate(
 
             average_it_time.at(i + frame * npframe) = probe->get_avg_it();
 
-            MPI_Allreduce(MPI_IN_PLACE,     &nlocal,     1, get_mpi_type<decltype(nlocal)>(),  MPI_SUM, comm);
+            MPI_Allreduce(&nlocal,     &nb_interactions,     1, get_mpi_type<decltype(nlocal)>(),  MPI_SUM, comm);
 
             it_time     = it_compute_time;
             cum_time   += it_time;

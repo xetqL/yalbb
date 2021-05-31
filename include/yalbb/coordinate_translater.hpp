@@ -10,9 +10,18 @@
 class CoordinateTranslater {
 public:
     static std::tuple<Integer, Integer, Integer>
-    inline translate_linear_index_into_xyz(const Integer index, const Integer ncols, const Integer nrows) {
+    inline __translate_linear_index_into_xyz(const Integer index, const Integer ncols, const Integer nrows) {
         return {(index % ncols), static_cast<Integer>(std::floor(index / ncols)) % nrows, std::floor(index / (ncols * nrows))};    // depth
     };
+
+    static auto translate_linear_index_into_xyz (const Integer i, const Integer ncols, const Integer nrows) {
+        auto iZ = i / (ncols * nrows);
+        auto remainder = i % (ncols * nrows);
+        auto iY = remainder / ncols;
+        auto iX = remainder % ncols;
+        return std::make_tuple(iX, iY, iZ);
+    };
+
 
     static std::array<Real, 3>
     inline translate_xyz_into_position(std::tuple<Integer, Integer, Integer>&& xyz, const Real rc) {
