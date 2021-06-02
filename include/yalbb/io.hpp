@@ -47,7 +47,8 @@ namespace simulation {
         Efficiency,
         LoadBalancingIteration,
         LoadBalancingCost,
-        Interactions
+        Interactions,
+        NumOfNeighbors,
     };
 
     template<unsigned N>
@@ -60,8 +61,19 @@ namespace simulation {
 
     // manage report files
 class MonitoringSession {
-        std::ofstream fparticle, fimbalance, fcumimbalance, fvanimbalance, ftime, fcumtime, fefficiency, flbit, flbcost, finteractions;
-        std::ofstream fstdout;
+        std::ofstream fparticle,
+                        fimbalance,
+                        fcumimbalance,
+                        fvanimbalance,
+                        ftime,
+                        fcumtime,
+                        fefficiency,
+                        flbit,
+                        flbcost,
+                        finteractions,
+                        fstdout,
+                        fnumofneighbors;
+
         const bool is_managing   = false,
                    is_logging_particles = false,
                    monitoring = true;
@@ -82,6 +94,7 @@ class MonitoringSession {
                 flbit.open(monitoring_files_folder + "/" + file_prefix + "lb_it.txt");
                 flbcost.open(monitoring_files_folder + "/" + file_prefix + "lb_cost.txt");
                 finteractions.open(monitoring_files_folder+"/"+ file_prefix +"interactions.txt");
+                fnumofneighbors.open(monitoring_files_folder+"/"+ file_prefix +"numofneighbors.txt");
 
                 if(log_particles) {
                     frame_files_folder = folder_prefix+"/frames";
@@ -103,6 +116,7 @@ class MonitoringSession {
                 flbit.close();
                 flbcost.close();
                 finteractions.close();
+                fnumofneighbors.close();
 
             }
         }
@@ -110,44 +124,41 @@ class MonitoringSession {
         template<class T=void>
         void report(ReportData type, const T& report_value, const std::string sep = "\n") {
             using namespace std;
+            std::ostream target_stream;
             if(is_managing && monitoring) switch(type) {
                 case Imbalance:
-                    fimbalance << report_value << sep;
-                    fimbalance.flush();
+                    target_stream = fimbalance;
                     break;
                 case CumulativeImbalance:
-                    fcumimbalance << report_value << sep;
-                    fcumimbalance.flush();
+                    target_stream = fcumimbalance;
                     break;
                 case CumulativeVanillaImbalance:
-                    fvanimbalance << report_value << sep;
-                    fvanimbalance.flush();
+                    target_stream = fvanimbalance;
                     break;
                 case Time:
-                    ftime << report_value << sep;
-                    ftime.flush();
+                    target_stream = ftime;
                     break;
                 case CumulativeTime:
-                    fcumtime << report_value << sep;
-                    fcumtime.flush();
+                    target_stream = fcumtime;
                     break;
                 case Efficiency:
-                    fefficiency << report_value << sep;
-                    fefficiency.flush();
+                    target_stream = fefficiency;
                     break;
                 case LoadBalancingIteration:
-                    flbit << report_value << sep;
-                    flbit.flush();
+                    target_stream = flbit;
                     break;
                 case LoadBalancingCost:
-                    flbcost << report_value << sep;
-                    flbcost.flush();
+                    target_stream = flbcost;
                     break;
                 case Interactions:
-                    finteractions << report_value << sep;
-                    finteractions.flush();
+                    target_stream = finteractions;
+                    break;
+                case NumOfNeighbors:
+                    target_stream = fnumofneighbors;
                     break;
             }
+            target_stream << report_value << sep;
+            target_stream.flush();
         }
 
         template<unsigned N, class E, class GetDataFunc>

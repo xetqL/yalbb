@@ -24,13 +24,7 @@
 #include "boundary.hpp"
 #include "io.hpp"
 
-using ApplicationTime = Time;
-using CumulativeLoadImbalanceHistory = std::vector<Time>;
-using TimeHistory = std::vector<Time>;
 using Decisions = std::vector<int>;
-
-template<int N> using Position  = std::array<Real, N>;
-template<int N> using Velocity  = std::array<Real, N>;
 
 template<int N, class T, class D, class LoadBalancer, class Wrapper>
 std::vector<Time> simulate(
@@ -43,7 +37,7 @@ std::vector<Time> simulate(
         Probe* probe,
         MPI_Datatype datatype,
         const MPI_Comm comm = MPI_COMM_WORLD,
-        const std::string simulation_name = "") {
+        const std::string& simulation_name = "") {
 
     io::ParallelOutput pcout(std::cout);
     //io::ParallelOutput pcerr(std::cerr)
@@ -108,7 +102,8 @@ std::vector<Time> simulate(
 
             MPI_Bcast(&lb_decision, 1, MPI_INT, 0, comm);
 
-            if (lb_decision) {
+            if (lb_decision)
+            {
                 PAR_START_TIMER(lb_time_spent, comm);
                 doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, comm);
@@ -124,35 +119,33 @@ std::vector<Time> simulate(
 
             const auto nlocal  = mesh_data->els.size();
             apply_resize_strategy(&lscl,   nlocal);
+
             auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
-            auto ncells = head.size();
-            non_empty_boxes.reserve(ncells / 2);
-            for(unsigned box = 0; box < ncells; ++box) {
-                if(head.at(box) != EMPTY) non_empty_boxes.push_back(box);
-            }
+            int n_neighbors;
 
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
-                                                    head, lscl, non_empty_boxes, datatype, comm);
+                                                    head, lscl, datatype, comm, &n_neighbors);
 
             const auto nremote = remote_el.size();
 
             apply_resize_strategy(&lscl,   nlocal + nremote);
             apply_resize_strategy(&flocal, N*nlocal);
-
             bbox = update_bounding_box<N>(bbox, params->rc, getPosPtrFunc, remote_el);
+
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
             PAR_START_TIMER(it_compute_time, comm);
             auto nb_interactions = nbody_compute_step<N>(flocal,
-                                                                     mesh_data->els,
-                                                                     remote_el,
-                                                                     getPosPtrFunc,
-                                                                     getVelPtrFunc,
-                                                                     &head, &lscl,
-                                                                     bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
+                                                         mesh_data->els,
+                                                         remote_el,
+                                                         getPosPtrFunc,
+                                                         getVelPtrFunc,
+                                                         &head, &lscl,
+                                                         bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
+
             it_compute_time += lb_time;
 
             //------ end ------ //
@@ -179,11 +172,13 @@ std::vector<Time> simulate(
                 report_session.report(simulation::LoadBalancingCost,  probe->compute_avg_lb_time(), " ");
             report_session.report(simulation::Interactions,           nb_interactions, " ");
             report_session.report(simulation::LoadBalancingIteration, static_cast<int>(lb_decision), " ");
+            report_session.report(simulation::NumOfNeighbors, n_neighbors, " ");
 
             probe->next_iteration();
             END_TIMER(complete_iteration_time);
 
-            if(params->verbosity >= 2) pcout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
+            if(params->verbosity >= 2)
+                pcout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
         }
 
         if(params->verbosity >= 1) pcout << batch_time << std::endl;

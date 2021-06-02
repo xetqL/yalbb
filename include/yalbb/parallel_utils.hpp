@@ -286,9 +286,9 @@ std::vector<T> retrieve_ghosts(
         Real rc,
         const std::vector<Integer>& head,
         const std::vector<Integer>& lscl,
-        const std::vector<Integer>& non_empty_boxes,
         MPI_Datatype datatype,
-        MPI_Comm LB_COMM) {
+        MPI_Comm LB_COMM,
+        int* n_neighbors) {
 
     const auto nb_elements = data.size();
     int wsize, caller_rank;
@@ -326,21 +326,22 @@ std::vector<T> retrieve_ghosts(
 
     // build exportation lists
     std::vector<int> export_counts(wsize), export_displs(wsize, 0);
+
     auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
-    const int nb_export = nb_elements * nb_external_procs;
+
+    const int nb_export = std::accumulate(data_to_migrate.cbegin(), data_to_migrate.cend(), 0, [](const auto& mlist){return mlist.size();});
 
     std::vector<T>   export_buf;
     export_buf.reserve(nb_export);
+    auto export_it = export_buf.begin();
 
     for (unsigned PE = 0; PE < wsize; ++PE) {
         //const auto PE = PEs[j];
         if(PE != caller_rank) {
             export_counts.at(PE) = data_to_migrate.at(PE).size();
-            for(auto beg = data_to_migrate.at(PE).begin(); beg != data_to_migrate.at(PE).end(); ++beg)
-                export_buf.push_back(*(*beg));
+            export_it = export_buf.insert(export_it, data_to_migrate.at(PE).begin(), data_to_migrate.at(PE).end());
         }
     }
-
     for (int PE = 1; PE < wsize; ++PE)
         export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
 
@@ -348,6 +349,14 @@ std::vector<T> retrieve_ghosts(
     int nb_import;
     std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
     for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+
+    auto neighbor_map = export_counts;
+    for(auto i = 0; i < wsize; ++i) {
+        neighbor_map.at(i) += import_counts.at(i);
+    }
+    neighbor_map.at(caller_rank) = 0;
+    *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto v){return v > 1 ? 1 : v;});
+
     std::vector<T> import_buf(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
