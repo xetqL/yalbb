@@ -38,7 +38,6 @@ struct YALBB {
     }
 private:
     std::unique_ptr<io::ParallelOutput> pcout, pcerr;
-
 };
 
 #endif //NBMPI_YALBB_HPP

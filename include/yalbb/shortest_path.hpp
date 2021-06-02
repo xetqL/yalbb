@@ -73,7 +73,10 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         new_params.verbosity = 3;
         new_params.id += 10000;
         Probe probe(nproc);
-        average_time = simulate<N>(new_LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, NEW_COMM, fmt("%s_mu_finder/", simulation_name));
+        std::string folder_prefix = fmt("%s/%s_mu_finder", "logs", simulation_name);
+        simulation::MonitoringSession report_session {!rank, false, folder_prefix, "", new_params.monitor};
+
+        average_time = simulate<N>(new_LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, report_session, NEW_COMM, fmt("%s_mu_finder/", simulation_name));
         for(auto it = std::begin(average_time); it != std::end(average_time); it++){
             *it = std::accumulate(it, std::end(average_time), 0.0);
         }
