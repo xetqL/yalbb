@@ -10,6 +10,8 @@
 struct YALBB {
 
     MPI_Comm comm;
+    int my_rank;
+    int comm_size;
 
     YALBB(int argc, char** argv) {
         int init;
@@ -17,6 +19,9 @@ struct YALBB {
         if(!init) MPI_Init(&argc, &argv);
 
         MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+        MPI_Comm_rank(comm, &my_rank);
+        MPI_Comm_size(comm, &comm_size);
+
         pcout = std::make_unique<io::ParallelOutput>(std::cout);
         pcerr = std::make_unique<io::ParallelOutput>(std::cerr);
     }
