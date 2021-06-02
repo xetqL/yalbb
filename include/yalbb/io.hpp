@@ -127,34 +127,34 @@ class MonitoringSession {
             std::ostream* target_stream;
             if(is_managing && monitoring) switch(type) {
                 case Imbalance:
-                    target_stream = fimbalance;
+                    target_stream = &fimbalance;
                     break;
                 case CumulativeImbalance:
-                    target_stream = fcumimbalance;
+                    target_stream = &fcumimbalance;
                     break;
                 case CumulativeVanillaImbalance:
-                    target_stream = fvanimbalance;
+                    target_stream = &fvanimbalance;
                     break;
                 case Time:
-                    target_stream = ftime;
+                    target_stream = &ftime;
                     break;
                 case CumulativeTime:
-                    target_stream = fcumtime;
+                    target_stream = &fcumtime;
                     break;
                 case Efficiency:
-                    target_stream = fefficiency;
+                    target_stream = &fefficiency;
                     break;
                 case LoadBalancingIteration:
-                    target_stream = flbit;
+                    target_stream = &flbit;
                     break;
                 case LoadBalancingCost:
-                    target_stream = flbcost;
+                    target_stream = &flbcost;
                     break;
                 case Interactions:
-                    target_stream = finteractions;
+                    target_stream = &finteractions;
                     break;
                 case NumOfNeighbors:
-                    target_stream = fnumofneighbors;
+                    target_stream = &fnumofneighbors;
                     break;
             }
             target_stream->operator<<(report_value) << sep;
