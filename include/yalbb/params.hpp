@@ -32,7 +32,7 @@ struct sim_param_t {
     float rc;           /* factor multiplying sigma for cutoff */
 
     bool  record;       /* record the simulation in a binary file */
-    bool  burn ;
+    bool  burn = false;
     bool  import  = false;
     bool  monitor = true;
     int   seed;         /* seed used in the RNG */
@@ -44,7 +44,7 @@ struct sim_param_t {
 };
 
 namespace {
-    #define show(x) #x << "=" << x
+#define show(x) #x << "=" << x
 }
 
 template<class T>
@@ -174,7 +174,7 @@ struct TParser {
             return nullptr;
         }
         this->params->verbosity = parser.count("verbose");
-        this->params->burn = parser.count("burn");
+        this->params->burn = parser.count("burn") ;
         this->post_parsing();
         return std::unique_ptr<Param>(static_cast<Param*>(this->params.release()));
     }
