@@ -36,11 +36,12 @@ std::vector<Time> simulate(
         sim_param_t *params,
         Probe* probe,
         MPI_Datatype datatype,
+        simulation::MonitoringSession& report_session,
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string& simulation_name = "") {
 
     io::ParallelOutput pcout(std::cout);
-    //io::ParallelOutput pcerr(std::cerr)
+
     auto rc = params->rc;
     auto dt = params->dt;
 
@@ -66,9 +67,6 @@ std::vector<Time> simulate(
     std::vector<Time> average_it_time(niters);
 
     std::vector<T> recv_buf;
-    std::string folder_prefix = fmt("%s/%s", "logs", simulation_name);
-
-    simulation::MonitoringSession report_session {!rank, params->record, folder_prefix, "", params->monitor};
 
     report_session << "[MPI]" << std::endl;
     report_session << show(nproc) << std::endl;
