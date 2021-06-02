@@ -121,44 +121,42 @@ class MonitoringSession {
             }
         }
 
+        auto get_stream(ReportData type) {
+            switch(type) {
+                case Imbalance:
+                    return fimbalance;
+                case CumulativeImbalance:
+                    return fcumimbalance;
+                case CumulativeVanillaImbalance:
+                    return fvanimbalance;
+                case Time:
+                    return ftime;
+                case CumulativeTime:
+                    return fcumtime;
+                case Efficiency:
+                    return fefficiency;
+                case LoadBalancingIteration:
+                    return flbit;
+                case LoadBalancingCost:
+                    return flbcost;
+                case Interactions:
+                    return finteractions;
+                case NumOfNeighbors:
+                    return fnumofneighbors;
+                default:
+                    return null;
+            }
+        }
+
         template<class T=void>
         void report(ReportData type, const T& report_value, const std::string sep = "\n") {
             using namespace std;
-            std::ofstream* target_stream;
-            if(is_managing && monitoring) switch(type) {
-                case Imbalance:
-                    target_stream = &fimbalance;
-                    break;
-                case CumulativeImbalance:
-                    target_stream = &fcumimbalance;
-                    break;
-                case CumulativeVanillaImbalance:
-                    target_stream = &fvanimbalance;
-                    break;
-                case Time:
-                    target_stream = &ftime;
-                    break;
-                case CumulativeTime:
-                    target_stream = &fcumtime;
-                    break;
-                case Efficiency:
-                    target_stream = &fefficiency;
-                    break;
-                case LoadBalancingIteration:
-                    target_stream = &flbit;
-                    break;
-                case LoadBalancingCost:
-                    target_stream = &flbcost;
-                    break;
-                case Interactions:
-                    target_stream = &finteractions;
-                    break;
-                case NumOfNeighbors:
-                    target_stream = &fnumofneighbors;
-                    break;
+            if(is_managing && monitoring) {
+                auto target_stream = get_stream(type);
+                target_stream << report_value << sep;
+                target_stream.flush();
             }
-            target_stream->operator<<(report_value) << sep;
-            target_stream->flush();
+
         }
 
         template<unsigned N, class E, class GetDataFunc>
