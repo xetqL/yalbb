@@ -124,7 +124,7 @@ class MonitoringSession {
         template<class T=void>
         void report(ReportData type, const T& report_value, const std::string sep = "\n") {
             using namespace std;
-            std::ostream& target_stream;
+            std::ostream* target_stream;
             if(is_managing && monitoring) switch(type) {
                 case Imbalance:
                     target_stream = fimbalance;
@@ -157,8 +157,8 @@ class MonitoringSession {
                     target_stream = fnumofneighbors;
                     break;
             }
-            target_stream << report_value << sep;
-            target_stream.flush();
+            target_stream->operator<<(report_value) << sep;
+            target_stream->flush();
         }
 
         template<unsigned N, class E, class GetDataFunc>
