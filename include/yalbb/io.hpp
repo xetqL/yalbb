@@ -121,7 +121,7 @@ class MonitoringSession {
             }
         }
 
-        auto get_stream(ReportData type) {
+        auto& get_stream(ReportData type) {
             switch(type) {
                 case Imbalance:
                     return fimbalance;
@@ -144,7 +144,7 @@ class MonitoringSession {
                 case NumOfNeighbors:
                     return fnumofneighbors;
                 default:
-                    return null;
+                    return fstdout;
             }
         }
 
