@@ -334,13 +334,14 @@ std::vector<T> retrieve_ghosts(
 
     std::vector<T>   export_buf;
     export_buf.reserve(nb_export);
-    auto export_it = export_buf.begin();
 
     for (unsigned PE = 0; PE < wsize; ++PE) {
         //const auto PE = PEs[j];
         if(PE != caller_rank) {
             export_counts.at(PE) = data_to_migrate.at(PE).size();
-            export_it = export_buf.insert(export_it, data_to_migrate.at(PE).begin(), data_to_migrate.at(PE).end());
+            for(auto beg = data_to_migrate.at(PE).begin(); beg != data_to_migrate.at(PE).end(); beg++){
+                export_buf.push_back(**beg);
+            }
         }
     }
     for (int PE = 1; PE < wsize; ++PE)
