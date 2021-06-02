@@ -141,6 +141,7 @@ struct TParser {
         parser.add_opt_version('V', "version", "MiniLB v1.0:\nMiniLB is a fast parallel (MPI) n-body mini code for load balancing brenchmarking.");
         parser.add_opt_help('h', "help"); // use -h or --help
         parser.add_opt_flag('v', "verbose", "this is the verbose option");
+        parser.add_opt_flag('X', "burn", "burn cpu");
 
         // Optimal Search
         parser.add_opt_value('B', "best", params->nb_best_path, 1, "Number of Best path to retrieve (A*)", "INT").require();
@@ -173,6 +174,7 @@ struct TParser {
             return nullptr;
         }
         this->params->verbosity = parser.count("verbose");
+        this->params->burn = parser.count("burn");
         this->post_parsing();
         return std::unique_ptr<Param>(static_cast<Param*>(this->params.release()));
     }

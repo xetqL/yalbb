@@ -72,6 +72,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         new_params.monitor = true;
         new_params.verbosity = 3;
         new_params.id += 10000;
+
         Probe probe(nproc);
         std::string folder_prefix = fmt("%s/%s_mu_finder", "logs", simulation_name);
         simulation::MonitoringSession report_session {!rank, false, folder_prefix, "", new_params.monitor};
