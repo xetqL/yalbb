@@ -362,8 +362,7 @@ std::vector<T> retrieve_ghosts(
     std::vector<T> import_buf(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
-
-    MPI_Reduce(MPI_IN_PLACE, n_neighbors, 1, MPI_INT, MPI_MAX, 0, LB_COMM);
+    MPI_Allreduce(MPI_IN_PLACE, n_neighbors, 1, MPI_INT, MPI_MAX, LB_COMM);
     return import_buf;
 
 }
