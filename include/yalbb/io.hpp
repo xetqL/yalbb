@@ -152,7 +152,7 @@ class MonitoringSession {
         void report(ReportData type, const T& report_value, const std::string sep = "\n") {
             using namespace std;
             if(is_managing && monitoring) {
-                auto target_stream = get_stream(type);
+                auto& target_stream = get_stream(type);
                 target_stream << report_value << sep;
                 target_stream.flush();
             }
