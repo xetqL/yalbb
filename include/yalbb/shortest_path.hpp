@@ -171,17 +171,17 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
 
                         probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-                        migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
+                        migrate_data(LB, mesh_data.els, pointAssignFunc, datatype, comm);
 
-                        const auto nlocal  = mesh_data->els.size();
+                        const auto nlocal  = mesh_data.els.size();
                         apply_resize_strategy(&lscl,   nlocal);
 
-                        auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data->els);
-                        CLL_init<N, T>({{mesh_data->els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+                        auto bbox          = get_bounding_box<N>(params->rc, getPosPtrFunc, mesh_data.els);
+                        CLL_init<N, T>({{mesh_data.els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
                         int n_neighbors;
 
-                        auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
+                        auto remote_el     = retrieve_ghosts<N>(LB, mesh_data.els, bbox, boxIntersectFunc, params->rc,
                                                                 head, lscl, datatype, comm, &n_neighbors);
 
                         const auto nremote = remote_el.size();
@@ -190,11 +190,11 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         apply_resize_strategy(&flocal, N*nlocal);
                         bbox = update_bounding_box<N>(bbox, params->rc, getPosPtrFunc, remote_el);
 
-                        CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
+                        CLL_init<N, T>({{mesh_data.els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
                         PAR_START_TIMER(it_compute_time, comm);
                         auto nb_interactions = nbody_compute_step<N>(flocal,
-                                                                     mesh_data->els,
+                                                                     mesh_data.els,
                                                                      remote_el,
                                                                      getPosPtrFunc,
                                                                      getVelPtrFunc,
