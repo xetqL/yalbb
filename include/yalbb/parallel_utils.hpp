@@ -329,7 +329,8 @@ std::vector<T> retrieve_ghosts(
 
     auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
 
-    const int nb_export = std::accumulate(data_to_migrate.cbegin(), data_to_migrate.cend(), 0, [](const auto& mlist){return mlist.size();});
+    const int nb_export = std::accumulate(data_to_migrate.cbegin(), data_to_migrate.cend(), 0,
+                                          [](auto prev, const auto& mlist){return prev + mlist.size();});
 
     std::vector<T>   export_buf;
     export_buf.reserve(nb_export);
