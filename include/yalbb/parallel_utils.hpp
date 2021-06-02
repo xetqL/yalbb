@@ -355,7 +355,7 @@ std::vector<T> retrieve_ghosts(
         neighbor_map.at(i) += import_counts.at(i);
     }
     neighbor_map.at(caller_rank) = 0;
-    *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto v){return v > 1 ? 1 : v;});
+    *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto prev, auto v){return prev + (v > 1 ? 1 : v);});
 
     std::vector<T> import_buf(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
