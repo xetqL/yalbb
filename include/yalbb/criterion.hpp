@@ -121,16 +121,16 @@ namespace lb {
 
     struct BastienMenon {
          mutable double cumulative_imbalance = 0.0;
-         mutable int tau = 0;
+         mutable int tau = 1;
          mutable double baseline = 0.0;
          bool operator()(Probe& probe) const {
                  if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
-                 const double Ui = std::max(0.0, (probe.get_max_it() - (probe.get_sum_it()/probe.nproc)) - baseline);
+                 const double Ui = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
                  cumulative_imbalance += Ui;
                  const auto decision = ((tau*Ui - cumulative_imbalance) >= probe.compute_avg_lb_time());
                  if(decision) {
                     cumulative_imbalance = 0.0;
-                    tau = 0;
+                    tau = 1;
                  } else {
                     tau++;
                  }
@@ -138,7 +138,7 @@ namespace lb {
              }
          };
 
-                struct Procassini {
+    struct Procassini {
         const Real speedup_factor;
         bool operator()(Probe& probe) const{
             Real epsilon_c = probe.get_efficiency();

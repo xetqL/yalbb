@@ -81,7 +81,7 @@ template<unsigned N>
 std::array<Real, N> get_box_center(const std::array<Real, 2*N>& box){
     std::array<Real, N> center{};
     for(unsigned i = 0; i < N; ++i) {
-        center[i] = (box.at(2*i+1) - box.at(2*i)) / static_cast<Real>(2.0);
+        center[i] = (box.at(2*i) + box.at(2*i+1)) / static_cast<Real>(2.0);
     }
     return center;
 }
