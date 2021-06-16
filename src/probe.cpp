@@ -36,7 +36,8 @@ Time  Probe::compute_avg_lb_time() const {
 Time* Probe::max_it_time() { return &max_it; }
 Time* Probe::min_it_time() { return &min_it; }
 
-void Probe::set_balanced(bool lb_status){
+void Probe::set_balanced(bool lb_status) {
+    Probe::previous_lb_it = current_iteration;
     Probe::balanced = lb_status;
 }
 

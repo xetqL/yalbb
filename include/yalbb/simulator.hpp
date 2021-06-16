@@ -87,6 +87,7 @@ std::vector<Time> simulate(
 
     Time lb_time = 0.0, it_time, cum_time = 0.0, batch_time;
     std::vector<Integer> non_empty_boxes{};
+    Time lb_perf_metric = 0.0;
     for (int frame = 0; frame < nframes; ++frame) {
         pcout << "Computing frame " << frame << std::endl;
         batch_time = 0.0;
@@ -96,6 +97,7 @@ std::vector<Time> simulate(
 
             lb_time = 0.0;
             it_time = 0.0;
+
             bool lb_decision = lb_policy.should_load_balance();
 
             MPI_Bcast(&lb_decision, 1, MPI_INT, 0, comm);
@@ -107,6 +109,8 @@ std::vector<Time> simulate(
                 PAR_END_TIMER(lb_time_spent, comm);
                 MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
                 probe->push_load_balancing_time(lb_time_spent);
+                lb_perf_metric = probe->compute_lb_perf_metric();
+
                 probe->reset_cumulative_imbalance_time();
                 if(params->verbosity >= 2) pcout << fmt("Load Balancing at %d; cost = %f", frame * npframe + i, lb_time_spent) << std::endl;
             }
@@ -166,8 +170,10 @@ std::vector<Time> simulate(
             report_session.report(simulation::Time,                   it_time, " ");
             report_session.report(simulation::CumulativeTime,         cum_time, " ");
             report_session.report(simulation::Efficiency,             probe->get_current_parallel_efficiency(), " ");
-            if(lb_decision)
+            if(lb_decision){
                 report_session.report(simulation::LoadBalancingCost,  probe->compute_avg_lb_time(), " ");
+                report_session.report(simulation::LbPerf,             lb_perf_metric, " ");
+            }
             report_session.report(simulation::Interactions,           nb_interactions, " ");
             report_session.report(simulation::LoadBalancingIteration, static_cast<int>(lb_decision), " ");
             report_session.report(simulation::NumOfNeighbors, n_neighbors, " ");

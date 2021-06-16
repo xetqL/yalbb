@@ -49,6 +49,7 @@ namespace simulation {
         LoadBalancingCost,
         Interactions,
         NumOfNeighbors,
+        LbPerf,
     };
 
     template<unsigned N>
@@ -72,7 +73,8 @@ class MonitoringSession {
                         flbcost,
                         finteractions,
                         fstdout,
-                        fnumofneighbors;
+                        fnumofneighbors,
+                        flbperf;
 
         const bool is_managing   = false,
                    is_logging_particles = false,
@@ -95,6 +97,7 @@ class MonitoringSession {
                 flbcost.open(monitoring_files_folder + "/" + file_prefix + "lb_cost.txt");
                 finteractions.open(monitoring_files_folder+"/"+ file_prefix +"interactions.txt");
                 fnumofneighbors.open(monitoring_files_folder+"/"+ file_prefix +"numofneighbors.txt");
+                flbperf.open(monitoring_files_folder+"/"+ file_prefix +"flbperf.txt");
 
                 if(log_particles) {
                     frame_files_folder = folder_prefix+"/frames";
@@ -117,7 +120,7 @@ class MonitoringSession {
                 flbcost.close();
                 finteractions.close();
                 fnumofneighbors.close();
-
+                flbperf.close();
             }
         }
 
@@ -143,9 +146,9 @@ class MonitoringSession {
                     return finteractions;
                 case NumOfNeighbors:
                     return fnumofneighbors;
-                default:
-                    return fstdout;
-            }
+                case LbPerf:
+                    return flbperf;
+                }
         }
 
         template<class T=void>
