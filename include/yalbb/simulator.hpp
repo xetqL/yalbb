@@ -117,7 +117,9 @@ std::vector<Time> simulate(
 
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
+            PAR_START_TIMER(migrate_data_time, comm);
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
+            END_TIMER(retrieve_ghosts_time);
 
             const auto nlocal  = mesh_data->els.size();
             apply_resize_strategy(&lscl,   nlocal);
@@ -127,8 +129,10 @@ std::vector<Time> simulate(
 
             int n_neighbors;
 
+            PAR_START_TIMER(retrieve_ghosts_time, comm);
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, datatype, comm, &n_neighbors);
+            END_TIMER(retrieve_ghosts_time);
 
             const auto nremote = remote_el.size();
 
@@ -148,7 +152,7 @@ std::vector<Time> simulate(
                                                          bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
             END_TIMER(it_compute_time);
 
-            it_compute_time += lb_time;
+            it_compute_time += lb_time + migrate_data_time + retrieve_ghosts_time;
 
             //------ end ------ //
 
