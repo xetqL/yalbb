@@ -10,7 +10,14 @@
 
 struct Probe {
     int current_iteration = 0;
-    Time max_it = 0, min_it = 0, sum_it = 0, cumulative_imbalance_time = 0, vanilla_cumulative_imbalance_time, lb_imbalance_baseline = 0, batch_time = 0;
+    Time max_it = 0,
+        min_it = 0,
+        sum_it = 0, lb_interval_time = 0,
+        cumulative_imbalance_time = 0,
+        vanilla_cumulative_imbalance_time,
+        lb_imbalance_baseline = 0,
+        batch_time = 0;
+
     Index previous_lb_it = 0, current_batch;
     std::vector<Time> lb_times, iteration_times_since_lb;
     std::vector<Real> lb_parallel_efficiencies;
@@ -64,7 +71,7 @@ struct Probe {
     void  end_batch(Time time);
     [[nodiscard]] Time compute_lb_perf_metric() const {
         auto tau = static_cast<double>(current_iteration - previous_lb_it);
-        return cumulative_imbalance_time / tau;
+        return lb_interval_time / tau;
     }
 };
 #endif //NBMPI_PROBE_HPP

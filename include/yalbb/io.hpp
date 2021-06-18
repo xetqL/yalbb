@@ -50,6 +50,7 @@ namespace simulation {
         Interactions,
         NumOfNeighbors,
         LbPerf,
+        SequentialTime,
     };
 
     template<unsigned N>
@@ -74,7 +75,8 @@ class MonitoringSession {
                         finteractions,
                         fstdout,
                         fnumofneighbors,
-                        flbperf;
+                        flbperf,
+                        fseqtime;
 
         const bool is_managing   = false,
                    is_logging_particles = false,
@@ -98,6 +100,7 @@ class MonitoringSession {
                 finteractions.open(monitoring_files_folder+"/"+ file_prefix +"interactions.txt");
                 fnumofneighbors.open(monitoring_files_folder+"/"+ file_prefix +"numofneighbors.txt");
                 flbperf.open(monitoring_files_folder+"/"+ file_prefix +"flbperf.txt");
+                fseqtime.open(monitoring_files_folder+"/"+ file_prefix +"fseqtime.txt");
 
                 if(log_particles) {
                     frame_files_folder = folder_prefix+"/frames";
@@ -121,6 +124,7 @@ class MonitoringSession {
                 finteractions.close();
                 fnumofneighbors.close();
                 flbperf.close();
+                fseqtime.close();
             }
         }
 
@@ -148,6 +152,8 @@ class MonitoringSession {
                     return fnumofneighbors;
                 case LbPerf:
                     return flbperf;
+                case SequentialTime:
+                    return fseqtime;
                 }
         }
 

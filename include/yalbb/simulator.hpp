@@ -110,9 +110,8 @@ std::vector<Time> simulate(
                 MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
                 lb_perf_metric = probe->compute_lb_perf_metric();
                 probe->push_load_balancing_time(lb_time_spent);
-
-
                 probe->reset_cumulative_imbalance_time();
+                probe->lb_interval_time = 0;
                 if(params->verbosity >= 2) pcout << fmt("Load Balancing at %d; cost = %f", frame * npframe + i, lb_time_spent) << std::endl;
             }
 
@@ -166,6 +165,7 @@ std::vector<Time> simulate(
             MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, get_mpi_type<decltype(nb_interactions)>(),  MPI_SUM, comm);
 
             it_time     = it_compute_time;
+            probe->lb_interval_time += it_time;
             cum_time   += it_time;
             batch_time += it_time;
 
@@ -173,6 +173,7 @@ std::vector<Time> simulate(
             report_session.report(simulation::CumulativeVanillaImbalance,    probe->get_vanilla_cumulative_imbalance_time(), " ");
             report_session.report(simulation::Imbalance,              probe->compute_load_imbalance(), " ");
             report_session.report(simulation::Time,                   it_time, " ");
+            report_session.report(simulation::SequentialTime,         probe->sum_it, " ");
             report_session.report(simulation::CumulativeTime,         cum_time, " ");
             report_session.report(simulation::Efficiency,             probe->get_current_parallel_efficiency(), " ");
             if(lb_decision){
