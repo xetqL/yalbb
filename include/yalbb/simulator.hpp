@@ -134,7 +134,6 @@ std::vector<Time> simulate(
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, datatype, comm, &n_neighbors);
             END_TIMER(retrieve_ghosts_time);
-
             MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
             const auto nremote = remote_el.size();
