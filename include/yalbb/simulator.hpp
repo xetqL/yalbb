@@ -108,8 +108,9 @@ std::vector<Time> simulate(
                 doLoadBalancingFunc(LB, mesh_data);
                 PAR_END_TIMER(lb_time_spent, comm);
                 MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
-                probe->push_load_balancing_time(lb_time_spent);
                 lb_perf_metric = probe->compute_lb_perf_metric();
+                probe->push_load_balancing_time(lb_time_spent);
+
 
                 probe->reset_cumulative_imbalance_time();
                 if(params->verbosity >= 2) pcout << fmt("Load Balancing at %d; cost = %f", frame * npframe + i, lb_time_spent) << std::endl;
@@ -119,7 +120,7 @@ std::vector<Time> simulate(
 
             PAR_START_TIMER(migrate_data_time, comm);
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
-            END_TIMER(retrieve_ghosts_time);
+            END_TIMER(migrate_data_time);
 
             const auto nlocal  = mesh_data->els.size();
             apply_resize_strategy(&lscl,   nlocal);

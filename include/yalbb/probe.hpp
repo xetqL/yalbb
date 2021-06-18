@@ -63,9 +63,8 @@ struct Probe {
     void  start_batch(Index batch);
     void  end_batch(Time time);
     [[nodiscard]] Time compute_lb_perf_metric() const {
-        return vanilla_cumulative_imbalance_time / static_cast<double>(current_iteration - previous_lb_it);
+        auto tau = static_cast<double>(current_iteration - previous_lb_it);
+        return cumulative_imbalance_time / tau;
     }
 };
-
-
 #endif //NBMPI_PROBE_HPP
