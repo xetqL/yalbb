@@ -71,9 +71,7 @@ struct Probe {
     void  start_batch(Index batch);
     void  end_batch(Time time);
     [[nodiscard]] Time compute_lb_perf_metric() const {
-        io::ParallelOutput pcout(std::cout);
         auto tau = static_cast<double>(current_iteration - previous_lb_it);
-        pcout << fmt("%f / %f", lb_interval_time, tau) << std::endl;
         return lb_interval_time / tau;
     }
 };
