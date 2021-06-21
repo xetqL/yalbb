@@ -178,7 +178,7 @@ std::vector<Time> simulate(
             report_session.report(simulation::SequentialTime,         probe->sum_it, " ");
             report_session.report(simulation::CumulativeTime,         cum_time, " ");
             report_session.report(simulation::Efficiency,             probe->get_current_parallel_efficiency(), " ");
-            if(lb_decision){
+            if(lb_decision || probe->current_iteration == (params->npframe * params->nframes - 1)){
                 report_session.report(simulation::LoadBalancingCost,  probe->compute_avg_lb_time(), " ");
                 report_session.report(simulation::LbPerf,             lb_perf_metric, " ");
             }
