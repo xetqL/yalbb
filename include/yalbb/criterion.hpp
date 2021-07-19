@@ -8,6 +8,7 @@
 #include <numeric>
 
 #include "probe.hpp"
+#include "probe_processor.hpp"
 
 namespace lb {
     struct Static{
@@ -23,10 +24,11 @@ namespace lb {
     };
     struct VanillaMenon {
         mutable double cumulative_imbalance = 0.0;
+        ProbeProcessor probeProcessor;
         bool operator()(Probe& probe) const {
             const auto N = probe.iteration_times_since_lb.size();
             cumulative_imbalance += (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
-            const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+            const auto decision = (cumulative_imbalance >= probeProcessor.compute_average_load_balancing_time(&probe));
             if(decision) cumulative_imbalance = 0.0;
             return decision;
         }
@@ -40,7 +42,7 @@ namespace lb {
         mutable std::vector<Time> iteration_times_since_lb {};
         mutable std::vector<Time> average_times_since_lb   {};
         mutable std::vector<Time> diff {};
-
+        ProbeProcessor probeProcessor;
         bool operator()(Probe& probe) const {
 
             if(probe.get_current_iteration() > 0) {
@@ -60,7 +62,7 @@ namespace lb {
             // compute difference between max and avg
             const Time m = dmax - davg;
             // compute average load balancing cost
-            const Time C = probe.compute_avg_lb_time();
+            const Time C = probeProcessor.compute_average_load_balancing_time(&probe);
             tau = m > 0 ? static_cast<unsigned>( std::sqrt(2*C / m) ) : -1;
             // check if we are after or before the load balancing iteration
             const auto decision = (prev_lb + tau) <= probe.get_current_iteration();
@@ -75,42 +77,43 @@ namespace lb {
             return decision;
         }
     };
-
-    using  WhenCumulativeImbalanceIsGtLbCost = VanillaMenon;
     struct ImprovedMenon {
         mutable double baseline = 0.0;
         mutable double cumulative_imbalance = 0.0;
+        ProbeProcessor probeProcessor;
+
         bool operator()(Probe& probe) const {
             if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
             cumulative_imbalance += std::max(0.0, (probe.get_max_it() - (probe.get_sum_it()/probe.nproc)) - baseline);
-            const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+            const auto decision = (cumulative_imbalance >= probeProcessor.compute_average_load_balancing_time(&probe));
             if(decision) cumulative_imbalance = 0.0;
             return decision;
         }
     };
-
     struct ImprovedMenonNoMax {
         mutable double baseline = 0.0;
         mutable double cumulative_imbalance = 0.0;
+        ProbeProcessor probeProcessor;
+
         bool operator()(Probe& probe) const {
             if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
             cumulative_imbalance += (probe.get_max_it() - (probe.get_sum_it()/probe.nproc)) - baseline;
-            const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+            const auto decision = (cumulative_imbalance >= probeProcessor.compute_average_load_balancing_time(&probe));
             if(decision) cumulative_imbalance = 0.0;
             return decision;
         }
     };
-
-    using  WhenCumulativeImbalanceAboveBaselineIsGtLbCost = ImprovedMenon;
 
     struct ZhaiMenon {
         mutable double cumulative_imbalance = 0.0;
         mutable std::vector<Time> iteration_times_since_lb {};
+        ProbeProcessor probeProcessor;
+
         bool operator()(Probe& probe) const {
             if(probe.get_current_iteration() > 0) iteration_times_since_lb.push_back(probe.get_max_it());
             const auto N = probe.iteration_times_since_lb.size();
             cumulative_imbalance += math::median(iteration_times_since_lb.end() - std::min(N, 3ul), iteration_times_since_lb.end()) - math::mean(iteration_times_since_lb.begin(), iteration_times_since_lb.end());
-            const auto decision = (cumulative_imbalance >= probe.compute_avg_lb_time());
+            const auto decision = (cumulative_imbalance >= probeProcessor.compute_average_load_balancing_time(&probe));
             if(decision) {
                 cumulative_imbalance = 0.0;
                 iteration_times_since_lb.clear();
@@ -120,14 +123,16 @@ namespace lb {
     };
 
     struct BastienMenon {
-         mutable double cumulative_imbalance = 0.0;
-         mutable int tau = 1;
-         mutable double baseline = 0.0;
-         bool operator()(Probe& probe) const {
+        mutable double cumulative_imbalance = 0.0;
+        mutable int tau = 1;
+        mutable double baseline = 0.0;
+        ProbeProcessor probeProcessor;
+
+        bool operator()(Probe& probe) const {
                  if(probe.balanced) baseline = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
                  const double Ui = (probe.get_max_it() - (probe.get_sum_it()/probe.nproc));
                  cumulative_imbalance += Ui;
-                 const auto decision = ((tau*Ui - cumulative_imbalance) >= probe.compute_avg_lb_time());
+                 const auto decision = ((tau*Ui - cumulative_imbalance) >= probeProcessor.compute_average_load_balancing_time(&probe));
                  if(decision) {
                     cumulative_imbalance = 0.0;
                     tau = 1;
@@ -140,11 +145,12 @@ namespace lb {
 
     struct Procassini {
         const Real speedup_factor;
+        ProbeProcessor probeProcessor;
         bool operator()(Probe& probe) const{
-            Real epsilon_c = probe.get_efficiency();
-            Real epsilon_lb= probe.compute_avg_lb_parallel_efficiency(); //estimation based on previous lb call
+            Real epsilon_c = probeProcessor.compute_efficiency(&probe);
+            Real epsilon_lb= probeProcessor.compute_average_parallel_load_balancing_efficiency(&probe); //estimation based on previous lb call
             Real S         = epsilon_c / epsilon_lb;
-            Real tau_prime = probe.get_batch_time() *  S + probe.compute_avg_lb_time(); //estimation of next iteration time based on speed up + LB cost
+            Real tau_prime = probe.get_batch_time() *  S + probeProcessor.compute_average_load_balancing_time(&probe); //estimation of next iteration time based on speed up + LB cost
             Real tau       = probe.get_batch_time();
             return (tau_prime < speedup_factor*tau);
         }

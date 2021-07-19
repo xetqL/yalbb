@@ -40,6 +40,7 @@ std::vector<Time> simulate(
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string& simulation_name = "") {
 
+    ProbeProcessor probeProcessor;
     io::ParallelOutput pcout(std::cout);
 
     auto rc = params->rc;
@@ -160,7 +161,7 @@ std::vector<Time> simulate(
             //------ end ------ //
 
             probe->sync_it_time_across_processors(&it_compute_time, comm);
-            probe->update_cumulative_imbalance_time();
+            probe->update_cumulative_imbalance_time(probeProcessor.compute_imbalance_time(probe));
             probe->update_lb_parallel_efficiencies();
 
             average_it_time.at(i + frame * npframe) = probe->get_avg_it();
