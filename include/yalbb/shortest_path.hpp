@@ -38,6 +38,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         LBDeleteF&& lb_delete_f,
         const MPI_Comm comm = MPI_COMM_WORLD,
         const std::string simulation_name = "") {
+    ProbeProcessor probeProcessor;
 
     using Node = Node<LoadBalancer, LBCopyF, LBDeleteF>;
     using LBSolutionPath = std::vector<std::shared_ptr<Node> >;
@@ -210,7 +211,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
 
                         // Measure load imbalance
                         probe->sync_it_time_across_processors(&it_compute_time, comm);
-                        probe->update_cumulative_imbalance_time();
+                        probe->update_cumulative_imbalance_time(probeProcessor.compute_imbalance_time(probe));
                         probe->update_lb_parallel_efficiencies();
 
                         MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
