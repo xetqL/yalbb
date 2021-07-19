@@ -110,7 +110,7 @@ std::vector<Time> simulate(
                 PAR_END_TIMER(lb_time_spent, comm);
                 MPI_Allreduce(&lb_time_spent, &lb_time, 1, MPI_TIME, MPI_MAX, comm);
                 report_session.report(simulation::LoadBalancingCost,  lb_time, " ");
-                lb_perf_metric = probe->compute_lb_perf_metric();
+                lb_perf_metric = probeProcessor.compute_load_balancing_effort(probe);
                 probe->push_load_balancing_time(lb_time);
                 probe->reset_cumulative_imbalance_time();
                 probe->lb_interval_time = 0;
@@ -175,7 +175,7 @@ std::vector<Time> simulate(
 
             report_session.report(simulation::CumulativeImbalance,    probe->get_cumulative_imbalance_time(), " ");
             report_session.report(simulation::CumulativeVanillaImbalance,    probe->get_vanilla_cumulative_imbalance_time(), " ");
-            report_session.report(simulation::Imbalance,              probe->compute_load_imbalance(), " ");
+            report_session.report(simulation::Imbalance,              probeProcessor.compute_load_imbalance(probe), " ");
             report_session.report(simulation::Time,                   it_time, " ");
             report_session.report(simulation::SequentialTime,         probe->sum_it, " ");
             report_session.report(simulation::CumulativeTime,         cum_time, " ");

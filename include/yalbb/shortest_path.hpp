@@ -220,7 +220,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         vanilla_cum_li_hist[i] = probe->get_vanilla_cumulative_imbalance_time();
                         dec_hist[i]    = lb_decision;
                         time_hist[i]   = i == 0 ? starting_time + it_compute_time : time_hist[i-1] + it_compute_time;
-                        eff_hist[i]    = probe->get_efficiency();
+                        eff_hist[i]    = probeProcessor.compute_efficiency(probe);
                         interactions_hist[i]    = nb_interactions;
                         batch_time    += it_compute_time;
 
