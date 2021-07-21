@@ -60,7 +60,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
     auto getPosPtrFunc      = fWrapper.getPosPtrFunc();
     auto getVelPtrFunc      = fWrapper.getVelPtrFunc();
     auto getForceFunc       = fWrapper.getForceFunc();
-    auto unaryForceFunc       = fWrapper.getUnaryForceFunc();
+    auto unaryForceFunc     = fWrapper.getUnaryForceFunc();
     std::vector<Time> average_time;
 
     { // find \mu(i)
@@ -77,8 +77,9 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
         Probe probe(nproc);
         std::string folder_prefix = fmt("%s/%s_mu_finder", "logs", simulation_name);
         simulation::MonitoringSession report_session {!rank, false, folder_prefix, "", new_params.monitor};
-
+        lb::Criterion* criterion = new lb::ImprovedMenon;
         average_time = simulate<N>(new_LB, &data, lb::ImprovedMenon{}, boundary, fWrapper, &new_params, &probe, datatype, report_session, NEW_COMM, fmt("%s_mu_finder/", simulation_name));
+        delete ((lb::ImprovedMenon*) criterion);
         for(auto it = std::begin(average_time); it != std::end(average_time); it++){
             *it = std::accumulate(it, std::end(average_time), 0.0);
         }
