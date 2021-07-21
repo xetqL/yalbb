@@ -14,7 +14,7 @@ namespace CoordinateTranslater {
     XYZ translate_linear_index_into_xyz (Integer i, Integer ncols, Integer nrows);
 
     XYZPositionArray
-    inline translate_xyz_into_position(XYZ&& xyz, Real rc);
+    translate_xyz_into_position(XYZ&& xyz, Real rc);
 
     template<int N> std::array<Integer, N>
     translate_position_into_local_xyz(const std::array<Real, N>& position, const BoundingBox<N>& bbox, Real rc){

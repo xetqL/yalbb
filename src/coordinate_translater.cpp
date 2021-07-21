@@ -13,6 +13,6 @@ CoordinateTranslater::XYZ CoordinateTranslater::translate_linear_index_into_xyz(
 }
 
 CoordinateTranslater::XYZPositionArray
-inline CoordinateTranslater::translate_xyz_into_position(std::tuple<Integer, Integer, Integer> &&xyz, const Real rc) {
+CoordinateTranslater::translate_xyz_into_position(std::tuple<Integer, Integer, Integer> &&xyz, const Real rc) {
     return {std::get<0>(xyz) * rc, std::get<1>(xyz) * rc, std::get<2>(xyz) * rc};
 }
