@@ -69,17 +69,14 @@ namespace vec::generic{
         apply(std::begin(lhs), std::end(lhs), std::begin(ret), [](auto& v){return std::abs(v);});
         return ret;
     }
-
     template<class T> bool almost_equal(const T& lhs, const T& rhs){
         T epsilon = lhs;
         std::fill(epsilon.begin(), epsilon.end(), std::numeric_limits<typename T::value_type>::epsilon());
         return abs(lhs - rhs) <= epsilon;
     }
-
     template<class T> bool operator == (const T& lhs, const T& rhs){
         return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs));
     }
-
     template<class T> bool operator <= (const T& lhs, const T& rhs){
         return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs), std::less_equal<typename T::value_type>{});
     }
@@ -88,7 +85,6 @@ namespace vec::generic{
         apply(std::begin(lhs), std::end(lhs), rhs, std::begin(ret), std::divides{});
         return ret;
     }
-
     template<class T> auto norm2(const T& lhs) {
         const auto X = lhs*lhs;
         return std::accumulate(std::begin(X), std::end(X), (typename T::value_type) 0.0);
@@ -103,7 +99,6 @@ namespace vec::generic{
         return std::inner_product(std::cbegin(lhs), std::cend(lhs), std::begin(rhs), (typename T::value_type) 0.0);
     }
 }
-
 namespace opt {
     template<class InputIt> auto argmin(InputIt beg, InputIt end) noexcept {
         return std::distance(beg, std::min_element(beg, end));
@@ -122,5 +117,3 @@ namespace opt {
             std::vector<Real>();
     }
 }
-
-

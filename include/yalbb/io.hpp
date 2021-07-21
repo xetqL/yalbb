@@ -24,11 +24,11 @@ namespace io {
             if(!rank) F(out);
             return *this;
         }
+
         template<class T> ParallelOutput& operator<<(const T& data) {
             if(!rank) std::cout << data;
             return *this;
         }
-
     };
 
 

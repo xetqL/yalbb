@@ -36,6 +36,7 @@ struct YALBB {
     io::ParallelOutput& get_parallel_cerr(){
         return *pcerr;
     }
+
 private:
     std::unique_ptr<io::ParallelOutput> pcout, pcerr;
 };

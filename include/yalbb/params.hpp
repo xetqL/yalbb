@@ -13,14 +13,6 @@
 #include <optional>
 #include "zupply.hpp"
 
-/*@T
- * \section{System parameters}
- *
- * The [[sim_param_t]] structure holds the parameters that
- * describe the simulation.  These parameters are filled in
- * by the [[get_params]] function (described later).
- *@c*/
-
 struct sim_param_t {
 
     int   npart;        /* Number of particles (500)  */
@@ -56,16 +48,6 @@ void print_params(T& stream, const sim_param_t* params) {
     stream << show(params->id) << std::endl;
     stream << "\n";
 
-    // stream << "[Physics]" << std::endl;
-    // stream << show(params->T0) << std::endl;
-    // stream << show(params->sig_lj) << std::endl;
-    // stream << show(params->eps_lj) << std::endl;
-    // stream << show(params->G) << std::endl;
-    // stream << show(params->bounce) << std::endl;
-    // stream << show(params->dt) << std::endl;
-    // stream << show(params->rc) << std::endl;
-    // stream << "\n";
-
     stream << "[Box]" << std::endl;
     stream << show(params->simsize) << std::endl;
     stream << "\n";
@@ -88,24 +70,15 @@ void print_params(T& stream, const sim_param_t* params) {
     stream << "[Miscellaneous]" << std::endl;
     stream << show(params->verbosity) << std::endl;
 }
+
 template<class T>
-void print_params(T& stream, const sim_param_t params) {
+void print_params(T& stream, const sim_param_t& params) {
     stream << "[Global]" << std::endl;
     stream << show(params.simulation_name) << std::endl;
     stream << show(params.npart) << std::endl;
     stream << show(params.seed) << std::endl;
     stream << show(params.id) << std::endl;
     stream << "\n";
-
-    // stream << "[Physics]" << std::endl;
-    // stream << show(params.T0) << std::endl;
-    // stream << show(params.sig_lj) << std::endl;
-    // stream << show(params.eps_lj) << std::endl;
-    // stream << show(params.G) << std::endl;
-    // stream << show(params.bounce) << std::endl;
-    // stream << show(params.dt) << std::endl;
-    // stream << show(params.rc) << std::endl;
-    // stream << "\n";
 
     stream << "[Box]" << std::endl;
     stream << show(params.simsize) << std::endl;

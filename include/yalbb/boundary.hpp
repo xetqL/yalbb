@@ -8,7 +8,6 @@ template<unsigned N>
 constexpr unsigned compute_number_of_neighbors(){
     if constexpr(N == 3) // 3x3x3
         return 27;
-
     if constexpr(N == 2) // 3x3
         return 9;
     else

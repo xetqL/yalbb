@@ -13,26 +13,24 @@
 
 #include "params.hpp"
 #include "utils.hpp"
+
 struct SimpleCSVFormatter {
-    const char separator;
-    SimpleCSVFormatter(char separator) : separator(separator){}
-    template<int N> inline void write_data(std::ostream &stream, const std::array<Real, N>& pos){
+    const char separator {};
+    explicit SimpleCSVFormatter(char separator) : separator(separator){}
+    template<int N> inline void write_data(std::ostream &stream, const std::array<Real, N>& pos) {
         stream << pos.at(0) << separator << pos.at(1);
         if constexpr (N == 3) stream << separator <<  pos.at(2);
         stream << std::endl;
-    }
-    inline void write_header(std::ostream &stream, const int n, float simsize){
-        configure_stream(stream);
     }
     template<int N> inline void write_frame_header(std::ostream &stream){
         stream << "x coord" << separator << "y coord";
         if constexpr (N == 3) stream << separator << "z coord";
         stream << std::endl;
     }
+    inline void write_header(std::ostream &stream, int n, float simsize);
+
 private:
-    inline void configure_stream(std::ostream &stream, int precision = 6){
-        stream << std::fixed << std::setprecision(6);
-    }
+    static inline void configure_stream(std::ostream &stream, int precision = 6);
 };
 
 template<int N, class T, class GetDataFunc>

@@ -31,6 +31,7 @@ inline void CLL_update(Integer acc,
         acc += n_els;
     }
 }
+
 template<int N, class T, class GetPositionFunc>
 inline void CLL_update(Integer acc,
                        std::initializer_list<std::pair<T*, size_t>>&& elements,
