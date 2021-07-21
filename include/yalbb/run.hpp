@@ -22,8 +22,8 @@
 #include "experiment.hpp"
 #include "config.hpp"
 
-template<int N, class LoadBalancer, class Experiment, class BinaryForceFunc, class UnaryForceFunc, class LBCreatorFunc>
-void run(const YALBB& yalbb, sim_param_t* params, Experiment experimentGenerator, Boundary<N> boundary, std::string lb_name,
+template<int N, class Element, class LoadBalancer, class Experiment, class BinaryForceFunc, class UnaryForceFunc, class LBCreatorFunc, class GetPosFunc, class GetVelFunc>
+void run(const YALBB& yalbb, sim_param_t* params, Experiment experimentGenerator, Boundary<N> boundary, std::string lb_name, MPI_Datatype datatype, GetPosFunc getPositionPtrFunc, GetVelFunc getVelocityPtrFunc,
          BinaryForceFunc binaryFunc, UnaryForceFunc unaryFF, LBCreatorFunc createLB) {
     std::cout << std::fixed << std::setprecision(6);
 
@@ -36,10 +36,6 @@ void run(const YALBB& yalbb, sim_param_t* params, Experiment experimentGenerator
     const std::array<Real,   N> singularity = get_box_center<N>(simbox);
 
     MPI_Bcast(&params->seed, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    auto datatype           = elements::register_datatype<N>();
-    auto getPositionPtrFunc = elements::getElementPositionPtr<N>;
-    auto getVelocityPtrFunc = elements::getElementVelocityPtr<N>;
 
     // Who are my neighbors ?
     auto boxIntersectFunc    = lb::IntersectDomain<LoadBalancer> {params->rc};

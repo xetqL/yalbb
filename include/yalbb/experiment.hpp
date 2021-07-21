@@ -8,7 +8,7 @@
 #include <mpi.h>
 #include "utils.hpp"
 
-template<unsigned N, class TParam> class Experiment {
+template<unsigned N, class E, class TParam> class Experiment {
 protected:
     BoundingBox<N> simbox;
     const std::unique_ptr<TParam>& params;
@@ -17,12 +17,12 @@ protected:
     std::string name;
     int rank{}, nproc{};
 
-    virtual void setup(MESH_DATA<elements::Element<N>>* mesh_data) = 0;
+    virtual void setup(E* mesh_data) = 0;
+    virtual std::unique_ptr<E> alloc() = 0;
 
 public:
     [[nodiscard]] const std::string& get_exp_name() const { return name; }
 
-    using param_type = TParam;
     Experiment(BoundingBox<N> simbox, const std::unique_ptr<TParam>& params,
                MPI_Datatype datatype, MPI_Comm APP_COMM,
                std::string name) :
@@ -37,9 +37,10 @@ public:
 
     template<class BalancerType, class GetPosFunc>
     auto init(BalancerType* zlb, GetPosFunc getPos, const std::string& preamble, simulation::MonitoringSession& report_session) {
-        par::pcout() << preamble << std::endl;
+        io::ParallelOutput pcout(std::cout);
+        pcout << preamble << std::endl;
 
-        auto mesh_data = std::make_unique<MESH_DATA<elements::Element<N>>>();
+        auto mesh_data = alloc();
 
         lb::InitLB<BalancerType>      init {};
         lb::DoPartition<BalancerType> doPartition {};
@@ -57,9 +58,9 @@ public:
 
         size_t n_els = mesh_data->els.size(), max_els, tot_els;
 
-        MPI_Allreduce(MPI_IN_PLACE, &lbtime, 1, par::get_mpi_type<decltype(lbtime)>(), MPI_MAX, APP_COMM);
-        MPI_Allreduce(&n_els,       &tot_els,1, par::get_mpi_type<size_t>(),           MPI_SUM, APP_COMM);
-        MPI_Allreduce(&n_els,       &max_els,1, par::get_mpi_type<size_t>(),           MPI_MAX, APP_COMM);
+        MPI_Allreduce(MPI_IN_PLACE, &lbtime, 1, get_mpi_type<decltype(lbtime)>(), MPI_MAX, APP_COMM);
+        MPI_Allreduce(&n_els,       &tot_els,1, get_mpi_type<size_t>(),           MPI_SUM, APP_COMM);
+        MPI_Allreduce(&n_els,       &max_els,1, get_mpi_type<size_t>(),           MPI_MAX, APP_COMM);
 
         probe.push_load_balancing_time(lbtime);
         Real efficiency = (static_cast<Real>(tot_els) / static_cast<Real>(nproc)) / static_cast<Real>(max_els);
@@ -69,7 +70,7 @@ public:
 
         probe.set_balanced(true);
 
-        par::pcout() << name << std::endl;
+        pcout << name << std::endl;
 
         return std::make_tuple(std::move(mesh_data), probe);
     }
