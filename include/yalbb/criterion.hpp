@@ -14,6 +14,7 @@ namespace lb {
     struct Criterion {
         ProbeProcessor probeProcessor{};
         virtual bool operator()(Probe& probe) const = 0;
+        virtual ~Criterion() = default;
     }; // To add a new criterion: extend this class;
     // Static Load Balancing
     struct Static :             public Criterion {
