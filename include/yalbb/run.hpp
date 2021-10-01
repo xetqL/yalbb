@@ -22,7 +22,7 @@
 #include "experiment.hpp"
 #include "config.hpp"
 
-template<int N, class Element, class LoadBalancer, class Experiment, class BinaryForceFunc, class UnaryForceFunc, class LBCreatorFunc, class GetPosFunc, class GetVelFunc>
+template<int N, class LoadBalancer, class Experiment, class BinaryForceFunc, class UnaryForceFunc, class LBCreatorFunc, class GetPosFunc, class GetVelFunc>
 void run(const YALBB& yalbb, sim_param_t* params, Experiment experimentGenerator, Boundary<N> boundary, std::string lb_name, MPI_Datatype datatype, GetPosFunc getPositionPtrFunc, GetVelFunc getVelocityPtrFunc,
          BinaryForceFunc binaryFunc, UnaryForceFunc unaryFF, LBCreatorFunc createLB) {
     std::cout << std::fixed << std::setprecision(6);
