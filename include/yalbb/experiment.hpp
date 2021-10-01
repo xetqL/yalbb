@@ -18,7 +18,9 @@ protected:
     int rank{}, nproc{};
 
     virtual void setup(E* mesh_data) = 0;
-    virtual std::unique_ptr<E> alloc() = 0;
+    virtual std::unique_ptr<E> alloc(){
+        return std::make_unique<E>();
+    }
 
 public:
     [[nodiscard]] const std::string& get_exp_name() const { return name; }
