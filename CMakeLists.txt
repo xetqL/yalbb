@@ -25,7 +25,7 @@ find_package (Threads)
 file(GLOB SRC_FILES src/*.cpp)
 file(GLOB_RECURSE INCLUDE_FILES include/yalbb/*.hpp)
 
-add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/output_formatter.cpp src/coordinate_translater.cpp include/yalbb/load_balancing.hpp include/yalbb/experiment.hpp include/yalbb/run.hpp)
+add_library(yalbb STATIC ${SRC_FILES} ${INCLUDE_FILES} zupply/src/zupply.cpp src/output_formatter.cpp src/coordinate_translater.cpp include/yalbb/load_balancing.hpp include/yalbb/experiment.hpp include/yalbb/run.hpp src/element.cpp include/yalbb/element.hpp)
 
 if(MPI_COMPILE_FLAGS)
     set_target_properties(yalbb PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")

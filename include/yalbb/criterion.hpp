@@ -17,7 +17,7 @@ namespace lb {
         virtual ~Criterion() = default;
     }; // To add a new criterion: extend this class;
     // Static Load Balancing
-    struct Static :             public Criterion {
+    struct Static : public Criterion {
         bool operator()(Probe& probe) const override;
     };
 
@@ -60,11 +60,12 @@ namespace lb {
     };
 
     // DLB - User-defined
-    struct Periodic :           public Criterion {
+    struct Periodic : public Criterion {
         const unsigned N{};
         explicit Periodic(unsigned N) : N(N) {}
         bool operator()(Probe& probe) const override;
     };
+
     struct Procassini :         public Criterion {
         const Real speedup_factor{};
         explicit Procassini(Real speedup_factor) : speedup_factor(speedup_factor) {}
