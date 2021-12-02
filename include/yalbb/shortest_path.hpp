@@ -176,8 +176,10 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         }
 
                         probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
-
+                        PAR_START_TIMER(migrate_data_time, comm);
                         migrate_data(LB, mesh_data.els, pointAssignFunc, datatype, comm);
+                        END_TIMER(migrate_data_time);
+                        MPI_Allreduce(MPI_IN_PLACE, &migrate_data_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                         const auto nlocal  = mesh_data.els.size();
                         apply_resize_strategy(&lscl,   nlocal);
@@ -186,9 +188,11 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         CLL_init<N, T>({{mesh_data.els.data(), nlocal}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
                         int n_neighbors;
-
+                        PAR_START_TIMER(retrieve_ghosts_time, comm);
                         auto remote_el     = retrieve_ghosts<N>(LB, mesh_data.els, bbox, boxIntersectFunc, params->rc,
                                                                 head, lscl, datatype, comm, &n_neighbors);
+                        END_TIMER(retrieve_ghosts_time);
+                        MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                         const auto nremote = remote_el.size();
 
@@ -208,7 +212,7 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                                                                      bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
                         END_TIMER(it_compute_time);
 
-                        it_compute_time += lb_time;
+                        it_compute_time += lb_time + migrate_data_time + retrieve_ghosts_time;
 
                         // Measure load imbalance
                         probe->sync_it_time_across_processors(&it_compute_time, comm);

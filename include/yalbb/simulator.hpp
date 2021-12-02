@@ -193,7 +193,7 @@ std::vector<Time> simulate(
             END_TIMER(complete_iteration_time);
 
             if(params->verbosity >= 2)
-                pcout << fmt("\n%f\t|\t%f\t|\t%f", complete_iteration_time, it_time, complete_iteration_time-it_time) << std::endl;
+                pcout << fmt("\n%f\t|\t%f\t|\t%f\t|\t%f\t|\t%f", complete_iteration_time, it_compute_time, retrieve_ghosts_time, migrate_data_time, complete_iteration_time-it_time) << std::endl;
         }
 
         if(params->verbosity >= 1) pcout << batch_time << std::endl;

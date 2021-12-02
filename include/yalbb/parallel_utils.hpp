@@ -303,7 +303,7 @@ std::vector<T> retrieve_ghosts(
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
-    double radius = 2.0*rc;
+    double radius = rc;
 
     std::vector<int> PEs(wsize);
 
