@@ -66,7 +66,7 @@ struct Borders {
 
 // Get the how much data I have to import from other processing elements
 // This function is a synchronization point.
-std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
+std::vector<int>& get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm);
 
 template<class T>
 typename std::vector<T>::const_iterator do_migration(int nb_elements, std::vector<T>& data, std::vector<std::vector<T>>& data_to_migrate, MPI_Datatype datatype, MPI_Comm comm) {
@@ -81,10 +81,11 @@ typename std::vector<T>::const_iterator do_migration(int nb_elements, std::vecto
     for(const auto& migration_buf : data_to_migrate)
         export_buf.insert(export_buf.end(), migration_buf.cbegin(), migration_buf.cend());
     // import
-    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, comm), import_displs(wsize, 0);
-    for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    std::vector<int>& import_counts = get_invert_list(export_counts, &nb_import, comm), import_displs(wsize, 0);
+    for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts.at(PE - 1);
     data.reserve(nb_elements + nb_import);
-    std::vector<T> import_buf(nb_import);
+    static std::vector<T> import_buf;
+    import_buf.resize(nb_import);
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, comm);
     std::move(import_buf.begin(), import_buf.end(), std::back_inserter(data));
@@ -105,7 +106,7 @@ typename std::vector<T>::const_iterator migrate_data(
     if(wsize == 1) return data.cend();
     auto nb_elements = data.size();
 
-    std::vector< std::vector<T> > data_to_migrate(wsize);
+    static std::vector< std::vector<T> > data_to_migrate(wsize);
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
                   [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
 
@@ -278,7 +279,7 @@ std::vector<T> retrieve_ghosts(
 }
 
 template<int N, class T, class LB, class BoxIntersectFunc>
-std::vector<T> retrieve_ghosts(
+std::vector<T>& retrieve_ghosts(
         LB* lb,
         std::vector<T>& data,
         const BoundingBox<N>& bbox,
@@ -289,7 +290,6 @@ std::vector<T> retrieve_ghosts(
         MPI_Datatype datatype,
         MPI_Comm LB_COMM,
         int* n_neighbors) {
-
     const auto nb_elements = data.size();
     int wsize, caller_rank;
     MPI_Comm_size(LB_COMM, &wsize);
@@ -299,13 +299,13 @@ std::vector<T> retrieve_ghosts(
     int num_found;
 
     std::array<double, 3> pos_in_double{};
-    std::vector<std::vector<T*> > data_to_migrate(wsize);
+    static std::vector< std::vector<T*> > data_to_migrate(wsize);
     std::for_each(data_to_migrate.begin(), data_to_migrate.end(),
-                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size / wsize); });
+                  [size = nb_elements, wsize](auto &buf) { buf.reserve(size); });
 
     double radius = rc;
 
-    std::vector<int> PEs(wsize);
+    static std::vector<int> PEs(wsize);
 
     auto lc = get_cell_number_by_dimension<N>(bbox, rc);
     const auto ncells = head.size();
@@ -325,14 +325,12 @@ std::vector<T> retrieve_ghosts(
     }
 
     // build exportation lists
-    std::vector<int> export_counts(wsize), export_displs(wsize, 0);
-
-    auto nb_external_procs = std::count_if(PEs.cbegin(), PEs.cend(), [caller_rank](auto pe){return pe != caller_rank;});
+    static std::vector<int> export_counts(wsize), export_displs(wsize, 0);
 
     const int nb_export = std::accumulate(data_to_migrate.cbegin(), data_to_migrate.cend(), 0,
                                           [](auto prev, const auto& mlist){return prev + mlist.size();});
 
-    std::vector<T>   export_buf;
+    static std::vector<T> export_buf;
     export_buf.reserve(nb_export);
 
     for (unsigned PE = 0; PE < wsize; ++PE) {
@@ -349,8 +347,10 @@ std::vector<T> retrieve_ghosts(
 
     // build importation lists
     int nb_import;
-    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
-    for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
+    const std::vector<int>& import_counts = get_invert_list(export_counts, &nb_import, LB_COMM);
+    static std::vector<int> import_displs(wsize, 0);
+
+    for (int PE = 1; PE < wsize; ++PE) import_displs.at(PE) = import_displs.at(PE - 1) + import_counts.at(PE - 1);
 
     auto neighbor_map = export_counts;
     for(auto i = 0; i < wsize; ++i) {
@@ -359,12 +359,16 @@ std::vector<T> retrieve_ghosts(
     neighbor_map.at(caller_rank) = 0;
     *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto prev, auto v){return prev + (v > 1 ? 1 : v);});
 
-    std::vector<T> import_buf(nb_import);
+    static std::vector<T> import_buf{};
+    import_buf.reserve(import_counts);
+
     MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
                   import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
-    MPI_Allreduce(MPI_IN_PLACE, n_neighbors, 1, MPI_INT, MPI_MAX, LB_COMM);
-    return import_buf;
+    MPI_Allreduce(MPI_IN_PLACE, n_neighbors, 1, MPI_INT, MPI_SUM, LB_COMM);
 
+    *n_neighbors /= wsize;
+
+    return import_buf;
 }
 
 #endif //NBMPI_PARALLEL_UTILS_HPP

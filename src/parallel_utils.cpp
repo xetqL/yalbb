@@ -3,11 +3,11 @@
 //
 #include "parallel_utils.hpp"
 
-std::vector<int> get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm) {
+std::vector<int>& get_invert_list(const std::vector<int>& sends_to_procs, int* num_found, MPI_Comm comm) {
 
     int worldsize = sends_to_procs.size();
 
-    std::vector<int> recv_from_proc(worldsize, 0);
+    static std::vector<int> recv_from_proc(worldsize, 0);
 
     MPI_Alltoall(sends_to_procs.data(), 1, MPI_INT, recv_from_proc.data(), 1, MPI_INT, comm);
 
