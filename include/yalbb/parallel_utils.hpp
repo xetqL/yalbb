@@ -233,8 +233,6 @@ std::vector<T> retrieve_ghosts(
     *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto prev, auto v){return prev + (v > 1 ? 1 : v);});
 
     std::vector<T> import_buf(nb_import);
-    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
-                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, LB_COMM);
 
     MPI_Status status;
     MPI_Request rbarr = MPI_REQUEST_NULL;
