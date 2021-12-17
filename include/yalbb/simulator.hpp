@@ -119,10 +119,9 @@ std::vector<Time> simulate(
 
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-            PAR_START_TIMER(migrate_data_time, comm);
+            START_TIMER(migrate_data_time);
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
             END_TIMER(migrate_data_time);
-            MPI_Allreduce(MPI_IN_PLACE, &migrate_data_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
             const auto nlocal  = mesh_data->els.size();
             apply_resize_strategy(&lscl,   nlocal);
@@ -132,11 +131,10 @@ std::vector<Time> simulate(
 
             int n_neighbors;
 
-            PAR_START_TIMER(retrieve_ghosts_time, comm);
+            START_TIMER(retrieve_ghosts_time);
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, datatype, comm, &n_neighbors);
             END_TIMER(retrieve_ghosts_time);
-            MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
             const auto nremote = remote_el.size();
 
@@ -146,7 +144,7 @@ std::vector<Time> simulate(
 
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
-            PAR_START_TIMER(it_compute_time, comm);
+            PAR_START_TIMER(compute_time, comm);
             auto nb_interactions = nbody_compute_step<N>(flocal,
                                                          mesh_data->els,
                                                          remote_el,
@@ -154,9 +152,9 @@ std::vector<Time> simulate(
                                                          getVelPtrFunc,
                                                          &head, &lscl,
                                                          bbox, unaryForceFunc, getForceFunc, boundary, rc, dt);
-            END_TIMER(it_compute_time);
+            END_TIMER(compute_time);
 
-            it_compute_time += lb_time + migrate_data_time + retrieve_ghosts_time;
+            auto it_compute_time = compute_time + lb_time + migrate_data_time + retrieve_ghosts_time;
 
             //------ end ------ //
 
@@ -191,9 +189,12 @@ std::vector<Time> simulate(
 
             probe->next_iteration();
             END_TIMER(complete_iteration_time);
+            MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
+            MPI_Allreduce(MPI_IN_PLACE, &migrate_data_time, 1, MPI_DOUBLE, MPI_MAX, comm);
+            MPI_Allreduce(MPI_IN_PLACE, &compute_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
             if(params->verbosity >= 2)
-                pcout << fmt("\n%f\t|\t%f\t|\t%f\t|\t%f\t|\t%f", complete_iteration_time, it_compute_time, retrieve_ghosts_time, migrate_data_time, complete_iteration_time-it_time) << std::endl;
+                pcout << fmt("\n%f\t|\t%f\t|\t%f\t|\t%f\t|\t%f", complete_iteration_time, compute_time, retrieve_ghosts_time, migrate_data_time, complete_iteration_time-it_time) << std::endl;
         }
 
         if(params->verbosity >= 1) pcout << batch_time << std::endl;
