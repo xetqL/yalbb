@@ -80,14 +80,34 @@ typename std::vector<T>::const_iterator do_migration(int nb_elements, std::vecto
     std::vector<T> export_buf; export_buf.reserve(nb_export);
     for(const auto& migration_buf : data_to_migrate)
         export_buf.insert(export_buf.end(), migration_buf.cbegin(), migration_buf.cend());
-    // import
-    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, comm), import_displs(wsize, 0);
-    for(PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
-    data.reserve(nb_elements + nb_import);
-    std::vector<T> import_buf(nb_import);
-    MPI_Alltoallv(export_buf.data(), export_counts.data(), export_displs.data(), datatype,
-                  import_buf.data(), import_counts.data(), import_displs.data(), datatype, comm);
-    std::move(import_buf.begin(), import_buf.end(), std::back_inserter(data));
+
+    MPI_Request rbarr = MPI_REQUEST_NULL;
+    std::vector<MPI_Request> sreqs(wsize, MPI_REQUEST_NULL), rreqs(wsize, MPI_REQUEST_NULL);
+    for(int i = 0; i < wsize; ++i) {
+        if(export_counts.at(i)){
+            MPI_Issend(export_buf.data()+export_displs.at(i), export_counts.at(i), datatype, i, 123456, comm, &sreqs.at(i));
+        }
+    }
+
+    std::vector<T> import_buf;
+    int is_completed = 0, barrier_started = 0;
+    MPI_Status status;
+    while(!is_completed) {
+        int flag;
+        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &flag, &status);
+        if(flag){
+            int count;
+            MPI_Get_count(&status, datatype, &count);
+            import_buf.reserve(count);
+            MPI_Recv(import_buf.data(), count, datatype, status.MPI_SOURCE, 123456, comm, &status);
+            std::move(import_buf.data(), import_buf.data() + count, std::back_inserter(data));
+        }
+        if(!barrier_started) {
+            MPI_Testall(wsize, sreqs.data(), &barrier_started, MPI_STATUSES_IGNORE);
+            if(barrier_started) MPI_Ibarrier(comm, &rbarr);
+        } else MPI_Test(&rbarr, &is_completed, MPI_STATUS_IGNORE);
+    }
+
     return std::next(data.begin(), nb_elements + nb_import);
 }
 
@@ -239,7 +259,7 @@ std::vector<T> retrieve_ghosts(
     std::vector<MPI_Request> sreqs(wsize, MPI_REQUEST_NULL), rreqs(wsize, MPI_REQUEST_NULL);
     for(int i = 0; i < wsize; ++i) {
         if(export_counts.at(i)){
-            MPI_Issend(export_buf.data()+export_displs.at(i), export_counts.at(i), datatype, i, MPI_ANY_TAG, LB_COMM, &sreqs.at(i));
+            MPI_Issend(export_buf.data()+export_displs.at(i), export_counts.at(i), datatype, i, 123456, LB_COMM, &sreqs.at(i));
         }
     }
     int is_completed = 0, barrier_started = 0;
@@ -249,7 +269,7 @@ std::vector<T> retrieve_ghosts(
         if(flag){
             MPI_Recv(import_buf.data() + import_displs.at(status.MPI_SOURCE), import_counts.at(status.MPI_SOURCE), datatype, status.MPI_SOURCE, 123456, LB_COMM, &status);
         }
-        if(!barrier_started){
+        if(!barrier_started) {
             MPI_Testall(wsize, sreqs.data(), &barrier_started, MPI_STATUSES_IGNORE);
             if(barrier_started) MPI_Ibarrier(LB_COMM, &rbarr);
         } else MPI_Test(&rbarr, &is_completed, MPI_STATUS_IGNORE);
