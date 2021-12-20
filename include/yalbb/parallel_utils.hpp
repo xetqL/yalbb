@@ -237,11 +237,15 @@ std::vector<T> retrieve_ghosts(
     MPI_Status status;
     MPI_Request rbarr = MPI_REQUEST_NULL;
     std::vector<MPI_Request> sreqs(wsize, MPI_REQUEST_NULL), rreqs(wsize, MPI_REQUEST_NULL);
-
+    for(int i = 0; i < wsize; ++i) {
+        if(export_counts.at(i)){
+            MPI_Issend(export_buf.data()+export_displs.at(i), export_counts.at(i), datatype, i, MPI_ANY_TAG, LB_COMM, &sreqs.at(i));
+        }
+    }
     int is_completed = 0, barrier_started = 0;
     while(!is_completed) {
         int flag;
-        MPI_Iprobe(MPI_ANY_SOURCE, 123456, LB_COMM, &flag, &status);
+        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, LB_COMM, &flag, &status);
         if(flag){
             MPI_Recv(import_buf.data() + import_displs.at(status.MPI_SOURCE), import_counts.at(status.MPI_SOURCE), datatype, status.MPI_SOURCE, 123456, LB_COMM, &status);
         }
