@@ -241,18 +241,15 @@ std::vector<T> retrieve_ghosts(
         export_displs[PE] = export_displs[PE - 1] + export_counts[PE - 1];
 
     // build importation lists
-    int nb_import;
-    std::vector<int> import_counts = get_invert_list(export_counts, &nb_import, LB_COMM), import_displs(wsize, 0);
-    for (int PE = 1; PE < wsize; ++PE) import_displs[PE] = import_displs[PE - 1] + import_counts[PE - 1];
 
     auto neighbor_map = export_counts;
     for(auto i = 0; i < wsize; ++i) {
-        neighbor_map.at(i) += import_counts.at(i);
+        neighbor_map.at(i) += export_counts.at(i);
     }
     neighbor_map.at(caller_rank) = 0;
     *n_neighbors = std::accumulate(neighbor_map.cbegin(), neighbor_map.cend(), 0, [](auto prev, auto v){return prev + (v > 1 ? 1 : v);});
 
-    std::vector<T> import_buf(nb_import);
+    std::vector<T> import_buf(nb_export), recv_buf;
 
     MPI_Status status;
     MPI_Request rbarr = MPI_REQUEST_NULL;
@@ -262,12 +259,17 @@ std::vector<T> retrieve_ghosts(
             MPI_Issend(export_buf.data()+export_displs.at(i), export_counts.at(i), datatype, i, 123456, LB_COMM, &sreqs.at(i));
         }
     }
+
     int is_completed = 0, barrier_started = 0;
     while(!is_completed) {
         int flag;
         MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, LB_COMM, &flag, &status);
-        if(flag){
-            MPI_Recv(import_buf.data() + import_displs.at(status.MPI_SOURCE), import_counts.at(status.MPI_SOURCE), datatype, status.MPI_SOURCE, 123456, LB_COMM, &status);
+        if(flag) {
+            int count;
+            MPI_Get_count(&status, datatype, &count);
+            recv_buf.reserve(count);
+            MPI_Recv(recv_buf.data(), count, datatype, status.MPI_SOURCE, 123456, LB_COMM, &status);
+            std::move(recv_buf.data(), recv_buf.data()+count, std::back_inserter(import_buf));
         }
         if(!barrier_started) {
             MPI_Testall(wsize, sreqs.data(), &barrier_started, MPI_STATUSES_IGNORE);
@@ -275,8 +277,8 @@ std::vector<T> retrieve_ghosts(
         } else MPI_Test(&rbarr, &is_completed, MPI_STATUS_IGNORE);
     }
 
-
     MPI_Allreduce(MPI_IN_PLACE, n_neighbors, 1, MPI_INT, MPI_MAX, LB_COMM);
+
     return import_buf;
 
 }
