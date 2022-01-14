@@ -179,7 +179,6 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         PAR_START_TIMER(migrate_data_time, comm);
                         migrate_data(LB, mesh_data.els, pointAssignFunc, datatype, comm);
                         END_TIMER(migrate_data_time);
-                        MPI_Allreduce(MPI_IN_PLACE, &migrate_data_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                         const auto nlocal  = mesh_data.els.size();
                         apply_resize_strategy(&lscl,   nlocal);
@@ -192,7 +191,6 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         auto remote_el     = retrieve_ghosts<N>(LB, mesh_data.els, bbox, boxIntersectFunc, params->rc,
                                                                 head, lscl, datatype, comm, &n_neighbors);
                         END_TIMER(retrieve_ghosts_time);
-                        MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                         const auto nremote = remote_el.size();
 
@@ -219,7 +217,9 @@ std::tuple<Probe, std::vector<int>> simulate_shortest_path(
                         probe->update_cumulative_imbalance_time(probeProcessor.compute_imbalance_time(probe));
                         probe->update_lb_parallel_efficiencies();
 
-                        MPI_Allreduce(MPI_IN_PLACE,     &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
+                        MPI_Allreduce(MPI_IN_PLACE, &nb_interactions,     1, MPI_INT,  MPI_SUM, comm);
+                        MPI_Allreduce(MPI_IN_PLACE, &retrieve_ghosts_time, 1, MPI_DOUBLE, MPI_MAX, comm);
+                        MPI_Allreduce(MPI_IN_PLACE, &migrate_data_time, 1, MPI_DOUBLE, MPI_MAX, comm);
 
                         cum_li_hist[i] = probe->get_cumulative_imbalance_time();
                         vanilla_cum_li_hist[i] = probe->get_vanilla_cumulative_imbalance_time();

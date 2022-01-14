@@ -119,7 +119,7 @@ std::vector<Time> simulate(
 
             probe->set_balanced(lb_decision || probe->get_current_iteration() == 0);
 
-            START_TIMER(migrate_data_time);
+            PAR_START_TIMER(migrate_data_time, comm);
             migrate_data(LB, mesh_data->els, pointAssignFunc, datatype, comm);
             END_TIMER(migrate_data_time);
 
@@ -131,7 +131,7 @@ std::vector<Time> simulate(
 
             int n_neighbors;
 
-            START_TIMER(retrieve_ghosts_time);
+            PAR_START_TIMER(retrieve_ghosts_time, comm);
             auto remote_el     = retrieve_ghosts<N>(LB, mesh_data->els, bbox, boxIntersectFunc, params->rc,
                                                     head, lscl, datatype, comm, &n_neighbors);
             END_TIMER(retrieve_ghosts_time);
@@ -144,7 +144,7 @@ std::vector<Time> simulate(
 
             CLL_init<N, T>({{mesh_data->els.data(), nlocal}, {remote_el.data(), nremote}}, getPosPtrFunc, bbox, rc, &head, &lscl);
 
-            START_TIMER(compute_time);
+            PAR_START_TIMER(compute_time, comm);
             auto nb_interactions = nbody_compute_step<N>(flocal,
                                                          mesh_data->els,
                                                          remote_el,
